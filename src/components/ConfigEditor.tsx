@@ -1,71 +1,25 @@
-import React, { ChangeEvent } from 'react';
-import { InlineField, Input, SecretInput } from '@grafana/ui';
-import { DataSourcePluginOptionsEditorProps } from '@grafana/data';
-import { MyDataSourceOptions, MySecureJsonData } from '../types';
+import React from 'react';
+import type { DataSourcePluginOptionsEditorProps } from '@grafana/data';
+import { Field, Input } from '@grafana/ui';
 
-interface Props extends DataSourcePluginOptionsEditorProps<MyDataSourceOptions, MySecureJsonData> {}
+import { DEFAULT_MEMORY_LIMIT_MB, type DuckOptions } from '../types';
 
-export function ConfigEditor(props: Props) {
-  const { onOptionsChange, options } = props;
-  const { jsonData, secureJsonFields, secureJsonData } = options;
-
-  const onPathChange = (event: ChangeEvent<HTMLInputElement>) => {
-    onOptionsChange({
-      ...options,
-      jsonData: {
-        ...jsonData,
-        path: event.target.value,
-      },
-    });
-  };
-
-  // Secure field (only sent to the backend)
-  const onAPIKeyChange = (event: ChangeEvent<HTMLInputElement>) => {
-    onOptionsChange({
-      ...options,
-      secureJsonData: {
-        apiKey: event.target.value,
-      },
-    });
-  };
-
-  const onResetAPIKey = () => {
-    onOptionsChange({
-      ...options,
-      secureJsonFields: {
-        ...options.secureJsonFields,
-        apiKey: false,
-      },
-      secureJsonData: {
-        ...options.secureJsonData,
-        apiKey: '',
-      },
-    });
-  };
-
+export function ConfigEditor({ options, onOptionsChange }: DataSourcePluginOptionsEditorProps<DuckOptions>) {
   return (
-    <>
-      <InlineField label="Path" labelWidth={14} interactive tooltip={'Json field returned to frontend'}>
-        <Input
-          id="config-editor-path"
-          onChange={onPathChange}
-          value={jsonData.path}
-          placeholder="Enter the path, e.g. /api/v1"
-          width={40}
-        />
-      </InlineField>
-      <InlineField label="API Key" labelWidth={14} interactive tooltip={'Secure json field (backend only)'}>
-        <SecretInput
-          required
-          id="config-editor-api-key"
-          isConfigured={secureJsonFields.apiKey}
-          value={secureJsonData?.apiKey}
-          placeholder="Enter your API key"
-          width={40}
-          onReset={onResetAPIKey}
-          onChange={onAPIKeyChange}
-        />
-      </InlineField>
-    </>
+    <Field
+      label="Memory limit (MB)"
+      description="How much memory DuckDB may use in each viewer's browser. Aggregate larger datasets on the server first."
+    >
+      <Input
+        type="number"
+        min={64}
+        width={20}
+        aria-label="Memory limit (MB)"
+        value={options.jsonData.memoryLimitMB ?? DEFAULT_MEMORY_LIMIT_MB}
+        onChange={(e) =>
+          onOptionsChange({ ...options, jsonData: { ...options.jsonData, memoryLimitMB: Number(e.currentTarget.value) } })
+        }
+      />
+    </Field>
   );
 }

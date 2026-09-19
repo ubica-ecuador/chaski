@@ -35,6 +35,15 @@ export async function createBrowserRunner(options: BrowserRunnerOptions): Promis
   await setup.query('SET autoinstall_known_extensions = true');
   await setup.query('SET autoload_known_extensions = true');
   await setup.query(`SET memory_limit = '${Math.max(64, Math.round(options.memoryLimitMB))}MB'`);
+  // autoload_known_extensions only covers table functions such as
+  // read_parquet/read_json (duckdb-wasm resolves those through a replacement
+  // scan that can await a fetch). A bare scalar call like ST_Point or
+  // ST_AsWKB never reaches that path: DuckDB-WASM does not implement
+  // binder-time autoload for scalar functions, so it throws a Catalog Error
+  // telling the caller to run INSTALL/LOAD by hand instead of fetching the
+  // extension. Loading spatial once up front is what makes normalize.ts's
+  // unconditional ST_AsWKB(...) — and any panel SQL that calls ST_* — work.
+  await setup.query('LOAD spatial');
   const version = String((await setup.query('SELECT version() AS v')).get(0)?.v ?? 'unknown');
   await setup.close();
   stats.engineStartMs = performance.now() - started;

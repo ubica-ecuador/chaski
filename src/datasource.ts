@@ -1,93 +1,202 @@
-import { getBackendSrv, isFetchError } from '@grafana/runtime';
 import {
-  CoreApp,
-  DataQueryRequest,
-  DataQueryResponse,
-  DataSourceApi,
-  DataSourceInstanceSettings,
   createDataFrame,
+  type DataFrame,
+  type DataQueryError,
+  type DataQueryRequest,
+  type DataQueryResponse,
+  DataSourceApi,
+  type DataSourceInstanceSettings,
   FieldType,
+  type TestDataSourceResponse,
 } from '@grafana/data';
+import { getTemplateSrv } from '@grafana/runtime';
+import type { DataQuery } from '@grafana/schema';
+import { Observable } from 'rxjs';
 
-import { MyQuery, MyDataSourceOptions, DEFAULT_QUERY, DataSourceResponse } from './types';
-import { lastValueFrom } from 'rxjs';
+import { explainError } from './engine/errors';
+import { runPanelQuery } from './engine/executor';
+import { recordKey, recordLoad, recordQuery } from './engine/stats';
+import type { AdHocFilter, DatasetLoader } from './engine/types';
+import { arrowToDataFrame } from './grafana/arrowToFrame';
+import { dashboardKey } from './grafana/dashboardKey';
+import { type Engine, getEngine } from './grafana/engine';
+import { loadFromDatasource } from './grafana/externalSource';
+import { interpolateSql } from './grafana/interpolate';
+import { staleNotices } from './grafana/notices';
+import { DuckVariableSupport } from './grafana/variableSupport';
+import {
+  DEFAULT_MEMORY_LIMIT_MB,
+  DEFAULT_QUERY,
+  type DuckOptions,
+  type DuckQuery,
+  type DuckVariableQuery,
+} from './types';
 
-export class DataSource extends DataSourceApi<MyQuery, MyDataSourceOptions> {
-  baseUrl: string;
+export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
+  readonly memoryLimitMB: number;
 
-  constructor(instanceSettings: DataSourceInstanceSettings<MyDataSourceOptions>) {
+  constructor(instanceSettings: DataSourceInstanceSettings<DuckOptions>) {
     super(instanceSettings);
-    this.baseUrl = instanceSettings.url!;
+    this.memoryLimitMB = instanceSettings.jsonData.memoryLimitMB ?? DEFAULT_MEMORY_LIMIT_MB;
+    this.variables = new DuckVariableSupport(this);
   }
 
-  getDefaultQuery(_: CoreApp): Partial<MyQuery> {
+  getDefaultQuery(): Partial<DuckQuery> {
     return DEFAULT_QUERY;
   }
 
-  filterQuery(query: MyQuery): boolean {
-    // if no query has been provided, prevent the query from being executed
-    return !!query.queryText;
+  filterQuery(query: DuckQuery): boolean {
+    return !query.hide && Boolean(query.rawSql?.trim());
   }
 
-  async query(options: DataQueryRequest<MyQuery>): Promise<DataQueryResponse> {
-    const { range } = options;
-    const from = range!.from.valueOf();
-    const to = range!.to.valueOf();
-
-    // Return a constant for each query.
-    const data = options.targets.map((target) => {
-      return createDataFrame({
-        refId: target.refId,
-        fields: [
-          { name: 'Time', values: [from, to], type: FieldType.time },
-          { name: 'Value', values: [target.constant, target.constant], type: FieldType.number },
-        ],
-      });
-    });
-
-    return { data };
+  query(request: DataQueryRequest<DuckQuery>): Observable<DataQueryResponse> {
+    return abortable((signal) => this.runPanelQueries(request, signal));
   }
 
-  async request(url: string, params?: string) {
-    const response = getBackendSrv().fetch<DataSourceResponse>({
-      url: `${this.baseUrl}${url}${params?.length ? `?${params}` : ''}`,
-    });
-    return lastValueFrom(response);
+  variableQuery(request: DataQueryRequest<DuckVariableQuery>): Observable<DataQueryResponse> {
+    return abortable(() => this.runVariableQuery(request));
   }
 
-  /**
-   * Checks whether we can connect to the API.
-   */
-  async testDatasource() {
-    const defaultErrorMessage = 'Cannot connect to API';
-
+  async runPanelQueries(request: DataQueryRequest<DuckQuery>, signal?: AbortSignal): Promise<DataQueryResponse> {
+    const targets = request.targets.filter((target) => this.filterQuery(target));
+    if (targets.length === 0) {
+      return { data: [] };
+    }
+    let engine: Engine;
     try {
-      const response = await this.request('/health');
-      if (response.status === 200) {
-        return {
-          status: 'success',
-          message: 'Success',
+      engine = await getEngine(this.memoryLimitMB);
+    } catch (error) {
+      const message = explainError(error, this.memoryLimitMB).message;
+      return { data: [], errors: targets.map((target) => ({ refId: target.refId, message })) };
+    }
+    const { key, source } = dashboardKey(request);
+    recordKey({ kind: 'panel', source, key });
+    await engine.registry.activate(key);
+
+    const data: DataFrame[] = [];
+    const errors: DataQueryError[] = [];
+    for (const target of targets) {
+      try {
+        const sql = this.interpolate(engine, target.rawSql, request);
+        const result = await runPanelQuery(engine.runner, sql, {
+          filters: (request.filters ?? []) as AdHocFilter[],
+          signal,
+        });
+        const frame = arrowToDataFrame(result.table, target.refId);
+        frame.meta = {
+          executedQueryString: result.executed,
+          notices: staleNotices(engine.registry.list(key), result.executed, Date.now()),
+          stats: [{ displayName: 'Engine time', value: Math.round(result.ms), unit: 'ms' }],
         };
+        recordQuery({ refId: target.refId, ms: result.ms, rows: result.table.numRows, ok: true, at: Date.now() });
+        data.push(frame);
+      } catch (error) {
+        recordQuery({ refId: target.refId, ms: 0, rows: 0, ok: false, at: Date.now() });
+        errors.push({ refId: target.refId, message: explainError(error, this.memoryLimitMB).message });
+      }
+    }
+    return errors.length > 0 ? { data, errors } : { data };
+  }
+
+  async runVariableQuery(request: DataQueryRequest<DuckVariableQuery>): Promise<DataQueryResponse> {
+    const query = request.targets[0];
+    const engine = await getEngine(this.memoryLimitMB);
+    const { key, source } = dashboardKey(request);
+    recordKey({ kind: 'variable', source, key });
+    await engine.registry.activate(key);
+
+    if (query?.kind === 'dataset') {
+      const name = query.name?.trim();
+      if (!name) {
+        throw new Error('A dataset variable needs a name');
+      }
+      let loader: DatasetLoader;
+      let signature: string;
+      if (query.source.type === 'sql') {
+        const sql = this.interpolate(engine, query.source.sql, request);
+        loader = { kind: 'sql', sql };
+        signature = sql;
       } else {
-        return {
-          status: 'error',
-          message: response.statusText ? response.statusText : defaultErrorMessage,
-        };
+        const datasetSource = query.source;
+        loader = { kind: 'arrow', fetch: () => loadFromDatasource(datasetSource, request as DataQueryRequest<DataQuery>) };
+        // The source query is interpolated by its own datasource; interpolating
+        // its JSON here only tells loads for different variable values apart.
+        signature = JSON.stringify([
+          getTemplateSrv().replace(JSON.stringify(datasetSource), request.scopedVars),
+          request.range.from.valueOf(),
+          request.range.to.valueOf(),
+        ]);
       }
-    } catch (err) {
-      let message = '';
-      if (typeof err === 'string') {
-        message = err;
-      } else if (isFetchError(err)) {
-        message = 'Fetch error: ' + (err.statusText ? err.statusText : defaultErrorMessage);
-        if (err.data && err.data.error && err.data.error.code) {
-          message += ': ' + err.data.error.code + '. ' + err.data.error.message;
-        }
+      const started = performance.now();
+      try {
+        const state = await engine.registry.load(key, name, loader, signature);
+        recordLoad({ name, ms: performance.now() - started, rows: state.rows, ok: !state.stale, at: Date.now() });
+        // An orphaned load from before a dashboard switch can resolve with a
+        // table the registry already dropped; the live entry is the one
+        // Grafana must get, if a fresher one has since taken its place.
+        const live = engine.registry.get(key, name) ?? state;
+        return { data: [textValueFrame([live.table], [live.table])] };
+      } catch (error) {
+        recordLoad({ name, ms: performance.now() - started, rows: 0, ok: false, at: Date.now() });
+        throw new Error(explainError(error, this.memoryLimitMB).message);
       }
-      return {
-        status: 'error',
-        message,
-      };
+    }
+
+    if (query?.kind === 'values') {
+      const result = await runPanelQuery(engine.runner, this.interpolate(engine, query.sql ?? '', request));
+      const frame = arrowToDataFrame(result.table, 'values');
+      const valueField = frame.fields[0];
+      const textField = frame.fields[1] ?? valueField;
+      return { data: [textValueFrame(asText(textField?.values), asText(valueField?.values))] };
+    }
+
+    throw new Error('Unknown variable query: expected kind "dataset" or "values"');
+  }
+
+  async testDatasource(): Promise<TestDataSourceResponse> {
+    try {
+      const engine = await getEngine(this.memoryLimitMB);
+      return { status: 'success', message: `DuckDB ${engine.version} is running in the browser.` };
+    } catch (error) {
+      return { status: 'error', message: explainError(error, this.memoryLimitMB).message };
     }
   }
+
+  private interpolate(engine: Engine, sql: string, request: DataQueryRequest<DataQuery>): string {
+    return interpolateSql(sql, {
+      templateSrv: getTemplateSrv(),
+      scopedVars: request.scopedVars,
+      range: request.range,
+      isDatasetTable: (name) => engine.registry.byTable(name) !== undefined,
+    });
+  }
+}
+
+function textValueFrame(text: string[], value: string[]): DataFrame {
+  return createDataFrame({
+    refId: 'variable',
+    fields: [
+      { name: 'text', type: FieldType.string, values: text },
+      { name: 'value', type: FieldType.string, values: value },
+    ],
+  });
+}
+
+function asText(values: unknown[] | undefined): string[] {
+  return (values ?? []).map((v) => (v === null || v === undefined ? '' : String(v)));
+}
+
+/** An Observable whose unsubscription (Grafana abandoning a query) aborts the work. */
+function abortable<T>(run: (signal: AbortSignal) => Promise<T>): Observable<T> {
+  return new Observable<T>((subscriber) => {
+    const controller = new AbortController();
+    run(controller.signal).then(
+      (value) => {
+        subscriber.next(value);
+        subscriber.complete();
+      },
+      (error: unknown) => subscriber.error(error)
+    );
+    return () => controller.abort();
+  });
 }
