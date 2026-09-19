@@ -1,0 +1,21 @@
+{
+  "$schema": "https://raw.githubusercontent.com/grafana/grafana/main/docs/sources/developers/plugins/plugin.schema.json",
+  "type": "datasource",
+  "name": "DuckDB WASM",
+  "id": "ubica-duckdbwasm-datasource",
+  "metrics": true,
+  "info": {
+    "description": "Loads a dashboard's data once into DuckDB running in the browser, and answers every panel query locally.",
+    "author": { "name": "UBICA" },
+    "keywords": ["duckdb", "wasm", "sql", "parquet", "geospatial", "bi"],
+    "logos": { "small": "img/logo.svg", "large": "img/logo.svg" },
+    "links": [],
+    "screenshots": [],
+    "version": "%VERSION%",
+    "updated": "%TODAY%"
+  },
+  "dependencies": {
+    "grafanaDependency": ">=12.0.0",
+    "plugins": []
+  }
+}
