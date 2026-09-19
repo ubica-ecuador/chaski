@@ -1,5 +1,5 @@
-import type { DataSourceJsonData, DataSourceRef } from '@grafana/data';
-import type { DataQuery } from '@grafana/schema';
+import type { DataSourceJsonData } from '@grafana/data';
+import type { DataQuery, DataSourceRef } from '@grafana/schema';
 
 /** A panel query: SQL run in the browser's DuckDB. */
 export interface DuckQuery extends DataQuery {
