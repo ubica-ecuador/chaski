@@ -34,8 +34,7 @@ const keyOf = (dashboard: string, name: string) => JSON.stringify([dashboard, na
  */
 export class DatasetRegistry {
   private readonly entries = new Map<string, Entry>();
-  private active?: string;
-  /** Dashboard keys, most recently activated first; at most KEEP_DASHBOARDS long. */
+  /** Dashboard keys, most recently activated first (lru[0] is the active one); at most KEEP_DASHBOARDS long. */
   private readonly lru: string[] = [];
   /** Monotonic across all dashboards and datasets, so table names never collide across a reactivation. */
   private nextVersion = 0;
@@ -51,7 +50,6 @@ export class DatasetRegistry {
    * tables are dropped (see KEEP_DASHBOARDS for why more than one is kept).
    */
   async activate(dashboard: string): Promise<void> {
-    this.active = dashboard;
     const index = this.lru.indexOf(dashboard);
     if (index === 0) {
       return;
