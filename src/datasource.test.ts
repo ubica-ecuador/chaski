@@ -32,6 +32,7 @@ const settings = {
 } as unknown as DataSourceInstanceSettings<DuckOptions>;
 
 let runner: SqlRunner;
+let registry: DatasetRegistry;
 let ds: DataSource;
 
 const CITIES = "SELECT * FROM (VALUES ('Quito', 1), ('Cuenca', 2), ('Quito', 3)) AS t(city, n)";
@@ -45,7 +46,8 @@ async function loadDataset(name: string, sql: string) {
 
 beforeEach(async () => {
   runner = await createNodeRunner();
-  setEngineForTests({ runner, registry: new DatasetRegistry(runner), version: 'v1.4.3' });
+  registry = new DatasetRegistry(runner);
+  setEngineForTests({ runner, registry, version: 'v1.4.3' });
   ds = new DataSource(settings);
 });
 
@@ -143,5 +145,26 @@ describe('ad hoc filter options', () => {
       { text: 'Quito' },
     ]);
     expect(await ds.getTagValues({ key: 'missing', filters: [] })).toEqual([]);
+  });
+
+  it('explains a failure in getTagKeys like a panel error', async () => {
+    await loadDataset('cities', CITIES);
+    setEngineForTests({
+      runner: {
+        ...runner,
+        query: async () => {
+          throw new Error('Catalog Error: Table with name x does not exist!');
+        },
+      },
+      registry,
+      version: 'v1.4.3',
+    });
+    await expect(ds.getTagKeys()).rejects.toThrow('Is a dataset variable missing');
+  });
+
+  it('explains a missing table in a values variable like a panel error', async () => {
+    await expect(
+      ds.runVariableQuery(makeRequest<DuckVariableQuery>([{ refId: 'v', kind: 'values', sql: 'SELECT * FROM nope' }]))
+    ).rejects.toThrow('Is a dataset variable missing');
   });
 });

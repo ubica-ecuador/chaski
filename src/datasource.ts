@@ -103,7 +103,12 @@ export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
 
   async runVariableQuery(request: DataQueryRequest<DuckVariableQuery>): Promise<DataQueryResponse> {
     const query = request.targets[0];
-    const engine = await getEngine(this.memoryLimitMB);
+    let engine: Engine;
+    try {
+      engine = await getEngine(this.memoryLimitMB);
+    } catch (error) {
+      throw this.explain(error);
+    }
     const { key, source } = dashboardKey(request);
     recordKey({ kind: 'variable', source, key });
     await engine.registry.activate(key);
@@ -146,11 +151,15 @@ export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
     }
 
     if (query?.kind === 'values') {
-      const result = await runPanelQuery(engine.runner, this.interpolate(engine, query.sql ?? '', request));
-      const frame = arrowToDataFrame(result.table, 'values');
-      const valueField = frame.fields[0];
-      const textField = frame.fields[1] ?? valueField;
-      return { data: [textValueFrame(asText(textField?.values), asText(valueField?.values))] };
+      try {
+        const result = await runPanelQuery(engine.runner, this.interpolate(engine, query.sql ?? '', request));
+        const frame = arrowToDataFrame(result.table, 'values');
+        const valueField = frame.fields[0];
+        const textField = frame.fields[1] ?? valueField;
+        return { data: [textValueFrame(asText(textField?.values), asText(valueField?.values))] };
+      } catch (error) {
+        throw this.explain(error);
+      }
     }
 
     throw new Error('Unknown variable query: expected kind "dataset" or "values"');
@@ -166,33 +175,41 @@ export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
   }
 
   async getTagKeys(): Promise<MetricFindValue[]> {
-    const engine = await getEngine(this.memoryLimitMB);
-    const names = new Set<string>();
-    for (const state of engine.registry.list(dashboardKey().key)) {
-      for (const column of await describeColumns(engine.runner, `SELECT * FROM ${quoteIdent(state.table)}`)) {
-        names.add(column.name);
+    try {
+      const engine = await getEngine(this.memoryLimitMB);
+      const names = new Set<string>();
+      for (const state of engine.registry.list(dashboardKey().key)) {
+        for (const column of await describeColumns(engine.runner, `SELECT * FROM ${quoteIdent(state.table)}`)) {
+          names.add(column.name);
+        }
       }
+      return [...names].sort().map((text) => ({ text }));
+    } catch (error) {
+      throw this.explain(error);
     }
-    return [...names].sort().map((text) => ({ text }));
   }
 
   async getTagValues(options: DataSourceGetTagValuesOptions<DuckQuery>): Promise<MetricFindValue[]> {
-    const engine = await getEngine(this.memoryLimitMB);
-    const values = new Set<string>();
-    const column = quoteIdent(options.key);
-    for (const state of engine.registry.list(dashboardKey().key)) {
-      const columns = await describeColumns(engine.runner, `SELECT * FROM ${quoteIdent(state.table)}`);
-      if (!columns.some((c) => c.name === options.key)) {
-        continue;
+    try {
+      const engine = await getEngine(this.memoryLimitMB);
+      const values = new Set<string>();
+      const column = quoteIdent(options.key);
+      for (const state of engine.registry.list(dashboardKey().key)) {
+        const columns = await describeColumns(engine.runner, `SELECT * FROM ${quoteIdent(state.table)}`);
+        if (!columns.some((c) => c.name === options.key)) {
+          continue;
+        }
+        const result = await engine.runner.query(
+          `SELECT DISTINCT CAST(${column} AS VARCHAR) AS v FROM ${quoteIdent(state.table)} WHERE ${column} IS NOT NULL LIMIT 1000`
+        );
+        for (const row of result.toArray()) {
+          values.add(String(row.v));
+        }
       }
-      const result = await engine.runner.query(
-        `SELECT DISTINCT CAST(${column} AS VARCHAR) AS v FROM ${quoteIdent(state.table)} WHERE ${column} IS NOT NULL LIMIT 1000`
-      );
-      for (const row of result.toArray()) {
-        values.add(String(row.v));
-      }
+      return [...values].sort().map((text) => ({ text }));
+    } catch (error) {
+      throw this.explain(error);
     }
-    return [...values].sort().map((text) => ({ text }));
   }
 
   private interpolate(engine: Engine, sql: string, request: DataQueryRequest<DataQuery>): string {
@@ -202,6 +219,11 @@ export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
       range: request.range,
       isDatasetTable: (name) => engine.registry.byTable(name) !== undefined,
     });
+  }
+
+  /** Turns any error into the same actionable message `runPanelQueries` and `testDatasource` give. */
+  private explain(error: unknown): Error {
+    return new Error(explainError(error, this.memoryLimitMB).message);
   }
 }
 
