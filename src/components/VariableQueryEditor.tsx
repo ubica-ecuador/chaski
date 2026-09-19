@@ -95,6 +95,7 @@ function DatasetFields({ query, onChange }: { query: DatasetVariableQuery; onCha
           </Field>
           {source.datasource.uid && (
             <SourceQueryEditor
+              key={source.datasource.uid}
               source={source}
               onChange={(sourceQuery) => onChange({ ...query, source: { ...source, query: sourceQuery } })}
             />
@@ -154,6 +155,7 @@ function JsonQuery({ value, onChange }: { value: DataQuery; onChange: (q: DataQu
   return (
     <Field label="Query (JSON)" description="This datasource has no query editor to embed." invalid={Boolean(error)} error={error}>
       <TextArea
+        aria-label="Source query JSON"
         rows={8}
         value={text}
         onChange={(e) => setText(e.currentTarget.value)}

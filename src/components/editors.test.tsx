@@ -20,7 +20,10 @@ const mockGet = jest.fn();
 jest.mock('@grafana/runtime', () => ({
   getDataSourceSrv: () => ({ get: mockGet }),
   DataSourcePicker: ({ onChange }: { onChange: (ds: { uid: string; type: string }) => void }) => (
-    <button onClick={() => onChange({ uid: 'duckdb', type: 'motherduck-duckdb-datasource' })}>pick source</button>
+    <>
+      <button onClick={() => onChange({ uid: 'bad', type: 'motherduck-duckdb-datasource' })}>pick bad</button>
+      <button onClick={() => onChange({ uid: 'duckdb', type: 'motherduck-duckdb-datasource' })}>pick source</button>
+    </>
   ),
 }));
 
@@ -118,5 +121,45 @@ describe('VariableQueryEditor', () => {
     render(<Harness initial={start} spy={spy} />);
     fireEvent.click(screen.getByRole('radio', { name: 'Values' }));
     expect(spy).toHaveBeenLastCalledWith({ refId: 'v', kind: 'values', sql: '' });
+  });
+
+  it('recovers from a datasource that failed to load when another is picked', async () => {
+    const StubEditor = ({ query, onChange }: { query: object; onChange: (q: object) => void }) => (
+      <button onClick={() => onChange({ ...query, rawSql: 'SELECT 42' })}>stub editor</button>
+    );
+    mockGet.mockReset();
+    mockGet.mockImplementation(({ uid }: { uid: string }) =>
+      uid === 'bad'
+        ? Promise.reject(new Error('nope'))
+        : Promise.resolve({ name: 'Server DuckDB', components: { QueryEditor: StubEditor } })
+    );
+    const spy = jest.fn();
+    render(<Harness initial={{ ...start, name: 'lamp' }} spy={spy} />);
+    fireEvent.click(screen.getByRole('radio', { name: 'Another datasource' }));
+
+    fireEvent.click(screen.getByText('pick bad'));
+    expect(await screen.findByText('Could not load that datasource')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('pick source'));
+    expect(await screen.findByText('stub editor')).toBeInTheDocument();
+    expect(screen.queryByText('Could not load that datasource')).not.toBeInTheDocument();
+  });
+
+  it('shows a fresh JSON query when switching between datasources without editors', async () => {
+    mockGet.mockReset();
+    mockGet.mockImplementation(({ uid }: { uid: string }) => Promise.resolve({ name: uid, components: {} }));
+    const spy = jest.fn();
+    render(<Harness initial={{ ...start, name: 'lamp' }} spy={spy} />);
+    fireEvent.click(screen.getByRole('radio', { name: 'Another datasource' }));
+
+    fireEvent.click(screen.getByText('pick bad'));
+    const firstTextarea = await screen.findByLabelText('Source query JSON');
+    fireEvent.change(firstTextarea, { target: { value: '{"refId":"edited"}' } });
+    expect(firstTextarea).toHaveValue('{"refId":"edited"}');
+
+    fireEvent.click(screen.getByText('pick source'));
+    await waitFor(() =>
+      expect(screen.getByLabelText('Source query JSON')).toHaveValue(JSON.stringify({ refId: 'dataset' }, null, 2))
+    );
   });
 });
