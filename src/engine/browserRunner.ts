@@ -1,6 +1,7 @@
 import * as duckdb from '@duckdb/duckdb-wasm';
 import type { Table } from 'apache-arrow';
 
+import { tableFromBatches } from './arrowTable';
 import { quoteLiteral } from './sql';
 import { stats } from './stats';
 import type { SqlRunner } from './types';
@@ -41,13 +42,20 @@ export async function createBrowserRunner(options: BrowserRunnerOptions): Promis
   return {
     version,
     async query(sql: string, signal?: AbortSignal): Promise<Table> {
+      if (signal?.aborted) {
+        throw new DOMException('The query was cancelled', 'AbortError');
+      }
       const conn = await db.connect();
       const cancel = () => {
         void conn.cancelSent();
       };
       signal?.addEventListener('abort', cancel);
       try {
-        return await conn.query(sql);
+        // Cancellation only works through the pending-query API: conn.query()
+        // ignores cancelSent(), so a query run that way could never be stopped.
+        const reader = await conn.send(sql);
+        const batches = await reader.readAll();
+        return tableFromBatches(reader.schema, batches);
       } finally {
         signal?.removeEventListener('abort', cancel);
         await conn.close();
