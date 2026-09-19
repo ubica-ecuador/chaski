@@ -3,12 +3,10 @@ import type { Table } from 'apache-arrow';
 
 import type { SqlRunner } from '../types';
 
-/* eslint-disable @typescript-eslint/no-require-imports */
 // The Node build of the very same DuckDB-WASM the browser runs, blocking and
 // in-process, so engine tests exercise real SQL. Tests only: nothing in the
 // plugin bundle imports this file.
 const duckdb = require('@duckdb/duckdb-wasm/dist/duckdb-node-blocking.cjs');
-/* eslint-enable @typescript-eslint/no-require-imports */
 
 export async function createNodeRunner(): Promise<SqlRunner> {
   const dist = path.dirname(require.resolve('@duckdb/duckdb-wasm/dist/duckdb-node-blocking.cjs'));
