@@ -115,4 +115,49 @@ describe('DatasetRegistry', () => {
     const state = await registry.load('dash', 'empty', { kind: 'arrow', fetch: async () => arrowOf([]) }, 'e');
     expect(state.rows).toBe(0);
   });
+
+  it('an older load failing after a newer success leaves the good state alone', async () => {
+    const older = deferred<Table>();
+    const newer = deferred<Table>();
+    const a = registry.load('dash', 'v', { kind: 'arrow', fetch: () => older.promise }, 'range-1');
+    const b = registry.load('dash', 'v', { kind: 'arrow', fetch: () => newer.promise }, 'range-2');
+    newer.resolve(arrowOf([1, 2, 3]));
+    const good = await b;
+    older.reject(new Error('boom'));
+    await a;
+    const state = registry.get('dash', 'v');
+    expect(state?.stale).toBeUndefined();
+    expect(state?.table).toBe(good.table);
+    expect(await exists(runner, `d${shortHash('dash')}_v_v1`)).toBe(false);
+  });
+
+  it('an orphan load from before a dashboard switch never replaces the fresh state', async () => {
+    await registry.activate('dash');
+    const gate = deferred<Table>();
+    const a = registry.load('dash', 'v', { kind: 'arrow', fetch: () => gate.promise }, 'old');
+    await registry.activate('other');
+    await registry.activate('dash');
+    const b = await registry.load('dash', 'v', sqlLoader(2), 'new');
+    gate.resolve(arrowOf([1, 2, 3, 4, 5]));
+    await a;
+    const state = registry.get('dash', 'v');
+    expect(state?.table).toBe(b.table);
+    expect(state?.rows).toBe(b.rows);
+    expect(await exists(runner, `d${shortHash('dash')}_v_v1`)).toBe(false);
+  });
+
+  it('an orphan load that fails after a switch taints nothing', async () => {
+    await registry.activate('dash');
+    const gate = deferred<Table>();
+    const a = registry.load('dash', 'v', { kind: 'arrow', fetch: () => gate.promise }, 'old');
+    await registry.activate('other');
+    await registry.activate('dash');
+    const b = await registry.load('dash', 'v', sqlLoader(2), 'new');
+    gate.reject(new Error('boom'));
+    await expect(a).rejects.toThrow('boom');
+    const state = registry.get('dash', 'v');
+    expect(state).toEqual(b);
+    expect(state?.stale).toBeUndefined();
+    expect(await exists(runner, `d${shortHash('dash')}_v_v1`)).toBe(false);
+  });
 });

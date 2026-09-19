@@ -9,7 +9,6 @@ interface Entry {
   state?: DatasetState;
   /** Tables of this dataset still in DuckDB, oldest first. */
   kept: string[];
-  lastVersion: number;
   inflight?: { signature: string; promise: Promise<DatasetState> };
 }
 
@@ -26,6 +25,8 @@ const keyOf = (dashboard: string, name: string) => JSON.stringify([dashboard, na
 export class DatasetRegistry {
   private readonly entries = new Map<string, Entry>();
   private active?: string;
+  /** Monotonic across all dashboards and datasets, so table names never collide across a reactivation. */
+  private nextVersion = 0;
 
   constructor(
     private readonly runner: SqlRunner,
@@ -55,11 +56,11 @@ export class DatasetRegistry {
     if (entry.inflight && entry.inflight.signature === signature) {
       return entry.inflight.promise;
     }
-    const version = ++entry.lastVersion;
+    const version = ++this.nextVersion;
     const table = `d${shortHash(dashboard)}_${sanitizeName(name)}_v${version}`;
     const promise: Promise<DatasetState> = this.materialize(table, loader)
-      .then((rows) => this.adopt(key, { dashboard, name, table, version, loadedAt: this.now(), rows }))
-      .catch((error: unknown) => this.fail(key, table, error))
+      .then((rows) => this.adopt(key, entry, { dashboard, name, table, version, loadedAt: this.now(), rows }))
+      .catch((error: unknown) => this.fail(key, entry, version, table, error))
       .finally(() => {
         if (entry.inflight?.promise === promise) {
           entry.inflight = undefined;
@@ -95,7 +96,7 @@ export class DatasetRegistry {
   private entry(key: string, dashboard: string): Entry {
     let entry = this.entries.get(key);
     if (!entry) {
-      entry = { dashboard, kept: [], lastVersion: 0 };
+      entry = { dashboard, kept: [] };
       this.entries.set(key, entry);
     }
     return entry;
@@ -111,13 +112,15 @@ export class DatasetRegistry {
     return Number(count.get(0)?.n ?? 0);
   }
 
-  private async adopt(key: string, fresh: DatasetState): Promise<DatasetState> {
-    const entry = this.entries.get(key);
-    if (!entry) {
-      // The dashboard was switched away while this was loading.
+  private async adopt(key: string, capturedEntry: Entry, fresh: DatasetState): Promise<DatasetState> {
+    const live = this.entries.get(key);
+    if (live !== capturedEntry) {
+      // The dashboard was switched away (and possibly back) while this was loading;
+      // capturedEntry is no longer the live one, so this load is an orphan.
       await this.drop(fresh.table);
-      return fresh;
+      return live?.state ?? fresh;
     }
+    const entry = capturedEntry;
     if (entry.state && entry.state.version > fresh.version) {
       // A newer load finished first; this one is already out of date.
       await this.drop(fresh.table);
@@ -131,11 +134,19 @@ export class DatasetRegistry {
     return fresh;
   }
 
-  private async fail(key: string, table: string, error: unknown): Promise<DatasetState> {
+  private async fail(key: string, capturedEntry: Entry, version: number, table: string, error: unknown): Promise<DatasetState> {
     await this.drop(table);
-    const entry = this.entries.get(key);
-    if (!entry?.state) {
+    if (this.entries.get(key) !== capturedEntry) {
+      // Orphan: the dashboard was switched away (and possibly back) while this was loading.
       throw error;
+    }
+    const entry = capturedEntry;
+    if (!entry.state) {
+      throw error;
+    }
+    if (version <= entry.state.version) {
+      // An older load failed after a newer one already succeeded; leave the good state alone.
+      return entry.state;
     }
     const message = error instanceof Error ? error.message : String(error);
     entry.state = { ...entry.state, stale: { error: message, failedAt: this.now() } };
