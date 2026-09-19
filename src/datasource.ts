@@ -5,8 +5,10 @@ import {
   type DataQueryRequest,
   type DataQueryResponse,
   DataSourceApi,
+  type DataSourceGetTagValuesOptions,
   type DataSourceInstanceSettings,
   FieldType,
+  type MetricFindValue,
   type TestDataSourceResponse,
 } from '@grafana/data';
 import { getTemplateSrv } from '@grafana/runtime';
@@ -14,7 +16,8 @@ import type { DataQuery } from '@grafana/schema';
 import { Observable } from 'rxjs';
 
 import { explainError } from './engine/errors';
-import { runPanelQuery } from './engine/executor';
+import { describe as describeColumns, runPanelQuery } from './engine/executor';
+import { quoteIdent } from './engine/sql';
 import { recordKey, recordLoad, recordQuery } from './engine/stats';
 import type { AdHocFilter, DatasetLoader } from './engine/types';
 import { arrowToDataFrame } from './grafana/arrowToFrame';
@@ -160,6 +163,36 @@ export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
     } catch (error) {
       return { status: 'error', message: explainError(error, this.memoryLimitMB).message };
     }
+  }
+
+  async getTagKeys(): Promise<MetricFindValue[]> {
+    const engine = await getEngine(this.memoryLimitMB);
+    const names = new Set<string>();
+    for (const state of engine.registry.list(dashboardKey().key)) {
+      for (const column of await describeColumns(engine.runner, `SELECT * FROM ${quoteIdent(state.table)}`)) {
+        names.add(column.name);
+      }
+    }
+    return [...names].sort().map((text) => ({ text }));
+  }
+
+  async getTagValues(options: DataSourceGetTagValuesOptions<DuckQuery>): Promise<MetricFindValue[]> {
+    const engine = await getEngine(this.memoryLimitMB);
+    const values = new Set<string>();
+    const column = quoteIdent(options.key);
+    for (const state of engine.registry.list(dashboardKey().key)) {
+      const columns = await describeColumns(engine.runner, `SELECT * FROM ${quoteIdent(state.table)}`);
+      if (!columns.some((c) => c.name === options.key)) {
+        continue;
+      }
+      const result = await engine.runner.query(
+        `SELECT DISTINCT CAST(${column} AS VARCHAR) AS v FROM ${quoteIdent(state.table)} WHERE ${column} IS NOT NULL LIMIT 1000`
+      );
+      for (const row of result.toArray()) {
+        values.add(String(row.v));
+      }
+    }
+    return [...values].sort().map((text) => ({ text }));
   }
 
   private interpolate(engine: Engine, sql: string, request: DataQueryRequest<DataQuery>): string {

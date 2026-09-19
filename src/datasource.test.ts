@@ -126,3 +126,22 @@ describe('DataSource', () => {
     expect(await ds.testDatasource()).toEqual({ status: 'success', message: 'DuckDB v1.4.3 is running in the browser.' });
   });
 });
+
+describe('ad hoc filter options', () => {
+  it('offers the columns of the dashboard datasets as keys', async () => {
+    await loadDataset('cities', CITIES);
+    await loadDataset('other', "SELECT 'x' AS city, 1 AS extra");
+    expect(await ds.getTagKeys()).toEqual([{ text: 'city' }, { text: 'extra' }, { text: 'n' }]);
+  });
+
+  it('offers the distinct values of a key across datasets', async () => {
+    await loadDataset('cities', CITIES);
+    await loadDataset('other', "SELECT 'Loja' AS city");
+    expect(await ds.getTagValues({ key: 'city', filters: [] })).toEqual([
+      { text: 'Cuenca' },
+      { text: 'Loja' },
+      { text: 'Quito' },
+    ]);
+    expect(await ds.getTagValues({ key: 'missing', filters: [] })).toEqual([]);
+  });
+});
