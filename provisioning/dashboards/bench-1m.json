@@ -1,0 +1,128 @@
+{
+  "uid": "duckdbwasm-bench-1m",
+  "title": "DuckDB WASM · 1 M rows",
+  "schemaVersion": 39,
+  "editable": true,
+  "time": {
+    "from": "2026-01-01T00:00:00.000Z",
+    "to": "2026-01-12T13:46:40.000Z"
+  },
+  "refresh": "",
+  "templating": {
+    "list": [
+      {
+        "name": "synthetic",
+        "label": "synthetic",
+        "type": "query",
+        "hide": 2,
+        "skipUrlSync": true,
+        "refresh": 2,
+        "datasource": {
+          "type": "ubica-duckdbwasm-datasource",
+          "uid": "duckdbwasm"
+        },
+        "query": {
+          "refId": "synthetic",
+          "kind": "dataset",
+          "name": "synthetic",
+          "source": {
+            "type": "sql",
+            "sql": "SELECT range::BIGINT AS id, (range % 50)::INTEGER AS cat, TIMESTAMP '2026-01-01' + to_seconds(range) AS t, random() AS v FROM range(1000000)"
+          }
+        },
+        "current": {},
+        "options": []
+      },
+      {
+        "name": "cat",
+        "label": "Category",
+        "type": "custom",
+        "multi": true,
+        "includeAll": false,
+        "query": "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49",
+        "current": {
+          "text": ["0", "1", "2"],
+          "value": ["0", "1", "2"]
+        },
+        "options": []
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Rows in the selection",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 8
+      },
+      "datasource": {
+        "type": "ubica-duckdbwasm-datasource",
+        "uid": "duckdbwasm"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "ubica-duckdbwasm-datasource",
+            "uid": "duckdbwasm"
+          },
+          "rawSql": "SELECT count(*)::DOUBLE AS rows FROM $synthetic WHERE cat IN ($cat)"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Hourly mean",
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 18,
+        "h": 8
+      },
+      "datasource": {
+        "type": "ubica-duckdbwasm-datasource",
+        "uid": "duckdbwasm"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "ubica-duckdbwasm-datasource",
+            "uid": "duckdbwasm"
+          },
+          "rawSql": "SELECT $__timeGroup(t, 1h) AS time, avg(v) AS mean FROM $synthetic WHERE cat IN ($cat) AND $__timeFilter(t) GROUP BY 1 ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "table",
+      "title": "By category",
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 24,
+        "h": 10
+      },
+      "datasource": {
+        "type": "ubica-duckdbwasm-datasource",
+        "uid": "duckdbwasm"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "ubica-duckdbwasm-datasource",
+            "uid": "duckdbwasm"
+          },
+          "rawSql": "SELECT cat, count(*)::DOUBLE AS n, avg(v) AS mean, max(v) AS max FROM $synthetic WHERE cat IN ($cat) GROUP BY 1 ORDER BY 1"
+        }
+      ]
+    }
+  ]
+}

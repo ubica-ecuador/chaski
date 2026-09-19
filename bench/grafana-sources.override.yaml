@@ -1,0 +1,13 @@
+# Mounts this plugin into the kepler-grafana :3002 bench (service grafana-sources).
+# Use from /home/jag/dev/kepler-grafana:
+#   docker compose -f docker-compose.yaml \
+#     -f /home/jag/dev/ubica/grafana-datasource/bench/grafana-sources.override.yaml up -d grafana-sources
+# Compose appends volumes and overrides environment keys, so this adds one mount
+# and extends the unsigned-plugins list. Restarting that container takes about
+# 2.5 minutes, because it re-downloads the DuckDB datasource zip.
+services:
+  grafana-sources:
+    volumes:
+      - /home/jag/dev/ubica/grafana-datasource/dist:/var/lib/grafana/plugins/ubica-duckdbwasm-datasource
+    environment:
+      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: ubica-keplergl-panel,motherduck-duckdb-datasource,ubica-duckdbwasm-datasource

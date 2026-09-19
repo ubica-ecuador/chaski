@@ -1,0 +1,256 @@
+{
+  "uid": "gtfs-rt-mbta-local",
+  "title": "MBTA · browser DuckDB (phase 0)",
+  "schemaVersion": 39,
+  "editable": true,
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      {
+        "name": "vehicles",
+        "type": "query",
+        "hide": 2,
+        "skipUrlSync": true,
+        "refresh": 2,
+        "datasource": {
+          "type": "ubica-duckdbwasm-datasource",
+          "uid": "duckdbwasm"
+        },
+        "query": {
+          "refId": "vehicles",
+          "kind": "dataset",
+          "name": "vehicles",
+          "source": {
+            "type": "datasource",
+            "datasource": {
+              "type": "motherduck-duckdb-datasource",
+              "uid": "duckdb"
+            },
+            "query": {
+              "refId": "vehicles",
+              "rawSql": "INSTALL httpfs; LOAD httpfs;\nSET force_download = true;\nWITH vp AS (SELECT header, unnest(entity) AS e FROM read_json('http://sources-data/mbta/realtime/VehiclePositions_enhanced.json', maximum_object_size = 50000000))\nSELECT\n  e.vehicle.vehicle.id AS vehicle,\n  e.vehicle.vehicle.label AS unit,\n  e.vehicle.trip.route_id AS route,\n  CASE\n    WHEN e.vehicle.trip.route_id IN ('Red', 'Orange', 'Blue', 'Mattapan') OR e.vehicle.trip.route_id LIKE 'Green-%' THEN 'Subway'\n    WHEN e.vehicle.trip.route_id LIKE 'CR-%' THEN 'Commuter rail'\n    WHEN e.vehicle.trip.route_id LIKE 'Boat-%' THEN 'Ferry'\n    ELSE 'Bus'\n  END AS mode,\n  e.vehicle.position.latitude AS latitude,\n  e.vehicle.position.longitude AS longitude,\n  CASE e.vehicle.current_status\n    WHEN 'IN_TRANSIT_TO' THEN 'In transit'\n    WHEN 'STOPPED_AT' THEN 'Stopped at stop'\n    WHEN 'INCOMING_AT' THEN 'Arriving at stop'\n    ELSE 'No data'\n  END AS status,\n  CASE e.vehicle.occupancy_status\n    WHEN 'EMPTY' THEN 'Empty'\n    WHEN 'MANY_SEATS_AVAILABLE' THEN 'Many seats'\n    WHEN 'FEW_SEATS_AVAILABLE' THEN 'Few seats'\n    WHEN 'STANDING_ROOM_ONLY' THEN 'Standing room only'\n    WHEN 'CRUSHED_STANDING_ROOM_ONLY' THEN 'Crushed'\n    WHEN 'FULL' THEN 'Full'\n    WHEN 'NOT_ACCEPTING_PASSENGERS' THEN 'Not accepting passengers'\n    ELSE 'No data'\n  END AS occupancy,\n  (header.timestamp - e.vehicle.timestamp)::DOUBLE AS age_s\nFROM vp",
+              "format": 1
+            }
+          }
+        },
+        "current": {},
+        "options": []
+      },
+      {
+        "name": "lamp",
+        "type": "query",
+        "hide": 2,
+        "skipUrlSync": true,
+        "refresh": 2,
+        "datasource": {
+          "type": "ubica-duckdbwasm-datasource",
+          "uid": "duckdbwasm"
+        },
+        "query": {
+          "refId": "lamp",
+          "kind": "dataset",
+          "name": "lamp",
+          "source": {
+            "type": "datasource",
+            "datasource": {
+              "type": "motherduck-duckdb-datasource",
+              "uid": "duckdb"
+            },
+            "query": {
+              "refId": "lamp",
+              "rawSql": "INSTALL httpfs; LOAD httpfs;\n-- Aggregated on the server, per hour, line, route and station: the browser gets\n-- sums, from which means, excess wait and shares recombine exactly.\nWITH d AS (\n  SELECT trunk_route_id AS line, route_id, parent_station,\n         to_timestamp(stop_timestamp) AS t,\n         coalesce(headway_branch_seconds, headway_trunk_seconds) AS h,\n         coalesce(scheduled_headway_branch, scheduled_headway_trunk) AS hs\n  FROM read_parquet([\n    'http://sources-data/mbta/lamp/subway-on-time-performance-v1/' || strftime(d, '%Y-%m-%d') || '-subway-on-time-performance-v1.parquet'\n    FOR d IN generate_series(\n      least(greatest(CAST($__timeFrom() AS TIMESTAMPTZ)::DATE, CAST($__timeTo() AS TIMESTAMPTZ)::DATE - 30), (now() AT TIME ZONE 'America/New_York')::DATE - 1),\n      least(CAST($__timeTo() AS TIMESTAMPTZ)::DATE, (now() AT TIME ZONE 'America/New_York')::DATE - 1),\n      INTERVAL 1 DAY)\n  ])\n),\nok AS (SELECT * FROM d WHERE t IS NOT NULL AND h > 0 AND hs > 0 AND h < 3600 AND hs < 3600)\nSELECT date_trunc('hour', t) AS hour, line, route_id, parent_station,\n       count(*)::DOUBLE AS n, sum(h)::DOUBLE AS sum_h, sum(h * h)::DOUBLE AS sum_h2,\n       sum(hs)::DOUBLE AS sum_hs, sum(hs * hs)::DOUBLE AS sum_hs2,\n       (count(*) FILTER (WHERE h < 0.25 * hs))::DOUBLE AS bunched,\n       (count(*) FILTER (WHERE h > 1.5 * hs))::DOUBLE AS gaps\nFROM ok GROUP BY ALL",
+              "format": 1
+            }
+          }
+        },
+        "current": {},
+        "options": []
+      },
+      {
+        "name": "mode",
+        "label": "Mode",
+        "type": "custom",
+        "multi": true,
+        "includeAll": false,
+        "query": "Bus,Subway,Commuter rail,Ferry",
+        "current": {
+          "text": ["Bus", "Subway", "Commuter rail", "Ferry"],
+          "value": ["Bus", "Subway", "Commuter rail", "Ferry"]
+        },
+        "options": []
+      },
+      {
+        "name": "route",
+        "label": "Route",
+        "type": "query",
+        "multi": true,
+        "includeAll": true,
+        "refresh": 2,
+        "datasource": {
+          "type": "ubica-duckdbwasm-datasource",
+          "uid": "duckdbwasm"
+        },
+        "query": {
+          "refId": "route",
+          "kind": "values",
+          "sql": "SELECT DISTINCT route FROM $vehicles WHERE mode IN ($mode) AND route IS NOT NULL ORDER BY 1"
+        },
+        "current": {
+          "text": ["All"],
+          "value": ["$__all"]
+        },
+        "options": []
+      },
+      {
+        "name": "status",
+        "label": "Status",
+        "type": "custom",
+        "multi": true,
+        "includeAll": false,
+        "query": "In transit,Stopped at stop,Arriving at stop,No data",
+        "current": {
+          "text": ["In transit", "Stopped at stop", "Arriving at stop", "No data"],
+          "value": ["In transit", "Stopped at stop", "Arriving at stop", "No data"]
+        },
+        "options": []
+      },
+      {
+        "name": "occupancy",
+        "label": "Occupancy",
+        "type": "custom",
+        "multi": true,
+        "includeAll": false,
+        "query": "Many seats,Few seats,Standing room only,Crushed,Full,Not accepting passengers,Empty,No data",
+        "current": {
+          "text": [
+            "Many seats",
+            "Few seats",
+            "Standing room only",
+            "Crushed",
+            "Full",
+            "Not accepting passengers",
+            "Empty",
+            "No data"
+          ],
+          "value": [
+            "Many seats",
+            "Few seats",
+            "Standing room only",
+            "Crushed",
+            "Full",
+            "Not accepting passengers",
+            "Empty",
+            "No data"
+          ]
+        },
+        "options": []
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "Freshness by mode",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 10,
+        "h": 8
+      },
+      "datasource": {
+        "type": "ubica-duckdbwasm-datasource",
+        "uid": "duckdbwasm"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "ubica-duckdbwasm-datasource",
+            "uid": "duckdbwasm"
+          },
+          "rawSql": "SELECT mode AS \"Mode\", count(*)::DOUBLE AS \"Vehicles\", (count(*) FILTER (WHERE age_s > 90))::DOUBLE AS \"Positions older than 90 s\", max(age_s) AS \"Oldest position\"\nFROM $vehicles WHERE mode IN ($mode) AND route IN ($route) AND status IN ($status) AND occupancy IN ($occupancy)\nGROUP BY 1 ORDER BY 2 DESC"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "ubica-keplergl-panel",
+      "title": "Fleet now",
+      "gridPos": {
+        "x": 10,
+        "y": 0,
+        "w": 14,
+        "h": 12
+      },
+      "datasource": {
+        "type": "ubica-duckdbwasm-datasource",
+        "uid": "duckdbwasm"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "ubica-duckdbwasm-datasource",
+            "uid": "duckdbwasm"
+          },
+          "rawSql": "-- Unfiltered on purpose: kepler filters the map on the GPU.\nSELECT vehicle, unit, route, mode, latitude, longitude, status, occupancy, age_s FROM $vehicles"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "table",
+      "title": "Headways by line",
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 10,
+        "h": 8
+      },
+      "datasource": {
+        "type": "ubica-duckdbwasm-datasource",
+        "uid": "duckdbwasm"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "ubica-duckdbwasm-datasource",
+            "uid": "duckdbwasm"
+          },
+          "rawSql": "SELECT line AS \"Line\", sum(n)::DOUBLE AS \"Samples\",\n       round(sum(sum_h) / sum(n) / 60, 1) AS \"Actual (mean, min)\",\n       round(sum(sum_hs) / sum(n) / 60, 1) AS \"Scheduled (mean, min)\",\n       round((sum(sum_h2) / (2 * sum(sum_h)) - sum(sum_hs2) / (2 * sum(sum_hs))) / 60, 2) AS \"Excess wait\",\n       round(100 * sum(bunched) / sum(n), 1) AS \"Bunched %\",\n       round(100 * sum(gaps) / sum(n), 1) AS \"Gaps %\"\nFROM $lamp\nWHERE 'Subway' IN ($mode) AND route_id IN ($route) AND $__timeFilter(hour)\nGROUP BY 1 ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Gaps by hour (%)",
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 24,
+        "h": 8
+      },
+      "datasource": {
+        "type": "ubica-duckdbwasm-datasource",
+        "uid": "duckdbwasm"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "ubica-duckdbwasm-datasource",
+            "uid": "duckdbwasm"
+          },
+          "rawSql": "PIVOT (\n  SELECT hour AS time, line, 100 * sum(gaps) / sum(n) AS gaps\n  FROM $lamp\n  WHERE 'Subway' IN ($mode) AND route_id IN ($route) AND $__timeFilter(hour)\n  GROUP BY 1, 2\n) ON line USING first(gaps) ORDER BY time"
+        }
+      ]
+    }
+  ]
+}
