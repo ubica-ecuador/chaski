@@ -1,34 +1,53 @@
-import { DataSourceJsonData } from '@grafana/data';
-import { DataQuery } from '@grafana/schema';
+import type { DataSourceJsonData, DataSourceRef } from '@grafana/data';
+import type { DataQuery } from '@grafana/schema';
 
-export interface MyQuery extends DataQuery {
-  queryText?: string;
-  constant: number;
+/** A panel query: SQL run in the browser's DuckDB. */
+export interface DuckQuery extends DataQuery {
+  rawSql: string;
 }
 
-export const DEFAULT_QUERY: Partial<MyQuery> = {
-  constant: 6.5,
+/** A dataset whose rows come from another Grafana datasource, through that datasource's own query path. */
+export interface DatasourceSource {
+  type: 'datasource';
+  datasource: DataSourceRef;
+  /** The other datasource's query model, as its own editor writes it. */
+  query: DataQuery;
+}
+
+/** A dataset produced by SQL in the browser: read a URL, or derive from another dataset. */
+export interface SqlSource {
+  type: 'sql';
+  sql: string;
+}
+
+export type DatasetSource = DatasourceSource | SqlSource;
+
+/** A variable that loads a dataset. Its value is the table panels read. */
+export interface DatasetVariableQuery extends DataQuery {
+  kind: 'dataset';
+  name: string;
+  source: DatasetSource;
+}
+
+/** An ordinary dropdown from local SQL: first column is the value, second (optional) the text. */
+export interface ValuesVariableQuery extends DataQuery {
+  kind: 'values';
+  sql: string;
+}
+
+export type DuckVariableQuery = DatasetVariableQuery | ValuesVariableQuery;
+
+export interface DuckOptions extends DataSourceJsonData {
+  memoryLimitMB?: number;
+}
+
+export const DEFAULT_MEMORY_LIMIT_MB = 1024;
+
+export const DEFAULT_QUERY: Partial<DuckQuery> = { rawSql: '' };
+
+export const DEFAULT_VARIABLE_QUERY: DatasetVariableQuery = {
+  refId: 'dataset',
+  kind: 'dataset',
+  name: '',
+  source: { type: 'sql', sql: '' },
 };
-
-export interface DataPoint {
-  Time: number;
-  Value: number;
-}
-
-export interface DataSourceResponse {
-  datapoints: DataPoint[];
-}
-
-/**
- * These are options configured for each DataSource instance
- */
-export interface MyDataSourceOptions extends DataSourceJsonData {
-  path?: string;
-}
-
-/**
- * Value that is used in the backend, but never sent over HTTP to the frontend
- */
-export interface MySecureJsonData {
-  apiKey?: string;
-}
