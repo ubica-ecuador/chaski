@@ -1,0 +1,135 @@
+{
+  "uid": "duckdbwasm-e2e",
+  "title": "DuckDB WASM · e2e",
+  "schemaVersion": 39,
+  "editable": true,
+  "time": {
+    "from": "2026-01-01T00:00:00.000Z",
+    "to": "2026-01-03T00:00:00.000Z"
+  },
+  "refresh": "",
+  "templating": {
+    "list": [
+      {
+        "name": "file",
+        "label": "File",
+        "type": "textbox",
+        "query": "sample.parquet",
+        "current": {
+          "text": "sample.parquet",
+          "value": "sample.parquet"
+        },
+        "options": []
+      },
+      {
+        "name": "sample",
+        "type": "query",
+        "hide": 2,
+        "skipUrlSync": true,
+        "refresh": 1,
+        "datasource": {
+          "type": "ubica-duckdbwasm-datasource",
+          "uid": "duckdbwasm"
+        },
+        "query": {
+          "refId": "sample",
+          "kind": "dataset",
+          "name": "sample",
+          "source": {
+            "type": "sql",
+            "sql": "SELECT * FROM read_parquet('http://localhost:8095/${file:raw}')"
+          }
+        },
+        "current": {},
+        "options": []
+      },
+      {
+        "name": "city",
+        "label": "City",
+        "type": "query",
+        "multi": true,
+        "includeAll": true,
+        "refresh": 1,
+        "datasource": {
+          "type": "ubica-duckdbwasm-datasource",
+          "uid": "duckdbwasm"
+        },
+        "query": {
+          "refId": "city",
+          "kind": "values",
+          "sql": "SELECT DISTINCT city FROM $sample ORDER BY 1"
+        },
+        "current": {
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "options": []
+      },
+      {
+        "name": "Filters",
+        "type": "adhoc",
+        "datasource": {
+          "type": "ubica-duckdbwasm-datasource",
+          "uid": "duckdbwasm"
+        },
+        "filters": []
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "Rows by city",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "ubica-duckdbwasm-datasource",
+        "uid": "duckdbwasm"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "ubica-duckdbwasm-datasource",
+            "uid": "duckdbwasm"
+          },
+          "rawSql": "SELECT city, count(*)::DOUBLE AS n FROM $sample WHERE city IN ($city) GROUP BY 1 ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "table",
+      "title": "First rows",
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "ubica-duckdbwasm-datasource",
+        "uid": "duckdbwasm"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "ubica-duckdbwasm-datasource",
+            "uid": "duckdbwasm"
+          },
+          "rawSql": "SELECT id, city, t, v FROM $sample WHERE city IN ($city) ORDER BY id LIMIT 10"
+        }
+      ]
+    }
+  ]
+}
