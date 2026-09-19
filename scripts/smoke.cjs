@@ -1,4 +1,5 @@
-// Real-browser smoke test for the DuckDB-WASM datasource (Task 8, Step 6).
+// Real-browser smoke test for the DuckDB-WASM datasource (Task 8, Step 6, plus
+// Task 8 fix round 1: extensions load on demand instead of at engine start).
 //
 // Requires the dev Grafana on :3005 to be up and running this plugin's build:
 //   npm run build && docker compose restart grafana
@@ -9,6 +10,13 @@
 const { chromium } = require('@playwright/test');
 
 const BASE_URL = process.env.SMOKE_BASE_URL || 'http://localhost:3005';
+const ENGINE_START_BUDGET_MS = 3000;
+
+// Mirrors the `CORS` pattern in src/engine/errors.ts. Duplicated rather than
+// imported: this script is plain Node/CommonJS and importing a TypeScript
+// source file would need ts-node/register wired in just for this one regex.
+// Keep this literal in sync with errors.ts if that pattern changes.
+const CORS_PATTERN = /NetworkError|Failed to fetch|\bCORS\b|HTTP (?:status )?0\b|status(?: code)? 0\b/i;
 
 async function main() {
   const browser = await chromium.launch();
@@ -23,6 +31,7 @@ async function main() {
     result.saveAndTest = 'DuckDB v1.4.3 is running in the browser.';
 
     result.engineStartMs = await page.evaluate(() => window.__duckdbwasm.stats.engineStartMs);
+    result.engineStartMsPass = typeof result.engineStartMs === 'number' && result.engineStartMs <= ENGINE_START_BUDGET_MS;
 
     result.remoteParquet = await page.evaluate(async () => {
       const r = window.__duckdbwasm.runner;
@@ -36,15 +45,23 @@ async function main() {
       }
     });
 
-    // --- 3a: spatial + WKB (proves `spatial` autoloads from dist/extensions) ---
+    // --- 3a: spatial + WKB, loaded on demand ---
+    // Nothing before this point has touched the spatial extension, so this is
+    // this engine's first-ever spatial call: it proves the on-demand path in
+    // browserRunner.ts (a Catalog Error caught, `LOAD spatial` run once, the
+    // statement retried), not just that spatial happened to be preloaded.
     const spatial = await page.evaluate(async () => {
       const r = window.__duckdbwasm.runner;
-      const t = await r.query('SELECT ST_AsWKB(ST_Point(1, 2)) AS g');
-      const g = t.get(0).g;
-      return { numRows: t.numRows, isUint8Array: g instanceof Uint8Array, byteLength: g?.length };
+      try {
+        const t = await r.query('SELECT ST_AsWKB(ST_Point(1, 2)) AS g');
+        const g = t.get(0).g;
+        return { ok: true, numRows: t.numRows, isUint8Array: g instanceof Uint8Array, byteLength: g?.length };
+      } catch (e) {
+        return { ok: false, message: e.message };
+      }
     });
     result.spatial = spatial;
-    result.spatialPass = spatial.numRows === 1 && spatial.isUint8Array && spatial.byteLength === 21;
+    result.spatialPass = Boolean(spatial.ok && spatial.numRows === 1 && spatial.isUint8Array && spatial.byteLength === 21);
 
     // --- 3b: real cancellation ---
     const cancel = await page.evaluate(async () => {
@@ -75,12 +92,15 @@ async function main() {
       }
     });
     result.cors = cors;
+    result.corsClassifiedAsCors = Boolean(cors.errored && CORS_PATTERN.test(cors.message));
 
     result.pass =
       result.remoteParquet === 15000 &&
       result.spatialPass &&
       result.cancelPass &&
-      cors.errored;
+      cors.errored &&
+      result.corsClassifiedAsCors &&
+      result.engineStartMsPass;
   } finally {
     await browser.close();
   }
