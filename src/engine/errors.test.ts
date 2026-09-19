@@ -32,4 +32,23 @@ describe('explainError', () => {
       message: 'Parser Error: syntax error at or near "SELEC"',
     });
   });
+
+  // The exact text captured from a real browser (scripts/smoke.cjs, check 3c):
+  // read_json() against a URL that sends no CORS header at all.
+  it('recognizes the real browser CORS failure text', () => {
+    const real =
+      "Invalid Error: NetworkError: Failed to execute 'send' on 'XMLHttpRequest': " +
+      "Failed to load 'https://cdn.mbta.com/realtime/VehiclePositions_enhanced.json'.\n\n" +
+      'LINE 1: SELECT count(*) FROM read_json(\'https://cdn.mbta.com/realtime/VehiclePositions_e...\n' +
+      '                             ^';
+    expect(explainError(new Error(real)).kind).toBe('cors');
+  });
+
+  it('does not mistake a column merely named like "cors" for a CORS failure', () => {
+    expect(explainError(new Error('Binder Error: Referenced column "cors_station_id" not found')).kind).toBe('sql');
+  });
+
+  it('does not mistake a bare mention of memory_limit_mb for an out-of-memory failure', () => {
+    expect(explainError(new Error('Parser Error: syntax error at or near "memory_limit_mb"')).kind).toBe('sql');
+  });
 });
