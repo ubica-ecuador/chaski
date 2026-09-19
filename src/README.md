@@ -1,50 +1,35 @@
-<!-- This README file is going to be the one displayed on the Grafana.com website for your plugin. Uncomment and replace the content here before publishing.
+# DuckDB WASM for Grafana
 
-Remove any remaining comments before publishing as these may be displayed on Grafana.com -->
+Loads a dashboard's data **once** into DuckDB running in the browser, and answers every panel query
+locally. Changing a variable, an ad hoc filter or the time range re-queries the browser, not the
+server: filters take milliseconds, and every panel (native, catalog, kepler) keeps working.
 
-# Duckdbwasm
+## Datasets
 
-<!-- To help maximize the impact of your README and improve usability for users, we propose the following loose structure:
+A dataset is a hidden **query variable** of this datasource (kind *Dataset*). It loads when the
+dashboard opens, or on every time-range change if its refresh says so. Panels read it by name:
 
-**BEFORE YOU BEGIN**
-- Ensure all links are absolute URLs so that they will work when the README is displayed within Grafana and Grafana.com
-- Be inspired ✨
-  - [grafana-polystat-panel](https://github.com/grafana/grafana-polystat-panel)
-  - [volkovlabs-variable-panel](https://github.com/volkovlabs/volkovlabs-variable-panel)
+    SELECT route, count(*) FROM $vehicles WHERE mode IN ($mode) GROUP BY 1
 
-**ADD SOME BADGES**
+Rows come from:
 
-Badges convey useful information at a glance for users whether in the Catalog or viewing the source code. You can use the generator on [Shields.io](https://shields.io/badges/dynamic-json-badge) together with the Grafana.com API
-to create dynamic badges that update automatically when you publish a new version to the marketplace.
+- **another datasource**, for example the server DuckDB, Postgres or Infinity. Its query runs on the
+  server with the dashboard's time range and variables. Use this for private data, APIs without
+  CORS, and anything big: aggregate there and let only the working set reach the browser;
+- **SQL in the browser**: `read_parquet`, `read_csv` or `read_json` on a URL that allows CORS, or a
+  `SELECT` over another dataset.
 
-- For the URL parameter use `https://grafana.com/api/plugins/your-plugin-id`.
-- Example queries:
-  - Downloads: `$.downloads`
-  - Catalog Version: `$.version`
-  - Grafana Dependency: `$.grafanaDependency`
-  - Signature Type: `$.versionSignatureType`
-- Optionally, for the logo parameter use `grafana`.
+If a reload fails, panels keep the last good data and say how old it is.
 
-Full example: ![Dynamic JSON Badge](https://img.shields.io/badge/dynamic/json?logo=grafana&query=$.version&url=https://grafana.com/api/plugins/grafana-polystat-panel&label=Marketplace&prefix=v&color=F47A20)
+## SQL
 
-Consider other [badges](https://shields.io/badges) as you feel appropriate for your project.
+Variables are quoted exactly as the server DuckDB datasource quotes them (`$x` → `'value'`,
+multi-value → `'a','b'`, `${x:raw}` verbatim), and its macros work the same: `$__timeFilter(col)`,
+`$__timeFrom()`, `$__timeTo()`. `$__timeGroup(col, 1h)` becomes a `time_bucket`. Geometry columns
+reach panels as WKB in hex, which the Kepler panel draws.
 
-## Overview / Introduction
-Provide one or more paragraphs as an introduction to your plugin to help users understand why they should use it.
+## Limits
 
-Consider including screenshots:
-- in [plugin.json](https://grafana.com/developers/plugin-tools/reference/plugin-json#info) include them as relative links.
-- in the README ensure they are absolute URLs.
-
-## Requirements
-List any requirements or dependencies they may need to run the plugin.
-
-## Getting Started
-Provide a quick start on how to configure and use the plugin.
-
-## Documentation
-If your project has dedicated documentation available for users, provide links here. For help in following Grafana's style recommendations for technical documentation, refer to our [Writer's Toolkit](https://grafana.com/docs/writers-toolkit/).
-
-## Contributing
-Do you want folks to contribute to the plugin or provide feedback through specific means? If so, tell them how!
--->
+- Memory: each viewer's browser holds the datasets. The limit is set on the datasource (1 GB by default).
+- No alerting and no server-side rendering of queries: everything runs in the browser.
+- Content Security Policy: works with Grafana's stock policy (measured on Grafana 12.0.10); nothing extra to allow.

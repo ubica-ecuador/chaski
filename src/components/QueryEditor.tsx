@@ -1,19 +1,24 @@
 import React from 'react';
 import type { QueryEditorProps } from '@grafana/data';
-import { Field, TextArea } from '@grafana/ui';
+import { Field } from '@grafana/ui';
 
 import type { DataSource } from '../datasource';
 import type { DuckOptions, DuckQuery } from '../types';
+import { SqlEditor } from './SqlEditor';
 
 export function QueryEditor({ query, onChange, onRunQuery }: QueryEditorProps<DataSource, DuckQuery, DuckOptions>) {
   return (
-    <Field label="SQL" description="Runs in the browser. Read a dataset with FROM $name.">
-      <TextArea
-        aria-label="SQL"
-        rows={8}
+    <Field
+      label="SQL"
+      description="Runs in the browser. Read a dataset with FROM $name; $__timeFilter(column) and the other macros work as in the server DuckDB datasource."
+    >
+      <SqlEditor
+        label="SQL"
         value={query.rawSql ?? ''}
-        onChange={(e) => onChange({ ...query, rawSql: e.currentTarget.value })}
-        onBlur={onRunQuery}
+        onChange={(rawSql) => {
+          onChange({ ...query, rawSql });
+          onRunQuery();
+        }}
       />
     </Field>
   );
