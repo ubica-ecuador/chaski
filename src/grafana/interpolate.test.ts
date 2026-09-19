@@ -34,4 +34,10 @@ describe('interpolateSql', () => {
       "WHERE t >= '2026-09-18T00:00:00Z' AND t <= '2026-09-19T00:00:00Z' AND m IN ('Bus','Subway')"
     );
   });
+
+  it('does not expand a macro-looking token that came from a substituted variable value', () => {
+    const injected = fakeTemplateSrv({ hack: '$__timeGroup(c, || 1 ||)' });
+    const withHack = { templateSrv: injected, range, isDatasetTable };
+    expect(interpolateSql('SELECT $hack', withHack)).toBe("SELECT '$__timeGroup(c, || 1 ||)'");
+  });
 });

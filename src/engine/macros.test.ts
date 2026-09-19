@@ -44,4 +44,24 @@ describe('expandMacros', () => {
     expect(() => expandMacros('$__timeFrom(ts)', ctx)).toThrow('$__timeFrom expects 0 arguments, received 1');
     expect(() => expandMacros('$__timeFilter(ts', ctx)).toThrow('missing its closing parenthesis');
   });
+
+  describe('inside quoted SQL', () => {
+    it('leaves a macro token alone inside a single-quoted string literal', () => {
+      expect(expandMacros("SELECT '$__timeFilter(x)'", ctx)).toBe("SELECT '$__timeFilter(x)'");
+    });
+
+    it('leaves a macro token alone past a doubled (escaped) quote', () => {
+      expect(expandMacros("SELECT 'O''Brien $__timeFrom()'", ctx)).toBe("SELECT 'O''Brien $__timeFrom()'");
+    });
+
+    it('leaves a macro token alone inside a double-quoted identifier', () => {
+      expect(expandMacros('SELECT "$__timeFrom"', ctx)).toBe('SELECT "$__timeFrom"');
+    });
+
+    it('expands a macro outside quotes but leaves a later one inside quotes alone', () => {
+      expect(expandMacros("WHERE $__timeFilter(ts) AND note = 'see $__timeTo()'", ctx)).toBe(
+        "WHERE ts >= '2026-09-18T00:00:00Z' AND ts <= '2026-09-19T12:30:00Z' AND note = 'see $__timeTo()'"
+      );
+    });
+  });
 });

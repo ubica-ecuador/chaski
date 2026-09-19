@@ -95,12 +95,59 @@ function parseArgs(sql: string, start: number): { args: string[]; length: number
   throw new Error('A macro is missing its closing parenthesis');
 }
 
+/**
+ * True at every index of `sql` that sits outside a single-quoted string
+ * literal ('…', with '' as the escaped quote) and outside a double-quoted
+ * identifier ("…", with "" as the escaped quote). A doubled quote is
+ * consumed as one escaped character and does not end the literal.
+ */
+function outsideQuotes(sql: string): boolean[] {
+  const outside = new Array<boolean>(sql.length);
+  let quote: '\'' | '"' | null = null;
+  for (let i = 0; i < sql.length; i++) {
+    const ch = sql[i];
+    if (quote === null) {
+      outside[i] = true;
+      if (ch === "'" || ch === '"') {
+        quote = ch;
+      }
+      continue;
+    }
+    outside[i] = false;
+    if (ch === quote) {
+      if (sql[i + 1] === quote) {
+        // A doubled quote escapes into the same literal; consume both chars.
+        outside[i + 1] = false;
+        i++;
+      } else {
+        quote = null;
+      }
+    }
+  }
+  return outside;
+}
+
+/**
+ * interpolateSql substitutes variables before this runs, and every
+ * substituted value is quoted (sqlStringFormat / quoteLiteral), so a macro
+ * token can only be part of the actual query when it sits outside a quoted
+ * literal or identifier. Expanding one found inside a quoted value would let
+ * that value's own quotes leak out through $__timeFilter/$__timeGroup's
+ * unquoted expansion, breaking out of the literal it came from. This
+ * deliberately differs from the server DuckDB datasource, whose macro
+ * expansion runs before quoting and has no such risk.
+ */
 export function expandMacros(sql: string, ctx: MacroContext): string {
+  const outside = outsideQuotes(sql);
   const pattern = /\$__(timeFilter|timeFrom|timeTo|timeGroup)\b/g;
   let out = '';
   let last = 0;
   let match: RegExpExecArray | null;
   while ((match = pattern.exec(sql)) !== null) {
+    if (!outside[match.index]) {
+      // Inside a quoted literal or identifier: leave this token as literal text.
+      continue;
+    }
     const afterName = match.index + match[0].length;
     const parsed = parseArgs(sql, afterName);
     out += sql.slice(last, match.index) + expand(match[1], parsed.args, ctx);
