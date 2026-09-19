@@ -20,9 +20,17 @@ const config = async (env: Env): Promise<Configuration> => {
        */
       new CopyWebpackPlugin({
         patterns: [
-          { from: path.join(DUCKDB_DIST, 'duckdb-eh.wasm'), to: '.' },
-          { from: path.join(DUCKDB_DIST, 'duckdb-browser-eh.worker.js'), to: '.' },
-          { from: path.resolve(process.cwd(), 'vendor/duckdb-extensions'), to: 'extensions' },
+          // `info: { minimized: true }` tells TerserPlugin these assets are
+          // already minimized, so it skips them instead of re-mangling and
+          // re-emitting the worker — vendored DuckDB assets must ship byte
+          // for byte as published, not re-minified.
+          { from: path.join(DUCKDB_DIST, 'duckdb-eh.wasm'), to: '.', info: { minimized: true } },
+          { from: path.join(DUCKDB_DIST, 'duckdb-browser-eh.worker.js'), to: '.', info: { minimized: true } },
+          {
+            from: path.resolve(process.cwd(), 'vendor/duckdb-extensions'),
+            to: 'extensions',
+            info: { minimized: true },
+          },
         ],
       }),
     ],
