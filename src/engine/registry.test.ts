@@ -101,14 +101,60 @@ describe('DatasetRegistry', () => {
     expect(registry.get('dash', 'v')).toBeUndefined();
   });
 
-  it('drops every table of the previous dashboard on activate', async () => {
+  it('keeps another dashboard’s tables when only two are in play', async () => {
     await registry.activate('one');
     const a = await registry.load('one', 'v', sqlLoader(1), 'a');
     await registry.activate('two');
-    expect(await exists(runner, a.table)).toBe(false);
-    expect(registry.list('one')).toEqual([]);
+    expect(await exists(runner, a.table)).toBe(true);
+    expect(registry.list('one')).toEqual([a]);
     const b = await registry.load('two', 'v', sqlLoader(1), 'b');
     expect(registry.list('two')).toEqual([b]);
+  });
+
+  it('keeps a recently used dashboard’s tables when switching back and forth', async () => {
+    await registry.activate('a');
+    const a = await registry.load('a', 'v', sqlLoader(1), 'a1');
+    await registry.activate('b');
+    await registry.load('b', 'v', sqlLoader(1), 'b1');
+    await registry.activate('a');
+    expect(await exists(runner, a.table)).toBe(true);
+    expect(registry.get('a', 'v')).toEqual(a);
+  });
+
+  it('drops the least recently used dashboard beyond three', async () => {
+    await registry.activate('a');
+    const a = await registry.load('a', 'v', sqlLoader(1), 'a1');
+    await registry.activate('b');
+    const b = await registry.load('b', 'v', sqlLoader(1), 'b1');
+    await registry.activate('c');
+    const c = await registry.load('c', 'v', sqlLoader(1), 'c1');
+    await registry.activate('d');
+    const d = await registry.load('d', 'v', sqlLoader(1), 'd1');
+    expect(await exists(runner, a.table)).toBe(false);
+    expect(registry.list('a')).toEqual([]);
+    expect(await exists(runner, b.table)).toBe(true);
+    expect(await exists(runner, c.table)).toBe(true);
+    expect(await exists(runner, d.table)).toBe(true);
+    expect(registry.get('b', 'v')).toEqual(b);
+    expect(registry.get('c', 'v')).toEqual(c);
+    expect(registry.get('d', 'v')).toEqual(d);
+  });
+
+  it('moves a reactivated dashboard to the front, so it is not the one evicted', async () => {
+    await registry.activate('a');
+    const a = await registry.load('a', 'v', sqlLoader(1), 'a1');
+    await registry.activate('b');
+    const b = await registry.load('b', 'v', sqlLoader(1), 'b1');
+    await registry.activate('c');
+    await registry.load('c', 'v', sqlLoader(1), 'c1');
+    await registry.activate('a'); // 'a' is most recently used again
+    await registry.activate('d');
+    await registry.load('d', 'v', sqlLoader(1), 'd1');
+    // 'b' is now the least recently used, so it is the one evicted, not 'a'.
+    expect(await exists(runner, a.table)).toBe(true);
+    expect(await exists(runner, b.table)).toBe(false);
+    expect(registry.get('a', 'v')).toEqual(a);
+    expect(registry.list('b')).toEqual([]);
   });
 
   it('materializes an empty Arrow table', async () => {
@@ -131,11 +177,15 @@ describe('DatasetRegistry', () => {
     expect(await exists(runner, `d${shortHash('dash')}_v_v1`)).toBe(false);
   });
 
-  it('an orphan load from before a dashboard switch never replaces the fresh state', async () => {
+  it('an orphan load from before its dashboard is evicted never replaces the fresh state', async () => {
     await registry.activate('dash');
     const gate = deferred<Table>();
     const a = registry.load('dash', 'v', { kind: 'arrow', fetch: () => gate.promise }, 'old');
-    await registry.activate('other');
+    // Three other dashboards push 'dash' past KEEP_DASHBOARDS, evicting its entry
+    // (a plain switch to one other dashboard, within the LRU budget, would not).
+    await registry.activate('other1');
+    await registry.activate('other2');
+    await registry.activate('other3');
     await registry.activate('dash');
     const b = await registry.load('dash', 'v', sqlLoader(2), 'new');
     gate.resolve(arrowOf([1, 2, 3, 4, 5]));
@@ -146,11 +196,13 @@ describe('DatasetRegistry', () => {
     expect(await exists(runner, `d${shortHash('dash')}_v_v1`)).toBe(false);
   });
 
-  it('an orphan load that fails after a switch taints nothing', async () => {
+  it('an orphan load that fails after its dashboard is evicted taints nothing', async () => {
     await registry.activate('dash');
     const gate = deferred<Table>();
     const a = registry.load('dash', 'v', { kind: 'arrow', fetch: () => gate.promise }, 'old');
-    await registry.activate('other');
+    await registry.activate('other1');
+    await registry.activate('other2');
+    await registry.activate('other3');
     await registry.activate('dash');
     const b = await registry.load('dash', 'v', sqlLoader(2), 'new');
     gate.reject(new Error('boom'));

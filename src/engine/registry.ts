@@ -4,6 +4,16 @@ import type { DatasetLoader, DatasetState, SqlRunner } from './types';
 /** Versions of a dataset kept in memory: the current one, and the one before for queries still in flight. */
 const KEEP_VERSIONS = 2;
 
+/**
+ * Dashboards kept in memory at once, most recently activated first. Grafana
+ * 12's scene cache can restore a dashboard on browser Back without re-running
+ * its dataset variables, so a panel can come back pointing at a table from a
+ * dashboard that was active a couple of navigations ago. Keeping a small LRU
+ * of dashboards, rather than only the current one, means that ordinary
+ * back-and-forth navigation still finds its tables.
+ */
+const KEEP_DASHBOARDS = 3;
+
 interface Entry {
   dashboard: string;
   state?: DatasetState;
@@ -25,6 +35,8 @@ const keyOf = (dashboard: string, name: string) => JSON.stringify([dashboard, na
 export class DatasetRegistry {
   private readonly entries = new Map<string, Entry>();
   private active?: string;
+  /** Dashboard keys, most recently activated first; at most KEEP_DASHBOARDS long. */
+  private readonly lru: string[] = [];
   /** Monotonic across all dashboards and datasets, so table names never collide across a reactivation. */
   private nextVersion = 0;
 
@@ -33,19 +45,31 @@ export class DatasetRegistry {
     private readonly now: () => number = Date.now
   ) {}
 
-  /** Makes `dashboard` the one in memory, dropping every table of any other. */
+  /**
+   * Makes `dashboard` the most recently used one. Once more than
+   * KEEP_DASHBOARDS have been activated, the least recently used dashboard's
+   * tables are dropped (see KEEP_DASHBOARDS for why more than one is kept).
+   */
   async activate(dashboard: string): Promise<void> {
-    if (this.active === dashboard) {
+    this.active = dashboard;
+    const index = this.lru.indexOf(dashboard);
+    if (index === 0) {
       return;
     }
-    this.active = dashboard;
-    for (const [key, entry] of [...this.entries]) {
-      if (entry.dashboard === dashboard) {
-        continue;
-      }
-      this.entries.delete(key);
-      for (const table of entry.kept) {
-        await this.drop(table);
+    if (index !== -1) {
+      this.lru.splice(index, 1);
+    }
+    this.lru.unshift(dashboard);
+    while (this.lru.length > KEEP_DASHBOARDS) {
+      const evicted = this.lru.pop()!;
+      for (const [key, entry] of [...this.entries]) {
+        if (entry.dashboard !== evicted) {
+          continue;
+        }
+        this.entries.delete(key);
+        for (const table of entry.kept) {
+          await this.drop(table);
+        }
       }
     }
   }

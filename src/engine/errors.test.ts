@@ -3,9 +3,17 @@ import { EngineStartError, explainError } from './errors';
 
 describe('explainError', () => {
   it('names the missing table and the likely cause', () => {
-    const e = explainError(new Error('Catalog Error: Table with name d1_v_v3 does not exist!\nDid you mean…'));
+    const e = explainError(new Error('Catalog Error: Table with name mytable does not exist!\nDid you mean…'));
     expect(e.kind).toBe('missing-table');
-    expect(e.message).toContain('Table d1_v_v3 does not exist. Is a dataset variable missing');
+    expect(e.message).toContain('Table mytable does not exist. Is a dataset variable missing');
+  });
+
+  it('tells the person to reload when the missing table is one of this plugin’s own datasets', () => {
+    const e = explainError(new Error('Catalog Error: Table with name d1a2b3c4d_vehicles_v3 does not exist!\nDid you mean…'));
+    expect(e.kind).toBe('missing-table');
+    expect(e.message).toBe(
+      "The data behind this panel (d1a2b3c4d_vehicles_v3) was released from memory. Reload the page to load the dashboard's datasets again."
+    );
   });
 
   it('points a CORS failure at the datasource source', () => {

@@ -25,6 +25,12 @@ const CORS = /NetworkError|Failed to fetch|\bCORS\b|HTTP (?:status )?0\b|status(
 // setting name on its own, as DuckDB's out-of-memory message states it.
 const MEMORY = /Out of Memory|could not allocate|failed to allocate|\bmemory_limit\b/i;
 const MISSING = /Catalog Error: Table with name (\S+?) does not exist/;
+// This plugin's own dataset tables: d<8 hex chars><dataset name><version>, as
+// registry.ts's `load` names them. DatasetRegistry evicts a dashboard's
+// tables once it falls out of the recently-used LRU (see KEEP_DASHBOARDS),
+// so a missing table shaped like this was very likely released from memory
+// rather than never created.
+const DATASET_TABLE = /^d[0-9a-f]{8}_\w+_v\d+$/;
 
 /** Turns what DuckDB says into what the person looking at the panel can do about it. */
 export function explainError(error: unknown, memoryLimitMB?: number): ExplainedError {
@@ -40,6 +46,12 @@ export function explainError(error: unknown, memoryLimitMB?: number): ExplainedE
   }
   const missing = MISSING.exec(raw);
   if (missing) {
+    if (DATASET_TABLE.test(missing[1])) {
+      return {
+        kind: 'missing-table',
+        message: `The data behind this panel (${missing[1]}) was released from memory. Reload the page to load the dashboard's datasets again.`,
+      };
+    }
     return {
       kind: 'missing-table',
       message: `Table ${missing[1]} does not exist. Is a dataset variable missing, or has it not loaded yet? (${raw.split('\n')[0]})`,
