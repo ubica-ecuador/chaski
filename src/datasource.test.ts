@@ -1,5 +1,5 @@
 /** @jest-environment jsdom */
-import { type DataQueryRequest, type DataQueryResponse, type DataSourceInstanceSettings, dateTime } from '@grafana/data';
+import { type DataQueryRequest, type DataQueryResponse, type DataSourceInstanceSettings, dateTime, EventBusSrv } from '@grafana/data';
 import type { DataQuery } from '@grafana/schema';
 import { lastValueFrom } from 'rxjs';
 
@@ -10,15 +10,18 @@ import { createNodeRunner } from './engine/testing/nodeRunner';
 import type { SqlRunner } from './engine/types';
 import { setEngineForTests } from './grafana/engine';
 import { fakeTemplateSrv, makeRequest } from './grafana/testing/fakes';
+import { DuckdbWasmActivityEvent } from './grafana/activity';
 import type { DuckOptions, DuckQuery, DuckVariableQuery } from './types';
 
 const mockTemplateSrv = { current: fakeTemplateSrv({}) };
 const mockSourceQuery = jest.fn((..._args: unknown[]): unknown => ({ data: [] }));
+const mockBus = new EventBusSrv();
 
 jest.mock('@grafana/runtime', () => ({
   getTemplateSrv: () => mockTemplateSrv.current,
   getDataSourceSrv: () => ({ get: async () => ({ name: 'upstream', query: (...args: unknown[]) => mockSourceQuery(...args) }) }),
   locationService: { getLocation: () => ({ pathname: '/d/dash1/test' }) },
+  getAppEvents: () => mockBus,
 }));
 // The real editor pulls in @grafana/ui, which needs a DOM.
 jest.mock('./components/VariableQueryEditor', () => ({ VariableQueryEditor: () => null }));
@@ -262,5 +265,38 @@ describe('range reuse', () => {
     const second = tableOf(await ds.runVariableQuery(remote(absolute(FROM + HOUR, FROM + 2 * HOUR))));
     expect(second).toBe(first);
     expect(mockSourceQuery).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('activity', () => {
+  const until = async (check: () => boolean) => {
+    for (let i = 0; i < 300 && !check(); i++) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+  };
+
+  it('announces busy and settled around variable and panel queries', async () => {
+    const heard: string[] = [];
+    const subscription = mockBus.subscribe(DuckdbWasmActivityEvent, (event) => heard.push(event.payload.state));
+    await lastValueFrom(
+      ds.variableQuery(
+        makeRequest<DuckVariableQuery>([{ refId: 'c', kind: 'dataset', name: 'cities', source: { type: 'sql', sql: CITIES } }])
+      )
+    );
+    await lastValueFrom(ds.query(makeRequest<DuckQuery>([{ refId: 'A', rawSql: 'SELECT 1 AS one' }])));
+    subscription.unsubscribe();
+    expect(heard).toEqual(['busy', 'settled', 'busy', 'settled']);
+  });
+
+  it('settles when Grafana abandons a panel query', async () => {
+    const heard: string[] = [];
+    const subscription = mockBus.subscribe(DuckdbWasmActivityEvent, (event) => heard.push(event.payload.state));
+    const running = ds
+      .query(makeRequest<DuckQuery>([{ refId: 'A', rawSql: 'SELECT count(*) AS n FROM range(50000000)' }]))
+      .subscribe({ error: () => undefined });
+    running.unsubscribe();
+    await until(() => heard.length === 2);
+    subscription.unsubscribe();
+    expect(heard).toEqual(['busy', 'settled']);
   });
 });

@@ -21,6 +21,7 @@ import { decideDatasetLoad, type LoadWindow } from './engine/rangeReuse';
 import { quoteIdent } from './engine/sql';
 import { recordKey, recordLoad, recordQuery, recordReuse } from './engine/stats';
 import type { AdHocFilter, DatasetLoader } from './engine/types';
+import { activity } from './grafana/activity';
 import { arrowToDataFrame } from './grafana/arrowToFrame';
 import { dashboardKey } from './grafana/dashboardKey';
 import { rangeOf, scopedTimeOf, windowOf } from './grafana/datasetWindow';
@@ -55,11 +56,11 @@ export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
   }
 
   query(request: DataQueryRequest<DuckQuery>): Observable<DataQueryResponse> {
-    return abortable((signal) => this.runPanelQueries(request, signal));
+    return abortable((signal) => activity.track(() => this.runPanelQueries(request, signal)));
   }
 
   variableQuery(request: DataQueryRequest<DuckVariableQuery>): Observable<DataQueryResponse> {
-    return abortable(() => this.runVariableQuery(request));
+    return abortable(() => activity.track(() => this.runVariableQuery(request)));
   }
 
   async runPanelQueries(request: DataQueryRequest<DuckQuery>, signal?: AbortSignal): Promise<DataQueryResponse> {

@@ -34,6 +34,14 @@ multi-value → `'a','b'`, `${x:raw}` verbatim), and its macros work the same: `
 `$__timeFrom()`, `$__timeTo()`. `$__timeGroup(col, 1h)` becomes a `time_bucket`. Geometry columns
 reach panels as WKB in hex, which the Kepler panel draws.
 
+## Activity
+
+The datasource says on Grafana's app event bus when it starts answering queries and when it has none
+left. The event has type `ubica-duckdbwasm-activity` and payload `{ state: 'busy' | 'settled', at,
+pending }`, and it is sent only on those two transitions. The kepler panel uses it to publish its next
+playback step only once the panels reading the previous one have answered. A panel that wants it
+declares its own event class with the same `type` string; there is nothing to import.
+
 ## Limits
 
 - Memory: each viewer's browser holds the datasets. The limit is set on the datasource (1 GB by default).
