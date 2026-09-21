@@ -6,7 +6,12 @@ import { readFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
 
 const { values: opt } = parseArgs({
-  options: { url: { type: 'string' }, auth: { type: 'string' }, 'with-gtfs': { type: 'boolean' }, 'with-earthquakes': { type: 'boolean' } },
+  options: {
+    url: { type: 'string' },
+    auth: { type: 'string' },
+    'with-gtfs': { type: 'boolean' },
+    'with-earthquakes': { type: 'boolean' },
+  },
 });
 const base = opt.url.replace(/\/$/, '');
 const headers = {

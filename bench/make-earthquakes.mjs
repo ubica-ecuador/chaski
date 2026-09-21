@@ -72,7 +72,11 @@ for (const panel of local.panels) {
     continue;
   }
   panel.datasource = LOCAL;
-  panel.targets = panel.targets.map((target) => ({ refId: target.refId, datasource: LOCAL, rawSql: toLocal(target.rawSql) }));
+  panel.targets = panel.targets.map((target) => ({
+    refId: target.refId,
+    datasource: LOCAL,
+    rawSql: toLocal(target.rawSql),
+  }));
 }
 
 await writeFile('bench/dashboards/earthquakes-server.json', `${JSON.stringify(server, null, 2)}\n`);
