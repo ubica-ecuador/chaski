@@ -24,3 +24,21 @@ export async function setVariable(page: Page, name: string, values: string[]): P
 export function answeredQueries(page: Page): Promise<number> {
   return page.evaluate(() => (window as any).__duckdbwasm?.stats?.queries?.length ?? 0);
 }
+
+/**
+ * Moves the dashboard time range in place, like setVariable: history plus
+ * popstate, no reload. Bounds are what Grafana's URL takes: epoch ms as text,
+ * or a relative expression such as 'now-24h'.
+ */
+export async function setTimeRange(page: Page, from: string, to: string): Promise<void> {
+  await page.evaluate(
+    ({ from, to }) => {
+      const url = new URL(window.location.href);
+      url.searchParams.set('from', from);
+      url.searchParams.set('to', to);
+      window.history.pushState({}, '', url);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    },
+    { from, to }
+  );
+}
