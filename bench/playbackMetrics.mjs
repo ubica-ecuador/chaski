@@ -41,6 +41,32 @@ export function landing(publishes, answers, expected, end) {
   });
 }
 
+/**
+ * `landing()` and its landing ratio/percentiles, judged separately per panel: `answers` carry a
+ * `panel`, and each panel in `expectedByPanel` is judged only on its own answers, against its own
+ * expected count. This is how the bench tells the map's own re-query latency apart from the panels
+ * that merely read the window it publishes.
+ */
+export function summarizeByPanel({ publishes, answers, expectedByPanel, end }) {
+  return Object.fromEntries(
+    Object.entries(expectedByPanel).map(([panel, expected]) => {
+      const panelAnswers = answers.filter((answer) => String(answer.panel) === panel);
+      const latencies = landing(publishes, panelAnswers, expected, end)
+        .filter((step) => step.landed)
+        .map((step) => step.latencyMs);
+      return [
+        panel,
+        {
+          landed: latencies.length,
+          landingRatio: publishes.length ? latencies.length / publishes.length : null,
+          latencyP50Ms: percentile(latencies, 50),
+          latencyP95Ms: percentile(latencies, 95),
+        },
+      ];
+    })
+  );
+}
+
 /** Frame intervals from requestAnimationFrame timestamps. */
 export function frameStats(frameTimes) {
   const deltas = frameTimes.slice(1).map((t, i) => t - frameTimes[i]);

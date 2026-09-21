@@ -10,6 +10,10 @@
 //                panel reading the window (earthquakes: map A, B, C + stat + table = 5, or 10
 //                if Grafana's two variable updates each run every dependent panel once).
 // --panel-ids    server mode: the panels reading the window; each must answer.
+// --expected-by-panel
+//                per-panel expected answer counts, e.g. "1:6,2:2,3:2". When given, the report
+//                gains a `perPanel` breakdown alongside the top-level summary (which still uses
+//                --expected). Server mode defaults this to 1 per id in --panel-ids when omitted.
 // --var          the variable whose URL changes mark a publish (default quakeFrom).
 // --window-days  narrows the dashboard's brush before pressing play, to a window this many days
 //                wide inside the feed's last 30 days (default 3): from = now - 20 days, to =
@@ -18,7 +22,7 @@
 import { chromium } from '@playwright/test';
 import { parseArgs } from 'node:util';
 
-import { summarize } from './playbackMetrics.mjs';
+import { summarize, summarizeByPanel } from './playbackMetrics.mjs';
 
 const { values: opt } = parseArgs({
   options: {
@@ -29,6 +33,7 @@ const { values: opt } = parseArgs({
     seconds: { type: 'string', default: '30' },
     server: { type: 'boolean' },
     'panel-ids': { type: 'string' },
+    'expected-by-panel': { type: 'string' },
     var: { type: 'string', default: 'quakeFrom' },
     'window-days': { type: 'string', default: '3' },
     auth: { type: 'string' },
@@ -74,6 +79,34 @@ function answersPerPublish(publishes, answers, end) {
     const until = i + 1 < publishes.length ? publishes[i + 1] : end;
     return ordered.filter((a) => a.ok && a.at > at && a.at <= until).length;
   });
+}
+
+/** `answersPerPublish`, split out per panel: the evidence behind an --expected-by-panel choice. */
+function answersPerPublishByPanel(publishes, answers, end) {
+  const panels = [...new Set(answers.map((a) => a.panel))].filter((panel) => panel !== undefined);
+  return Object.fromEntries(
+    panels.map((panel) => [
+      panel,
+      answersPerPublish(
+        publishes,
+        answers.filter((a) => a.panel === panel),
+        end
+      ),
+    ])
+  );
+}
+
+/** Parses "1:6,2:2,3:2" into { 1: 6, 2: 2, 3: 2 }; undefined when the option was not given. */
+function parseExpectedByPanel(text) {
+  if (!text) {
+    return undefined;
+  }
+  return Object.fromEntries(
+    text.split(',').map((pair) => {
+      const [panel, count] = pair.split(':');
+      return [panel, Number(count)];
+    })
+  );
 }
 
 async function setPublishInterval(ms) {
@@ -156,7 +189,7 @@ try {
     }
     const panelId = (await response.request().allHeaders())['x-panel-id'];
     if (panelId && panelIds.includes(panelId)) {
-      serverAnswers.push({ at: Date.now(), key: panelId, ok: response.ok() });
+      serverAnswers.push({ at: Date.now(), key: panelId, ok: response.ok(), panel: panelId });
     }
   });
 
@@ -188,9 +221,12 @@ try {
     answers = serverAnswers.slice(answersBefore);
   } else {
     const stats = await page.evaluate(() => JSON.parse(JSON.stringify(window.__duckdbwasm.stats)));
-    answers = stats.queries.filter((q) => q.at >= recordingStart).map((q, i) => ({ at: q.at, key: i, ok: q.ok }));
+    answers = stats.queries
+      .filter((q) => q.at >= recordingStart)
+      .map((q, i) => ({ at: q.at, key: i, ok: q.ok, panel: q.panelId }));
     report.activity = stats.activity.filter((a) => a.at >= bench.publishes[0]);
     report.answersPerPublish = answersPerPublish(bench.publishes, answers, end);
+    report.answersPerPublishByPanel = answersPerPublishByPanel(bench.publishes, answers, end);
   }
   report.summary = summarize({
     publishes: bench.publishes,
@@ -200,6 +236,12 @@ try {
     frameTimes: bench.frames,
     longTasks: bench.longTasks,
   });
+  const expectedByPanel =
+    parseExpectedByPanel(opt['expected-by-panel']) ??
+    (opt.server ? Object.fromEntries(panelIds.map((id) => [id, 1])) : undefined);
+  if (expectedByPanel) {
+    report.perPanel = summarizeByPanel({ publishes: bench.publishes, answers, expectedByPanel, end });
+  }
 } catch (error) {
   report.error = error.message.split('\n')[0];
 } finally {

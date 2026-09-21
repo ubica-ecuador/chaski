@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { frameStats, landing, percentile, summarize } from './playbackMetrics.mjs';
+import { frameStats, landing, percentile, summarize, summarizeByPanel } from './playbackMetrics.mjs';
 
 test('percentile picks the nearest rank', () => {
   assert.equal(percentile([], 50), null);
@@ -76,6 +76,19 @@ test('landing() boundaries: last publish measured up to and including end', () =
 
   const resultAfterEnd = landing([100], [{ at: 501, key: 1, ok: true }], 1, 500);
   assert.equal(resultAfterEnd[0].landed, false);
+});
+
+test('summarizeByPanel judges each panel by its own expected count', () => {
+  const answers = [
+    { at: 110, key: 1, panel: 1, ok: true },
+    { at: 150, key: 2, panel: 1, ok: true },
+    { at: 120, key: 3, panel: 2, ok: true },
+  ];
+  const result = summarizeByPanel({ publishes: [100], answers, expectedByPanel: { 1: 2, 2: 3 }, end: 500 });
+  assert.deepEqual(result, {
+    1: { landed: 1, landingRatio: 1, latencyP50Ms: 50, latencyP95Ms: 50 },
+    2: { landed: 0, landingRatio: 0, latencyP50Ms: null, latencyP95Ms: null },
+  });
 });
 
 test('summarize with empty input', () => {
