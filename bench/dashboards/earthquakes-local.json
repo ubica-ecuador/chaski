@@ -1,0 +1,654 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Global seismicity of the last 30 days, read as remote GeoParquet by DuckDB. The map holds every event and its time slider narrows what is drawn; the summary and the table below follow that window through two dashboard variables rather than through the dashboard time range.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "ubica-duckdbwasm-datasource",
+        "uid": "duckdbwasm"
+      },
+      "description": "Time range sync is set to `variables`, not `toMap`. Moving the dashboard range would re-run this query, and every event outside the new range would leave the browser — the histogram under the slider would rescale and the window could never be widened again from the map. Publishing the window to variables instead keeps the whole month loaded and costs only the panels that read them. Clicking the map publishes the place to $​lat/$​lng (a Coordinates mapping); DuckDB builds a geodesic circle of $​radio km around it (query B) and intersects the quakes with it (query C), which come back as the coverage outline and a magnitude-weighted heatmap.",
+      "gridPos": {
+        "h": 13,
+        "w": 16,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "areaVariable": "quakeArea",
+        "basemap": "dark-matter",
+        "flowRenderMode": "straight",
+        "followGrafanaTheme": false,
+        "mapConfig": {
+          "config": {
+            "mapState": {
+              "bearing": 0,
+              "dragRotate": false,
+              "latitude": 15,
+              "longitude": 0,
+              "pitch": 0,
+              "zoom": 1
+            },
+            "mapStyle": {
+              "styleType": "dark-matter"
+            },
+            "visState": {
+              "filters": [],
+              "interactionConfig": {},
+              "layers": [
+                {
+                  "config": {
+                    "columnMode": "points",
+                    "columns": {
+                      "lat": "latitude",
+                      "lng": "longitude"
+                    },
+                    "dataId": "grafana-A",
+                    "isVisible": true,
+                    "label": "Sismos",
+                    "visConfig": {
+                      "filled": true,
+                      "opacity": 0.75,
+                      "outline": false,
+                      "radius": 10,
+                      "radiusRange": [
+                        3,
+                        45
+                      ]
+                    }
+                  },
+                  "id": "quakes",
+                  "type": "point",
+                  "visualChannels": {
+                    "colorField": {
+                      "name": "mag",
+                      "type": "real"
+                    },
+                    "colorScale": "quantile",
+                    "sizeField": {
+                      "name": "mag",
+                      "type": "real"
+                    },
+                    "sizeScale": "sqrt"
+                  }
+                },
+                {
+                  "config": {
+                    "columnMode": "points",
+                    "columns": {
+                      "lat": "latitude",
+                      "lng": "longitude"
+                    },
+                    "dataId": "grafana-C",
+                    "isVisible": true,
+                    "label": "Sismos en el radio",
+                    "visConfig": {
+                      "opacity": 0.8,
+                      "radius": 30
+                    }
+                  },
+                  "id": "click-heatmap",
+                  "type": "heatmap",
+                  "visualChannels": {
+                    "weightField": {
+                      "name": "mag",
+                      "type": "real"
+                    },
+                    "weightScale": "linear"
+                  }
+                },
+                {
+                  "config": {
+                    "color": [
+                      255,
+                      203,
+                      119
+                    ],
+                    "columns": {
+                      "geojson": "_geojson"
+                    },
+                    "dataId": "grafana-B",
+                    "isVisible": true,
+                    "label": "Radio de cobertura",
+                    "visConfig": {
+                      "filled": true,
+                      "opacity": 0.1,
+                      "strokeColor": [
+                        255,
+                        203,
+                        119
+                      ],
+                      "stroked": true,
+                      "thickness": 1.5
+                    }
+                  },
+                  "id": "click-radius",
+                  "type": "geojson",
+                  "visualChannels": {}
+                }
+              ],
+              "splitMaps": []
+            }
+          },
+          "version": "v1"
+        },
+        "peerTimeSync": false,
+        "publishWhilePlaying": true,
+        "rasterColormap": "",
+        "rasterPainted": false,
+        "showSidePanel": false,
+        "timeSync": "variables",
+        "timeVariables": {
+          "from": "quakeFrom",
+          "to": "quakeTo"
+        },
+        "tripLayerMode": "table",
+        "variableMappings": [
+          {
+            "field": "",
+            "source": "coordinate",
+            "variable": "lat",
+            "variableTo": "lng"
+          },
+          {
+            "field": "",
+            "source": "center",
+            "variable": "lat",
+            "variableTo": "lng",
+            "zoom": 6
+          }
+        ],
+        "publishIntervalMs": 1500
+      },
+      "pluginVersion": "1.0.0",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "ubica-duckdbwasm-datasource",
+            "uid": "duckdbwasm"
+          },
+          "rawSql": "SELECT\n  place,\n  mag,\n  depth,\n  time,\n  latitude,\n  longitude\nFROM $quakes"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "ubica-duckdbwasm-datasource",
+            "uid": "duckdbwasm"
+          },
+          "rawSql": "WITH params AS (\n  SELECT try_cast($lat AS DOUBLE) AS lat0,\n         try_cast($lng AS DOUBLE) AS lng0,\n         coalesce(try_cast($radio AS DOUBLE), 500) / 6371.0 AS d\n),\npts AS (\n  SELECT deg,\n         asin(sin(radians(lat0)) * cos(d) + cos(radians(lat0)) * sin(d) * cos(radians(deg))) AS lat2,\n         lat0, lng0, d\n  FROM params, (SELECT unnest(generate_series(0, 360, 6)) AS deg)\n  WHERE lat0 IS NOT NULL AND lng0 IS NOT NULL\n),\nring AS (\n  SELECT deg,\n         degrees(lat2) AS lat_deg,\n         lng0 + degrees(atan2(sin(radians(deg)) * sin(d) * cos(radians(lat0)),\n                              cos(d) - sin(radians(lat0)) * sin(lat2))) AS lng_deg\n  FROM pts\n)\nSELECT\n  ST_AsHEXWKB(ST_GeomFromText(\n    'POLYGON((' || string_agg(round(lng_deg, 5) || ' ' || round(lat_deg, 5), ',' ORDER BY deg) || '))'\n  )) AS geom,\n  'radio' AS name\nFROM ring\nHAVING count(*) > 0"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "ubica-duckdbwasm-datasource",
+            "uid": "duckdbwasm"
+          },
+          "rawSql": "WITH params AS (\n  SELECT try_cast($lat AS DOUBLE) AS lat0,\n         try_cast($lng AS DOUBLE) AS lng0,\n         coalesce(try_cast($radio AS DOUBLE), 500) / 6371.0 AS d\n),\npts AS (\n  SELECT deg,\n         asin(sin(radians(lat0)) * cos(d) + cos(radians(lat0)) * sin(d) * cos(radians(deg))) AS lat2,\n         lat0, lng0, d\n  FROM params, (SELECT unnest(generate_series(0, 360, 6)) AS deg)\n  WHERE lat0 IS NOT NULL AND lng0 IS NOT NULL\n),\nring AS (\n  SELECT deg,\n         degrees(lat2) AS lat_deg,\n         lng0 + degrees(atan2(sin(radians(deg)) * sin(d) * cos(radians(lat0)),\n                              cos(d) - sin(radians(lat0)) * sin(lat2))) AS lng_deg\n  FROM pts\n),\ncircle AS (\n  SELECT ST_GeomFromText(\n    'POLYGON((' || string_agg(round(lng_deg, 5) || ' ' || round(lat_deg, 5), ',' ORDER BY deg) || '))'\n  ) AS geom\n  FROM ring\n  HAVING count(*) > 0\n)\nSELECT\n  latitude,\n  longitude,\n  mag\nFROM $quakes, circle\nWHERE ST_Contains(circle.geom, ST_Point(longitude, latitude))\n  AND time\n    BETWEEN COALESCE(try_cast($quakeFrom AS TIMESTAMP), '-infinity'::TIMESTAMP)\n        AND COALESCE(try_cast($quakeTo   AS TIMESTAMP), 'infinity'::TIMESTAMP)"
+        }
+      ],
+      "title": "Global seismicity — the last 30 days",
+      "type": "ubica-keplergl-panel"
+    },
+    {
+      "datasource": {
+        "type": "ubica-duckdbwasm-datasource",
+        "uid": "duckdbwasm"
+      },
+      "description": "Reads the map's window. Both variables start empty — before the slider has been touched — so each bound falls back to an infinity, and the summary covers everything rather than nothing.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": 0
+              }
+            ]
+          }
+        }
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 16,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "13.2.0",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "ubica-duckdbwasm-datasource",
+            "uid": "duckdbwasm"
+          },
+          "rawSql": "SELECT\n  count(*)                 AS \"Sismos\",\n  round(max(mag), 1)       AS \"Magnitud máxima\",\n  round(avg(depth), 1) AS \"Profundidad media (km)\"\nFROM $quakes\nWHERE time\n  BETWEEN COALESCE(try_cast($quakeFrom AS TIMESTAMP), '-infinity'::TIMESTAMP)\n      AND COALESCE(try_cast($quakeTo   AS TIMESTAMP), 'infinity'::TIMESTAMP)\n  AND ($quakeArea = '' OR ST_Contains(ST_GeomFromText($quakeArea), ST_Point(longitude, latitude)))"
+        }
+      ],
+      "title": "Inside the map's window",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "ubica-duckdbwasm-datasource",
+        "uid": "duckdbwasm"
+      },
+      "description": "The ten strongest events inside the map's window. Scrub the slider and this list follows. Clicking a row writes the quake's coordinates to $​lat/$​lng: the map centres there (the Center mapping) and the coverage circle and heatmap recompute around it.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "footer": {
+              "reducers": []
+            },
+            "inspect": false
+          },
+          "links": [
+            {
+              "title": "Centrar el mapa en este sismo",
+              "url": "/d/earthquakes?${__url_time_range}&var-quakeFrom=${quakeFrom:percentencode}&var-quakeTo=${quakeTo:percentencode}&var-quakeArea=${quakeArea:percentencode}&var-radio=${radio:percentencode}&var-lat=${__data.fields.latitude}&var-lng=${__data.fields.longitude}"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "latitude"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom.viz",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "longitude"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom.viz",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Lugar",
+              "scope": "series"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 206
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Fecha",
+              "scope": "series"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 108
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Mag",
+              "scope": "series"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 50
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 5
+      },
+      "id": 3,
+      "options": {
+        "cellHeight": "sm",
+        "showHeader": true
+      },
+      "pluginVersion": "13.2.0",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "ubica-duckdbwasm-datasource",
+            "uid": "duckdbwasm"
+          },
+          "rawSql": "SELECT\n  strftime(time, '%d %b %H:%M') AS \"Fecha\",\n  place                                            AS \"Lugar\",\n  mag                                              AS \"Mag\",\n  latitude,\n  longitude\nFROM $quakes\nWHERE time\n  BETWEEN COALESCE(try_cast($quakeFrom AS TIMESTAMP), '-infinity'::TIMESTAMP)\n      AND COALESCE(try_cast($quakeTo   AS TIMESTAMP), 'infinity'::TIMESTAMP)\n  AND ($quakeArea = '' OR ST_Contains(ST_GeomFromText($quakeArea), ST_Point(longitude, latitude)))\nORDER BY mag DESC\nLIMIT 10"
+        }
+      ],
+      "title": "The strongest in the window",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "ubica-duckdbwasm-datasource",
+        "uid": "duckdbwasm"
+      },
+      "description": "Deliberately unfiltered: this is the context the slider moves through, so it must show the whole month whatever the window is.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "bars",
+            "fillOpacity": 60,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Magnitud máxima"
+            },
+            "properties": [
+              {
+                "id": "custom.drawStyle",
+                "value": "line"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 2
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "displayName",
+                "value": "Max magnitude"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 13
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "13.2.0",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "ubica-duckdbwasm-datasource",
+            "uid": "duckdbwasm"
+          },
+          "rawSql": "SELECT\n  date_trunc('day', time) AS time,\n  count(*)           AS \"Sismos\",\n  round(max(mag), 1) AS \"Magnitud máxima\"\nFROM $quakes\nGROUP BY 1\nORDER BY 1"
+        }
+      ],
+      "title": "Quakes per day — the whole month",
+      "type": "timeseries"
+    }
+  ],
+  "preload": false,
+  "refresh": "",
+  "schemaVersion": 42,
+  "tags": [
+    "kepler",
+    "sources",
+    "terremotos"
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "quakes",
+        "type": "query",
+        "hide": 2,
+        "skipUrlSync": true,
+        "refresh": 1,
+        "datasource": {
+          "type": "ubica-duckdbwasm-datasource",
+          "uid": "duckdbwasm"
+        },
+        "query": {
+          "refId": "quakes",
+          "kind": "dataset",
+          "name": "quakes",
+          "source": {
+            "type": "sql",
+            "sql": "SELECT CAST(time AS TIMESTAMP) AS time, latitude, longitude, depth, mag, place FROM read_csv_auto('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_month.csv')"
+          }
+        },
+        "current": {},
+        "options": []
+      },
+      {
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "hide": 3,
+        "label": "From (map)",
+        "name": "quakeFrom",
+        "query": "",
+        "skipUrlSync": false,
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "hide": 3,
+        "label": "To (map)",
+        "name": "quakeTo",
+        "query": "",
+        "skipUrlSync": false,
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "hide": 2,
+        "label": "Area (map)",
+        "name": "quakeArea",
+        "query": "",
+        "skipUrlSync": false,
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "text": "-0.9",
+          "value": "-0.9"
+        },
+        "hide": 2,
+        "label": "Lat (click)",
+        "name": "lat",
+        "query": "-0.9",
+        "skipUrlSync": false,
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "text": "-79.5",
+          "value": "-79.5"
+        },
+        "hide": 2,
+        "label": "Lng (click)",
+        "name": "lng",
+        "query": "-79.5",
+        "skipUrlSync": false,
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "text": "500",
+          "value": "500"
+        },
+        "hide": 0,
+        "label": "Radius (km)",
+        "name": "radio",
+        "query": "500",
+        "skipUrlSync": false,
+        "type": "textbox"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "5s",
+      "10s",
+      "30s",
+      "1m",
+      "5m",
+      "15m",
+      "30m",
+      "1h",
+      "2h",
+      "1d"
+    ]
+  },
+  "timezone": "browser",
+  "title": "Earthquakes — spatio-temporal · bench (local)",
+  "uid": "earthquakes-local"
+}

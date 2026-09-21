@@ -1,12 +1,12 @@
 // Registers the datasource and uploads the bench dashboards into a Grafana that
 // already has the plugin mounted. The bench images run anonymous Admin with
 // basic auth off, so no credentials are needed; pass --auth user:pass otherwise.
-//   node bench/setup-bench.mjs --url http://localhost:3002 --with-gtfs
+//   node bench/setup-bench.mjs --url http://localhost:3002 --with-gtfs --with-earthquakes
 import { readFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
 
 const { values: opt } = parseArgs({
-  options: { url: { type: 'string' }, auth: { type: 'string' }, 'with-gtfs': { type: 'boolean' } },
+  options: { url: { type: 'string' }, auth: { type: 'string' }, 'with-gtfs': { type: 'boolean' }, 'with-earthquakes': { type: 'boolean' } },
 });
 const base = opt.url.replace(/\/$/, '');
 const headers = {
@@ -42,6 +42,9 @@ if (existing.status === 404) {
 const files = [
   'provisioning/dashboards/bench-1m.json',
   ...(opt['with-gtfs'] ? ['bench/dashboards/gtfs-rt-mbta-local.json'] : []),
+  ...(opt['with-earthquakes']
+    ? ['bench/dashboards/earthquakes-local.json', 'bench/dashboards/earthquakes-server.json']
+    : []),
 ];
 for (const file of files) {
   const dashboard = JSON.parse(await readFile(file, 'utf8'));
