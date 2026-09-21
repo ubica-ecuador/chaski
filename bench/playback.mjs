@@ -167,10 +167,12 @@ try {
   const play = page.locator(PLAY).first();
   await play.waitFor({ state: 'visible', timeout: 120_000 });
   await page.waitForTimeout(5_000); // the first answers land before the clock starts
-  const answersBefore = opt.server
-    ? serverAnswers.length
-    : await page.evaluate(() => window.__duckdbwasm.stats.queries.length);
+  const answersBefore = opt.server ? serverAnswers.length : undefined;
 
+  // Local answers are picked by timestamp, not by slicing stats.queries from this count: that
+  // ring buffer caps at 500 entries (src/engine/stats.ts) and shifts past the limit, so an index
+  // offset can silently point at the wrong entries once a run has pushed more than that many.
+  const recordingStart = Date.now();
   await page.evaluate(() => (window.__bench.recording = true));
   await play.click();
   await page.locator(`${PLAY}.active`).first().waitFor({ state: 'visible', timeout: 5_000 });
@@ -186,7 +188,7 @@ try {
     answers = serverAnswers.slice(answersBefore);
   } else {
     const stats = await page.evaluate(() => JSON.parse(JSON.stringify(window.__duckdbwasm.stats)));
-    answers = stats.queries.slice(answersBefore).map((q, i) => ({ at: q.at, key: i, ok: q.ok }));
+    answers = stats.queries.filter((q) => q.at >= recordingStart).map((q, i) => ({ at: q.at, key: i, ok: q.ok }));
     report.activity = stats.activity.filter((a) => a.at >= bench.publishes[0]);
     report.answersPerPublish = answersPerPublish(bench.publishes, answers, end);
   }
