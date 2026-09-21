@@ -11,6 +11,12 @@ dashboard opens, or on every time-range change if its refresh says so. Panels re
 
     SELECT route, count(*) FROM $vehicles WHERE mode IN ($mode) GROUP BY 1
 
+A dataset set to reload on time-range change **keeps its table when the new range fits inside the one
+it loaded** and nothing else in its source changed. Zooming in on a chart, or moving from "Last 7 days"
+to "Last 24 hours", is answered in the browser. Two ranges that both end at `now` count as ending
+together, so after such a switch the data runs to the last load, not to this second. Refreshing (the
+button, or auto-refresh) always reloads, and so does a range that reaches outside what was loaded.
+
 Rows come from:
 
 - **another datasource**, for example the server DuckDB, Postgres or Infinity. Its query runs on the

@@ -1,9 +1,11 @@
 /** @jest-environment jsdom */
-import type { DataSourceInstanceSettings } from '@grafana/data';
+import { type DataQueryRequest, type DataQueryResponse, type DataSourceInstanceSettings, dateTime } from '@grafana/data';
+import type { DataQuery } from '@grafana/schema';
 import { lastValueFrom } from 'rxjs';
 
 import { DataSource } from './datasource';
 import { DatasetRegistry } from './engine/registry';
+import { stats } from './engine/stats';
 import { createNodeRunner } from './engine/testing/nodeRunner';
 import type { SqlRunner } from './engine/types';
 import { setEngineForTests } from './grafana/engine';
@@ -11,10 +13,11 @@ import { fakeTemplateSrv, makeRequest } from './grafana/testing/fakes';
 import type { DuckOptions, DuckQuery, DuckVariableQuery } from './types';
 
 const mockTemplateSrv = { current: fakeTemplateSrv({}) };
+const mockSourceQuery = jest.fn((..._args: unknown[]): unknown => ({ data: [] }));
 
 jest.mock('@grafana/runtime', () => ({
   getTemplateSrv: () => mockTemplateSrv.current,
-  getDataSourceSrv: () => ({ get: async () => ({ name: 'unused', query: () => ({ data: [] }) }) }),
+  getDataSourceSrv: () => ({ get: async () => ({ name: 'upstream', query: (...args: unknown[]) => mockSourceQuery(...args) }) }),
   locationService: { getLocation: () => ({ pathname: '/d/dash1/test' }) },
 }));
 // The real editor pulls in @grafana/ui, which needs a DOM.
@@ -166,5 +169,98 @@ describe('ad hoc filter options', () => {
     await expect(
       ds.runVariableQuery(makeRequest<DuckVariableQuery>([{ refId: 'v', kind: 'values', sql: 'SELECT * FROM nope' }]))
     ).rejects.toThrow('Is a dataset variable missing');
+  });
+});
+
+describe('range reuse', () => {
+  const HOUR = 3_600_000;
+  const FROM = Date.UTC(2026, 8, 18);
+  const TO = Date.UTC(2026, 8, 19);
+  const HOURS = "SELECT * FROM (SELECT TIMESTAMP '2026-09-18' + to_hours(range) AS t FROM range(24)) WHERE $__timeFilter(t)";
+
+  const absolute = (from: number, to: number): Partial<DataQueryRequest<DuckVariableQuery>> => {
+    const f = dateTime(from);
+    const t = dateTime(to);
+    return { range: { from: f, to: t, raw: { from: f, to: t } } };
+  };
+  const relative = (from: number, to: number, rawFrom: string): Partial<DataQueryRequest<DuckVariableQuery>> => ({
+    range: { from: dateTime(from), to: dateTime(to), raw: { from: rawFrom, to: 'now' } },
+  });
+  const sqlDataset = (sql: string, extra: Partial<DataQueryRequest<DuckVariableQuery>>) =>
+    makeRequest<DuckVariableQuery>([{ refId: 'h', kind: 'dataset', name: 'hours', source: { type: 'sql', sql } }], extra);
+  const tableOf = (response: DataQueryResponse) =>
+    response.data[0].fields.find((f: { name: string }) => f.name === 'value').values[0] as string;
+
+  beforeEach(() => {
+    stats.reuses.length = 0;
+    mockSourceQuery.mockReset();
+    mockSourceQuery.mockImplementation(() => ({ data: [] }));
+  });
+
+  it('keeps the loaded table on a zoom-in', async () => {
+    const first = tableOf(await ds.runVariableQuery(sqlDataset(HOURS, absolute(FROM, TO))));
+    const second = tableOf(await ds.runVariableQuery(sqlDataset(HOURS, absolute(FROM + 6 * HOUR, FROM + 12 * HOUR))));
+    expect(second).toBe(first);
+    expect(stats.reuses.map((r) => r.name)).toEqual(['hours']);
+  });
+
+  it('reloads on a zoom-out', async () => {
+    const first = tableOf(await ds.runVariableQuery(sqlDataset(HOURS, absolute(FROM + 6 * HOUR, FROM + 12 * HOUR))));
+    const second = tableOf(await ds.runVariableQuery(sqlDataset(HOURS, absolute(FROM, TO))));
+    expect(second).not.toBe(first);
+    expect(stats.reuses).toEqual([]);
+  });
+
+  it('reloads on a refresh, which keeps the raw range', async () => {
+    const first = tableOf(await ds.runVariableQuery(sqlDataset(HOURS, relative(FROM, TO, 'now-1d'))));
+    const second = tableOf(await ds.runVariableQuery(sqlDataset(HOURS, relative(FROM + 60_000, TO + 60_000, 'now-1d'))));
+    expect(second).not.toBe(first);
+  });
+
+  it('keeps the table across presets that both end at now', async () => {
+    const first = tableOf(await ds.runVariableQuery(sqlDataset(HOURS, relative(FROM, TO, 'now-1d'))));
+    const later = TO + 60_000;
+    const second = tableOf(await ds.runVariableQuery(sqlDataset(HOURS, relative(later - 6 * HOUR, later, 'now-6h'))));
+    expect(second).toBe(first);
+  });
+
+  it('reloads when another variable in the source changed', async () => {
+    const sql = `${HOURS} AND hour(t) >= $minHour`;
+    mockTemplateSrv.current = fakeTemplateSrv({ minHour: '0' });
+    const first = tableOf(await ds.runVariableQuery(sqlDataset(sql, absolute(FROM, TO))));
+    mockTemplateSrv.current = fakeTemplateSrv({ minHour: '6' });
+    const second = tableOf(await ds.runVariableQuery(sqlDataset(sql, absolute(FROM + HOUR, FROM + 2 * HOUR))));
+    expect(second).not.toBe(first);
+  });
+
+  it('reloads after the dashboard was left and opened again', async () => {
+    const first = tableOf(await ds.runVariableQuery(sqlDataset(HOURS, absolute(FROM, TO))));
+    await registry.activate('elsewhere');
+    const second = tableOf(await ds.runVariableQuery(sqlDataset(HOURS, absolute(FROM + HOUR, FROM + 2 * HOUR))));
+    expect(second).not.toBe(first);
+  });
+
+  it('keeps a table from another datasource whose query reads __from, when only the range moved', async () => {
+    mockSourceQuery.mockImplementation(() => ({ data: [{ fields: [{ name: 'n', values: [1, 2] }] }] }));
+    const remote = (extra: Partial<DataQueryRequest<DuckVariableQuery>>) =>
+      makeRequest<DuckVariableQuery>(
+        [
+          {
+            refId: 'r',
+            kind: 'dataset',
+            name: 'remote',
+            source: {
+              type: 'datasource',
+              datasource: { uid: 'up', type: 'upstream' },
+              query: { refId: 'q', expr: 'since ${__from} until ${__to}' } as DataQuery,
+            },
+          },
+        ],
+        extra
+      );
+    const first = tableOf(await ds.runVariableQuery(remote(absolute(FROM, TO))));
+    const second = tableOf(await ds.runVariableQuery(remote(absolute(FROM + HOUR, FROM + 2 * HOUR))));
+    expect(second).toBe(first);
+    expect(mockSourceQuery).toHaveBeenCalledTimes(1);
   });
 });

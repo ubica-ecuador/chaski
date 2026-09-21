@@ -17,11 +17,13 @@ import { Observable } from 'rxjs';
 
 import { explainError } from './engine/errors';
 import { describe as describeColumns, runPanelQuery } from './engine/executor';
+import { decideDatasetLoad, type LoadWindow } from './engine/rangeReuse';
 import { quoteIdent } from './engine/sql';
-import { recordKey, recordLoad, recordQuery } from './engine/stats';
+import { recordKey, recordLoad, recordQuery, recordReuse } from './engine/stats';
 import type { AdHocFilter, DatasetLoader } from './engine/types';
 import { arrowToDataFrame } from './grafana/arrowToFrame';
 import { dashboardKey } from './grafana/dashboardKey';
+import { rangeOf, scopedTimeOf, windowOf } from './grafana/datasetWindow';
 import { type Engine, getEngine } from './grafana/engine';
 import { loadFromDatasource } from './grafana/externalSource';
 import { interpolateSql } from './grafana/interpolate';
@@ -118,26 +120,46 @@ export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
       if (!name) {
         throw new Error('A dataset variable needs a name');
       }
-      let loader: DatasetLoader;
-      let signature: string;
-      if (query.source.type === 'sql') {
-        const sql = this.interpolate(engine, query.source.sql, request);
-        loader = { kind: 'sql', sql };
-        signature = sql;
-      } else {
-        const datasetSource = query.source;
-        loader = { kind: 'arrow', fetch: () => loadFromDatasource(datasetSource, request as DataQueryRequest<DataQuery>) };
-        // The source query is interpolated by its own datasource; interpolating
-        // its JSON here only tells loads for different variable values apart.
-        signature = JSON.stringify([
-          getTemplateSrv().replace(JSON.stringify(datasetSource), request.scopedVars),
-          request.range.from.valueOf(),
-          request.range.to.valueOf(),
-        ]);
+      const source = query.source;
+      const window = windowOf(request.range);
+      // The source as it reads with its range pinned to `at`. Two windows giving
+      // the same text mean only the range moved (see decideDatasetLoad).
+      const signatureAt = (at: LoadWindow): string =>
+        source.type === 'sql'
+          ? this.interpolate(engine, source.sql, { ...request, range: rangeOf(at) })
+          : JSON.stringify([
+              getTemplateSrv().replace(JSON.stringify(source), { ...request.scopedVars, ...scopedTimeOf(at) }),
+              at.from,
+              at.to,
+            ]);
+
+      const loaded = engine.registry.loadedWindow(key, name);
+      let signatureAtLoadedWindow: string | undefined;
+      try {
+        signatureAtLoadedWindow = loaded ? signatureAt(loaded.window) : undefined;
+      } catch {
+        signatureAtLoadedWindow = undefined;
       }
+      const decision = decideDatasetLoad(loaded, {
+        window,
+        signatureAtLoadedWindow,
+        visit: engine.registry.visitOf(key),
+        loading: engine.registry.isLoading(key, name),
+      });
+      const current = engine.registry.get(key, name);
+      if (decision === 'reuse' && current) {
+        recordReuse({ name, at: Date.now() });
+        return { data: [textValueFrame([current.table], [current.table])] };
+      }
+
+      const signature = signatureAt(window);
+      const loader: DatasetLoader =
+        source.type === 'sql'
+          ? { kind: 'sql', sql: signature }
+          : { kind: 'arrow', fetch: () => loadFromDatasource(source, request as DataQueryRequest<DataQuery>) };
       const started = performance.now();
       try {
-        const state = await engine.registry.load(key, name, loader, signature);
+        const state = await engine.registry.load(key, name, loader, signature, window);
         recordLoad({ name, ms: performance.now() - started, rows: state.rows, ok: !state.stale, at: Date.now() });
         // An orphaned load from before a dashboard switch can resolve with a
         // table the registry already dropped; the live entry is the one

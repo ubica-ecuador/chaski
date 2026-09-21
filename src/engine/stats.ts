@@ -26,16 +26,22 @@ export interface KeyStat {
   key: string;
 }
 
+export interface ReuseStat {
+  name: string;
+  at: number;
+}
+
 export interface EngineStats {
   engineStartMs?: number;
   loads: LoadStat[];
   queries: QueryStat[];
   keys: KeyStat[];
+  reuses: ReuseStat[];
 }
 
 const LIMIT = 500;
 
-export const stats: EngineStats = { loads: [], queries: [], keys: [] };
+export const stats: EngineStats = { loads: [], queries: [], keys: [], reuses: [] };
 
 function push<T>(list: T[], entry: T): void {
   list.push(entry);
@@ -47,3 +53,4 @@ function push<T>(list: T[], entry: T): void {
 export const recordLoad = (entry: LoadStat) => push(stats.loads, entry);
 export const recordQuery = (entry: QueryStat) => push(stats.queries, entry);
 export const recordKey = (entry: KeyStat) => push(stats.keys, entry);
+export const recordReuse = (entry: ReuseStat) => push(stats.reuses, entry);
