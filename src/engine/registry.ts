@@ -1,3 +1,4 @@
+import type { LoadedWindow, LoadWindow } from './rangeReuse';
 import { quoteIdent, sanitizeName, shortHash, stripTrailingSemicolons } from './sql';
 import type { DatasetLoader, DatasetState, SqlRunner } from './types';
 
@@ -38,6 +39,8 @@ export class DatasetRegistry {
   private readonly lru: string[] = [];
   /** Monotonic across all dashboards and datasets, so table names never collide across a reactivation. */
   private nextVersion = 0;
+  /** How many times each dashboard has become the active one: a new visit starts every time. */
+  private readonly visits = new Map<string, number>();
 
   constructor(
     private readonly runner: SqlRunner,
@@ -54,6 +57,7 @@ export class DatasetRegistry {
     if (index === 0) {
       return;
     }
+    this.visits.set(dashboard, this.visitOf(dashboard) + 1);
     if (index !== -1) {
       this.lru.splice(index, 1);
     }
@@ -72,16 +76,25 @@ export class DatasetRegistry {
     }
   }
 
-  load(dashboard: string, name: string, loader: DatasetLoader, signature: string): Promise<DatasetState> {
+  load(
+    dashboard: string,
+    name: string,
+    loader: DatasetLoader,
+    signature: string,
+    window?: LoadWindow
+  ): Promise<DatasetState> {
     const key = keyOf(dashboard, name);
     const entry = this.entry(key, dashboard);
     if (entry.inflight && entry.inflight.signature === signature) {
       return entry.inflight.promise;
     }
     const version = ++this.nextVersion;
+    const visit = this.visitOf(dashboard);
     const table = `d${shortHash(dashboard)}_${sanitizeName(name)}_v${version}`;
     const promise: Promise<DatasetState> = this.materialize(table, loader)
-      .then((rows) => this.adopt(key, entry, { dashboard, name, table, version, loadedAt: this.now(), rows }))
+      .then((rows) =>
+        this.adopt(key, entry, { dashboard, name, table, version, loadedAt: this.now(), rows, signature, window, visit })
+      )
       .catch((error: unknown) => this.fail(key, entry, version, table, error))
       .finally(() => {
         if (entry.inflight?.promise === promise) {
@@ -90,6 +103,25 @@ export class DatasetRegistry {
       });
     entry.inflight = { signature, promise };
     return promise;
+  }
+
+  /** The current visit to `dashboard`, bumped each time it becomes the active dashboard; 0 if never. */
+  visitOf(dashboard: string): number {
+    return this.visits.get(dashboard) ?? 0;
+  }
+
+  /** Whether a load of this dataset is in flight. */
+  isLoading(dashboard: string, name: string): boolean {
+    return this.entries.get(keyOf(dashboard, name))?.inflight !== undefined;
+  }
+
+  /** What decideDatasetLoad needs about the table a dataset points at, if it was loaded with a window. */
+  loadedWindow(dashboard: string, name: string): LoadedWindow | undefined {
+    const state = this.get(dashboard, name);
+    if (!state?.window || state.signature === undefined || state.visit === undefined) {
+      return undefined;
+    }
+    return { window: state.window, signature: state.signature, visit: state.visit, stale: state.stale !== undefined };
   }
 
   get(dashboard: string, name: string): DatasetState | undefined {

@@ -41,6 +41,8 @@ describe('DatasetRegistry', () => {
       version: 1,
       loadedAt: 1_000,
       rows: 3,
+      signature: 'a',
+      visit: 0,
     });
     expect(registry.get('dash', 'vehicles')).toEqual(state);
     expect(await exists(runner, state.table)).toBe(true);
@@ -211,5 +213,46 @@ describe('DatasetRegistry', () => {
     expect(state).toEqual(b);
     expect(state?.stale).toBeUndefined();
     expect(await exists(runner, `d${shortHash('dash')}_v_v1`)).toBe(false);
+  });
+
+  it('remembers the signature, window and visit a table was loaded with', async () => {
+    await registry.activate('dash');
+    const window = { from: 1, to: 2, rawFrom: 'now-1h', rawTo: 'now' };
+    const state = await registry.load('dash', 'v', sqlLoader(1), 'sig', window);
+    expect(state).toMatchObject({ signature: 'sig', window, visit: 1 });
+    expect(registry.loadedWindow('dash', 'v')).toEqual({ window, signature: 'sig', visit: 1, stale: false });
+  });
+
+  it('has no loaded window for a dataset loaded without one', async () => {
+    await registry.load('dash', 'v', sqlLoader(1), 'sig');
+    expect(registry.loadedWindow('dash', 'v')).toBeUndefined();
+    expect(registry.loadedWindow('dash', 'nope')).toBeUndefined();
+  });
+
+  it('marks the loaded window stale after a failed reload', async () => {
+    const window = { from: 1, to: 2, rawFrom: 1, rawTo: 2 };
+    await registry.load('dash', 'v', sqlLoader(1), 'sig', window);
+    await registry.load('dash', 'v', { kind: 'sql', sql: 'SELECT * FROM nowhere' }, 'sig2', window);
+    expect(registry.loadedWindow('dash', 'v')).toMatchObject({ signature: 'sig', stale: true });
+  });
+
+  it('starts a new visit each time a dashboard becomes the active one', async () => {
+    await registry.activate('a');
+    expect(registry.visitOf('a')).toBe(1);
+    await registry.activate('a');
+    expect(registry.visitOf('a')).toBe(1);
+    await registry.activate('b');
+    await registry.activate('a');
+    expect(registry.visitOf('a')).toBe(2);
+    expect(registry.visitOf('never')).toBe(0);
+  });
+
+  it('says whether a load is in flight', async () => {
+    const gate = deferred<Table>();
+    const pending = registry.load('dash', 'v', { kind: 'arrow', fetch: () => gate.promise }, 's');
+    expect(registry.isLoading('dash', 'v')).toBe(true);
+    gate.resolve(arrowOf([1]));
+    await pending;
+    expect(registry.isLoading('dash', 'v')).toBe(false);
   });
 });

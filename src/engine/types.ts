@@ -1,5 +1,7 @@
 import type { Table } from 'apache-arrow';
 
+import type { LoadWindow } from './rangeReuse';
+
 /** What the engine needs from a DuckDB: the browser build in production, the Node build in tests. */
 export interface SqlRunner {
   /** Runs one statement and returns its rows as Arrow. Aborting cancels the statement. */
@@ -38,4 +40,10 @@ export interface DatasetState {
   rows: number;
   /** Set when the latest reload failed and `table` is still the previous version. */
   stale?: { error: string; failedAt: number };
+  /** The source's signature this table was loaded with (see decideDatasetLoad). */
+  signature?: string;
+  /** The time window this table was loaded for, when the request carried one. */
+  window?: LoadWindow;
+  /** The dashboard visit it was loaded in (DatasetRegistry.visitOf). */
+  visit?: number;
 }
