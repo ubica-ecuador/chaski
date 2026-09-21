@@ -57,3 +57,46 @@ test('summarize puts it together', () => {
     longTaskMs: 70,
   });
 });
+
+test('landing() boundaries: answer exactly at publish time does not count', () => {
+  assert.equal(landing([100], [{ at: 100, key: 1, ok: true }], 1, 500)[0].landed, false);
+});
+
+test('landing() boundaries: answer exactly at next publish counts for earlier publish only', () => {
+  const result = landing([100, 200], [{ at: 200, key: 1, ok: true }], 1, 500);
+  assert.equal(result[0].landed, true);
+  assert.equal(result[0].latencyMs, 100);
+  assert.equal(result[1].landed, false);
+});
+
+test('landing() boundaries: last publish measured up to and including end', () => {
+  const resultAtEnd = landing([100], [{ at: 500, key: 1, ok: true }], 1, 500);
+  assert.equal(resultAtEnd[0].landed, true);
+  assert.equal(resultAtEnd[0].latencyMs, 400);
+
+  const resultAfterEnd = landing([100], [{ at: 501, key: 1, ok: true }], 1, 500);
+  assert.equal(resultAfterEnd[0].landed, false);
+});
+
+test('summarize with empty input', () => {
+  const summary = summarize({
+    publishes: [],
+    answers: [],
+    expected: 1,
+    end: 0,
+    frameTimes: [],
+    longTasks: [],
+  });
+  assert.deepEqual(summary, {
+    publishes: 0,
+    landed: 0,
+    landingRatio: null,
+    latencyP50Ms: null,
+    latencyP95Ms: null,
+    frames: 0,
+    dropped: 0,
+    droppedPct: 0,
+    p95FrameMs: null,
+    longTaskMs: 0,
+  });
+});
