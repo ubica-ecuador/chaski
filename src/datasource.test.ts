@@ -110,6 +110,13 @@ describe('DataSource', () => {
     expect(response.data).toEqual([]);
   });
 
+  it('records the panel id of each answer, for the playback bench to break latency down per panel', async () => {
+    stats.queries.length = 0;
+    await ds.runPanelQueries(makeRequest<DuckQuery>([{ refId: 'A', rawSql: 'SELECT 1 AS one' }], { panelId: 7 }));
+    await ds.runPanelQueries(makeRequest<DuckQuery>([{ refId: 'B', rawSql: 'SELECT 1 AS one' }]));
+    expect(stats.queries.map((q) => q.panelId)).toEqual([7, undefined]);
+  });
+
   it('answers a values variable with text and value', async () => {
     const table = await loadDataset('cities', CITIES);
     mockTemplateSrv.current = fakeTemplateSrv({ cities: table });

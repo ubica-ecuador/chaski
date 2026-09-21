@@ -94,10 +94,17 @@ export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
           notices: staleNotices(engine.registry.list(key), result.executed, Date.now()),
           stats: [{ displayName: 'Engine time', value: Math.round(result.ms), unit: 'ms' }],
         };
-        recordQuery({ refId: target.refId, ms: result.ms, rows: result.table.numRows, ok: true, at: Date.now() });
+        recordQuery({
+          refId: target.refId,
+          ms: result.ms,
+          rows: result.table.numRows,
+          ok: true,
+          at: Date.now(),
+          panelId: request.panelId,
+        });
         data.push(frame);
       } catch (error) {
-        recordQuery({ refId: target.refId, ms: 0, rows: 0, ok: false, at: Date.now() });
+        recordQuery({ refId: target.refId, ms: 0, rows: 0, ok: false, at: Date.now(), panelId: request.panelId });
         errors.push({ refId: target.refId, message: explainError(error, this.memoryLimitMB).message });
       }
     }

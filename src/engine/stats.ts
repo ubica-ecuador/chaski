@@ -18,6 +18,8 @@ export interface QueryStat {
   /** False when the panel's query failed: the harness still counts it as answered. */
   ok: boolean;
   at: number;
+  /** The panel this query answered for, when Grafana sent one on the request. */
+  panelId?: number;
 }
 
 export interface KeyStat {
