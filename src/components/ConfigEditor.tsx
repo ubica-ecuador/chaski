@@ -22,11 +22,43 @@ export function headerCount(jsonData: DuckOptions): number {
   return n;
 }
 
+/**
+ * The first row before the last whose name is empty (trimmed). Grafana's data
+ * proxy reads httpHeaderName1, 2, … and stops at the first empty name, so that
+ * row and every one after it go unsent. The last row is exempt: a freshly
+ * added row starts out empty and is just incomplete, not broken yet.
+ */
+function firstEmptyHeaderName(jsonData: DuckOptions, headers: number): number | undefined {
+  for (let n = 1; n < headers; n++) {
+    if ((jsonData[nameKey(n)] ?? '').trim() === '') {
+      return n;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * `Field` clones its `invalid`/`disabled`/`loading` props onto its single
+ * child, and `Stack` forwards unrecognized props straight to its underlying
+ * DOM element. Since `Field`'s child here is a `Stack` of header rows rather
+ * than a form control that knows what to do with `invalid`, this wrapper
+ * only takes `children` and quietly drops the rest, so React never sees them
+ * land on the DOM.
+ */
+function HeaderRows({ children }: { children: React.ReactNode }) {
+  return (
+    <Stack direction="column" gap={1}>
+      {children}
+    </Stack>
+  );
+}
+
 export function ConfigEditor({ options, onOptionsChange }: Props) {
   const { jsonData } = options;
   const secureJsonData: DuckSecureOptions = options.secureJsonData ?? {};
   const secureJsonFields = options.secureJsonFields ?? {};
   const headers = headerCount(jsonData);
+  const emptyHeaderName = firstEmptyHeaderName(jsonData, headers);
 
   const setJsonData = (patch: Partial<DuckOptions>) =>
     onOptionsChange({ ...options, jsonData: { ...jsonData, ...patch } });
@@ -113,8 +145,14 @@ export function ConfigEditor({ options, onOptionsChange }: Props) {
         <Field
           label="Headers"
           description="Sent with every request, such as Authorization: Bearer … or X-API-Key. Values are stored encrypted."
+          invalid={emptyHeaderName !== undefined || undefined}
+          error={
+            emptyHeaderName !== undefined
+              ? `Header ${emptyHeaderName} has no name, so Grafana ignores it and every header after it. Name it, or remove the rows after it.`
+              : undefined
+          }
         >
-          <Stack direction="column" gap={1}>
+          <HeaderRows>
             {Array.from({ length: headers }, (_, i) => i + 1).map((n) => (
               <Stack key={n} gap={1} alignItems="center">
                 <Input
@@ -149,7 +187,7 @@ export function ConfigEditor({ options, onOptionsChange }: Props) {
                 Add header
               </Button>
             </div>
-          </Stack>
+          </HeaderRows>
         </Field>
 
         <Field

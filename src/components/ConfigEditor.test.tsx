@@ -92,6 +92,27 @@ describe('ConfigEditor', () => {
     expect(options.secureJsonFields.httpHeaderValue1).toBe(true);
   });
 
+  it('warns when a header before the last has no name, since Grafana stops reading there', () => {
+    const spy = jest.fn();
+    const initial = {
+      ...base,
+      jsonData: { ...base.jsonData, httpHeaderName1: '', httpHeaderName2: 'X-Team' },
+    } as Settings;
+    render(<Harness initial={initial} spy={spy} />);
+    expect(
+      screen.getByText(
+        'Header 1 has no name, so Grafana ignores it and every header after it. Name it, or remove the rows after it.'
+      )
+    ).toBeInTheDocument();
+  });
+
+  it('does not warn about a freshly added, still unnamed last header', () => {
+    const spy = jest.fn();
+    render(<Harness initial={base} spy={spy} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Add header' }));
+    expect(screen.queryByText(/has no name/)).not.toBeInTheDocument();
+  });
+
   it('stores the API key parameter in jsonData and the key encrypted', () => {
     const spy = jest.fn();
     render(<Harness initial={base} spy={spy} />);
