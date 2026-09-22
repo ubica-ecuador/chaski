@@ -4,6 +4,14 @@
   "name": "DuckDB WASM",
   "id": "ubica-duckdbwasm-datasource",
   "metrics": true,
+  "routes": [
+    { "path": "_plain", "url": "{{ .URL }}" },
+    {
+      "path": "_key",
+      "url": "{{ .URL }}",
+      "urlParams": [{ "name": "{{ .JsonData.proxyKeyParam }}", "content": "{{ .SecureJsonData.proxyKeyValue }}" }]
+    }
+  ],
   "info": {
     "description": "Loads a dashboard's data once into DuckDB running in the browser, and answers every panel query locally.",
     "author": { "name": "UBICA" },
