@@ -11,6 +11,7 @@
 // --changed: panel answers expected after the variable moves (default --panels).
 // Panels that don't use the variable are not re-run. The viewport is 4000 px
 // tall because Grafana only queries panels in view.
+// --zoom/--unzoom from,to (epoch ms): move the time range in place and count dataset loads and reuses.
 import { chromium } from '@playwright/test';
 import { parseArgs } from 'node:util';
 
@@ -28,6 +29,8 @@ const { values: opt } = parseArgs({
     auth: { type: 'string' },
     server: { type: 'boolean' },
     'panel-ids': { type: 'string' },
+    zoom: { type: 'string' },
+    unzoom: { type: 'string' },
   },
 });
 const base = opt.url.replace(/\/$/, '');
@@ -163,6 +166,34 @@ try {
       report.filter.queries = s.queries.slice(before);
       report.filter.loads = s.loads.slice(loadsBefore);
     }
+  }
+
+  // 3b. Range reuse: move the time range in place, then back out past it.
+  for (const step of ['zoom', 'unzoom']) {
+    if (!opt[step] || opt.server) {
+      continue;
+    }
+    const [from, to] = opt[step].split(',');
+    const before = await answered(page);
+    const s0 = await readStats(page);
+    const t0 = Date.now();
+    await page.evaluate(
+      ({ from, to }) => {
+        const url = new URL(window.location.href);
+        url.searchParams.set('from', from);
+        url.searchParams.set('to', to);
+        window.history.pushState({}, '', url);
+        window.dispatchEvent(new PopStateEvent('popstate'));
+      },
+      { from, to }
+    );
+    await waitForAnswers(page, before + panels, 60_000);
+    const s1 = await readStats(page);
+    report[step] = {
+      wallMs: Date.now() - t0,
+      loads: s1.loads.length - s0.loads.length,
+      reuses: s1.reuses.length - s0.reuses.length,
+    };
   }
 
   if (!opt.server) {
