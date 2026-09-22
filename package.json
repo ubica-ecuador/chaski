@@ -72,11 +72,11 @@
   "dependencies": {
     "@duckdb/duckdb-wasm": "1.32.0",
     "@emotion/css": "11.10.6",
-    "@grafana/data": "13.1.0",
-    "@grafana/i18n": "13.1.0",
-    "@grafana/runtime": "13.1.0",
-    "@grafana/schema": "13.1.0",
-    "@grafana/ui": "13.1.0",
+    "@grafana/data": "13.2.2",
+    "@grafana/i18n": "13.2.2",
+    "@grafana/runtime": "13.2.2",
+    "@grafana/schema": "13.2.2",
+    "@grafana/ui": "13.2.2",
     "apache-arrow": "17.0.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0"
