@@ -30,14 +30,15 @@ export class SingleFlight<T> {
     if (signal.aborted) {
       return Promise.reject(abortError(signal));
     }
-    let flight = this.flights.get(key);
-    if (flight) {
-      flight.callers++;
-      onJoin?.();
-    } else {
-      flight = this.start(key, start);
+    const inFlight = this.flights.get(key);
+    if (!inFlight) {
+      return this.follow(key, this.start(key, start), signal);
     }
-    return this.follow(key, flight, signal);
+    inFlight.callers++;
+    // Following first means the caller is counted out if onJoin makes it leave.
+    const following = this.follow(key, inFlight, signal);
+    onJoin?.();
+    return following;
   }
 
   private start(key: string, start: (signal: AbortSignal) => Promise<T>): Flight<T> {
