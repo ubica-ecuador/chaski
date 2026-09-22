@@ -6,6 +6,8 @@ Initial release.
 
 - A dataset that reloads on time-range change keeps its table when the new range fits inside the
   loaded one (a zoom-in, or presets that end at `now`). Refreshing still reloads.
+  Such a dataset must return plain rows for its range, and the panels reading it must filter by time
+  themselves (`$__timeFilter`); a dataset that can't should refresh on dashboard load instead.
 - The datasource announces when it starts and finishes answering queries (`ubica-duckdbwasm-activity`
   on Grafana's app event bus), for panels that pace themselves on it.
 - A panel query that runs again with new variable values reuses the columns it found last time instead

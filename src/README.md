@@ -18,6 +18,15 @@ together when they overlap, so after such a switch the data runs to the last loa
 A range that starts after the last load, such as "Last 1 hour" picked hours later, reloads. Refreshing
 (the button, or auto-refresh) always reloads, and so does a range that reaches outside what was loaded.
 
+After a zoom-in the table still holds the wider range it loaded, so such a dataset comes with two rules:
+
+- its source returns **plain rows for the range**, each with its time: `ORDER BY … LIMIT`, a top-N or
+  totals over the whole range turn wrong once the range narrows;
+- the **panels reading it filter by time themselves**, for example `WHERE $__timeFilter(t)`, or they
+  show rows outside the picked range.
+
+A dataset that can't follow both should load with the dashboard instead (refresh *On dashboard load*).
+
 Rows come from:
 
 - **another datasource**, for example the server DuckDB, Postgres or Infinity. Its query runs on the
@@ -34,6 +43,10 @@ Variables are quoted exactly as the server DuckDB datasource quotes them (`$x` �
 multi-value → `'a','b'`, `${x:raw}` verbatim), and its macros work the same: `$__timeFilter(col)`,
 `$__timeFrom()`, `$__timeTo()`. `$__timeGroup(col, 1h)` becomes a `time_bucket`. Geometry columns
 reach panels as WKB in hex, which the Kepler panel draws.
+
+Identical requests for a panel that are in flight at once share one execution. A query reading the
+clock (`now()`), random numbers or a URL may therefore get the answer of an identical request that
+started moments earlier.
 
 ## Activity
 
