@@ -76,4 +76,45 @@ describe('expandMacros', () => {
       );
     });
   });
+
+  describe('$__proxy', () => {
+    const withProxy = { ...ctx, proxyBase: 'https://g.example/api/datasources/proxy/uid/abc/_plain' };
+
+    it('prefixes the proxy base to a path', () => {
+      expect(expandMacros("read_parquet($__proxy('cuenca/vias.parquet'))", withProxy)).toBe(
+        "read_parquet(('https://g.example/api/datasources/proxy/uid/abc/_plain/' || ('cuenca/vias.parquet')))"
+      );
+    });
+
+    it('takes any string expression, so quoted variable values concatenate', () => {
+      expect(expandMacros("$__proxy('zonas/' || 'norte' || '.parquet')", withProxy)).toBe(
+        "('https://g.example/api/datasources/proxy/uid/abc/_plain/' || ('zonas/' || 'norte' || '.parquet'))"
+      );
+    });
+
+    it('keeps commas and parentheses inside a quoted path in one argument', () => {
+      expect(expandMacros("$__proxy('datos (2024), v2.parquet')", withProxy)).toBe(
+        "('https://g.example/api/datasources/proxy/uid/abc/_plain/' || ('datos (2024), v2.parquet'))"
+      );
+    });
+
+    it('is left alone inside a quoted literal', () => {
+      expect(expandMacros("SELECT '$__proxy(x)'", withProxy)).toBe("SELECT '$__proxy(x)'");
+    });
+
+    it('leaves longer names alone', () => {
+      expect(expandMacros('$__proxyX', withProxy)).toBe('$__proxyX');
+    });
+
+    it('needs exactly one argument', () => {
+      expect(() => expandMacros('$__proxy()', withProxy)).toThrow('$__proxy expects 1 argument, received 0');
+      expect(() => expandMacros("$__proxy('a', 'b')", withProxy)).toThrow('$__proxy expects 1 argument, received 2');
+    });
+
+    it('fails clearly outside a datasource query', () => {
+      expect(() => expandMacros("$__proxy('a.parquet')", ctx)).toThrow(
+        '$__proxy is only available in a DuckDB WASM datasource query'
+      );
+    });
+  });
 });

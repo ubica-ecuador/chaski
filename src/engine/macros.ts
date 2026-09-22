@@ -1,4 +1,4 @@
-import { quotedSpans } from './sql';
+import { quotedSpans, quoteLiteral } from './sql';
 
 /**
  * Grafana's SQL time macros, expanded the way the server DuckDB datasource
@@ -10,12 +10,20 @@ import { quotedSpans } from './sql';
  * `datepart(hour, col)` with an unquoted part, which DuckDB rejects, so here it
  * becomes a time_bucket. $__interval and $__interval_ms are not macros here:
  * Grafana's template service resolves them first, as on the server.
+ *
+ * $__proxy(path) is this plugin's own: the URL of a file read through the
+ * datasource's Grafana data proxy (see src/grafana/proxy.ts).
  */
 export interface MacroContext {
   /** Start of the time range, epoch ms. */
   from: number;
   /** End of the time range, epoch ms. */
   to: number;
+  /**
+   * Absolute URL of the datasource's data proxy, route included (…/_plain or
+   * …/_key), with no trailing slash. Unset outside a datasource query.
+   */
+  proxyBase?: string;
 }
 
 /** Go's time.RFC3339 in UTC: the milliseconds are truncated away. */
@@ -23,7 +31,7 @@ export function rfc3339(ms: number): string {
   return new Date(ms).toISOString().replace(/\.\d{3}Z$/, 'Z');
 }
 
-const ARITY: Record<string, number> = { timeFilter: 1, timeFrom: 0, timeTo: 0, timeGroup: 2 };
+const ARITY: Record<string, number> = { timeFilter: 1, timeFrom: 0, timeTo: 0, timeGroup: 2, proxy: 1 };
 
 const UNITS: Record<string, string> = {
   ms: 'milliseconds',
@@ -57,8 +65,13 @@ function expand(name: string, args: string[], ctx: MacroContext): string {
       return `'${rfc3339(ctx.from)}'`;
     case 'timeTo':
       return `'${rfc3339(ctx.to)}'`;
-    default:
+    case 'timeGroup':
       return `time_bucket(INTERVAL '${toDuckInterval(args[1])}', ${args[0]})`;
+    default:
+      if (!ctx.proxyBase) {
+        throw new Error('$__proxy is only available in a DuckDB WASM datasource query');
+      }
+      return `(${quoteLiteral(`${ctx.proxyBase}/`)} || (${args[0]}))`;
   }
 }
 
@@ -129,7 +142,7 @@ function outsideQuotes(sql: string): boolean[] {
  */
 export function expandMacros(sql: string, ctx: MacroContext): string {
   const outside = outsideQuotes(sql);
-  const pattern = /\$__(timeFilter|timeFrom|timeTo|timeGroup)\b/g;
+  const pattern = /\$__(timeFilter|timeFrom|timeTo|timeGroup|proxy)\b/g;
   let out = '';
   let last = 0;
   let match: RegExpExecArray | null;
