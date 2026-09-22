@@ -1,4 +1,11 @@
-import { KEY_ROUTE, PLAIN_ROUTE, proxyBaseUrl } from './proxy';
+import {
+  explainProxyError,
+  explainProxyStatus,
+  KEY_ROUTE,
+  PLAIN_ROUTE,
+  proxyBaseUrl,
+  proxyUrlIn,
+} from './proxy';
 
 describe('proxyBaseUrl', () => {
   it('resolves the instance URL on the page origin, with the route', () => {
@@ -17,5 +24,74 @@ describe('proxyBaseUrl', () => {
     expect(proxyBaseUrl('/grafana/api/datasources/proxy/uid/abc', PLAIN_ROUTE, 'https://g.example/grafana/')).toBe(
       'https://g.example/grafana/api/datasources/proxy/uid/abc/_plain'
     );
+  });
+});
+
+// The text DuckDB-WASM gave in the spike for a wrong token (the proxy answered 400), a missing file
+// (404) and an instance with no URL (502): the same message every time, with no status in it.
+const WRONG_TOKEN =
+  'IO Error: No files found that match the pattern "http://localhost:3005/api/datasources/proxy/uid/duckdbwasm-bearer-wrong/_plain/sample.parquet"\n\n' +
+  "LINE 1: SELECT count(*)::DOUBLE AS n FROM read_parquet('http://localhost:3005/api/datasources/proxy...\n" +
+  '                                          ^';
+const WRONG_TOKEN_URL = 'http://localhost:3005/api/datasources/proxy/uid/duckdbwasm-bearer-wrong/_plain/sample.parquet';
+
+describe('proxyUrlIn', () => {
+  it('finds the data proxy URL DuckDB could not read', () => {
+    expect(proxyUrlIn(WRONG_TOKEN)).toBe(WRONG_TOKEN_URL);
+  });
+
+  it('finds nothing in an error about another URL', () => {
+    expect(proxyUrlIn('IO Error: No files found that match the pattern "https://x.example/y.parquet"')).toBeUndefined();
+    expect(proxyUrlIn('Parser Error: syntax error at or near "SELEC"')).toBeUndefined();
+  });
+});
+
+describe('explainProxyStatus', () => {
+  const detail = 'IO Error: No files found that match the pattern "…"';
+
+  it('explains rejected credentials, including the 400 Grafana turns an upstream 401 into', () => {
+    for (const status of [400, 401, 403]) {
+      const message = explainProxyStatus(status, detail);
+      expect(message).toContain(`refused the request (HTTP ${status})`);
+      expect(message).toContain('credentials');
+      expect(message).toContain(detail);
+    }
+  });
+
+  it('explains a missing file', () => {
+    expect(explainProxyStatus(404, detail)).toContain(
+      "Not found on the server behind this datasource's proxy (HTTP 404)"
+    );
+  });
+
+  it('explains an unreachable server', () => {
+    for (const status of [502, 503, 504]) {
+      expect(explainProxyStatus(status, detail)).toContain(
+        `Grafana could not reach the server behind this datasource's proxy (HTTP ${status})`
+      );
+    }
+  });
+
+  it('falls back to a general message when the status is unknown or says nothing is wrong', () => {
+    for (const status of [undefined, 200, 500]) {
+      expect(explainProxyStatus(status, detail)).toContain("Reading through this datasource's proxy failed");
+    }
+  });
+});
+
+describe('explainProxyError', () => {
+  it('asks the proxy for the status of the URL DuckDB could not read, and explains it', async () => {
+    const status = jest.fn(async () => 400);
+    const message = await explainProxyError(new Error(WRONG_TOKEN), status);
+    expect(status).toHaveBeenCalledWith(WRONG_TOKEN_URL);
+    expect(message).toContain('refused the request (HTTP 400)');
+    expect(message).toContain('No files found that match the pattern');
+    expect(message).not.toContain('LINE 1');
+  });
+
+  it('leaves other errors alone without asking anything', async () => {
+    const status = jest.fn(async () => 404);
+    expect(await explainProxyError(new Error('Parser Error: syntax error at or near "SELEC"'), status)).toBeUndefined();
+    expect(status).not.toHaveBeenCalled();
   });
 });

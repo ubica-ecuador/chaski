@@ -30,7 +30,7 @@ import { type Engine, getEngine } from './grafana/engine';
 import { loadFromDatasource } from './grafana/externalSource';
 import { interpolateSql } from './grafana/interpolate';
 import { staleNotices } from './grafana/notices';
-import { KEY_ROUTE, PLAIN_ROUTE, proxyBaseUrl } from './grafana/proxy';
+import { explainProxyError, KEY_ROUTE, PLAIN_ROUTE, proxyBaseUrl } from './grafana/proxy';
 import { DuckVariableSupport } from './grafana/variableSupport';
 import {
   DEFAULT_MEMORY_LIMIT_MB,
@@ -179,7 +179,7 @@ export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
         data.push(frame);
       } catch (error) {
         recordQuery({ refId: target.refId, ms: 0, rows: 0, ok: false, at: Date.now(), panelId });
-        errors.push({ refId: target.refId, message: explainError(error, this.memoryLimitMB).message });
+        errors.push({ refId: target.refId, message: await this.errorMessage(error) });
       }
     }
     return errors.length > 0 ? { data, errors } : { data };
@@ -250,7 +250,7 @@ export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
         return { data: [textValueFrame([live.table], [live.table])] };
       } catch (error) {
         recordLoad({ name, ms: performance.now() - started, rows: 0, ok: false, at: Date.now() });
-        throw new Error(explainError(error, this.memoryLimitMB).message);
+        throw new Error(await this.errorMessage(error));
       }
     }
 
@@ -262,7 +262,7 @@ export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
         const textField = frame.fields[1] ?? valueField;
         return { data: [textValueFrame(asText(textField?.values), asText(valueField?.values))] };
       } catch (error) {
-        throw this.explain(error);
+        throw new Error(await this.errorMessage(error));
       }
     }
 
@@ -329,6 +329,15 @@ export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
   /** Turns any error into the same actionable message `runPanelQueries` and `testDatasource` give. */
   private explain(error: unknown): Error {
     return new Error(explainError(error, this.memoryLimitMB).message);
+  }
+
+  /**
+   * The text a failed SQL run shows: a read through a data proxy first, which
+   * costs one HEAD to learn the status DuckDB's message leaves out, then
+   * DuckDB's own errors.
+   */
+  private async errorMessage(error: unknown): Promise<string> {
+    return (await explainProxyError(error)) ?? explainError(error, this.memoryLimitMB).message;
   }
 }
 

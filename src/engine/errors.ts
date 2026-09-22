@@ -66,7 +66,10 @@ export function explainError(error: unknown, memoryLimitMB?: number): ExplainedE
   if (CORS.test(raw)) {
     return {
       kind: 'cors',
-      message: `This URL does not allow reads from the browser (CORS). Load it through a "datasource" source instead, such as the server DuckDB datasource. (${raw})`,
+      message:
+        `This URL does not allow reads from the browser (CORS). Load it through a "datasource" source instead, ` +
+        `such as the server DuckDB datasource, or read it with $__proxy('…') once this datasource has a proxy URL ` +
+        `in its settings. (${raw})`,
     };
   }
   return { kind: 'sql', message: raw };

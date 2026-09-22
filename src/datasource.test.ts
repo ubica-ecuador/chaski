@@ -630,4 +630,19 @@ describe('$__proxy in a DataSource', () => {
       'http://localhost/api/datasources/proxy/uid/duckdbwasm/_key/a.parquet'
     );
   });
+
+  it('explains a failed read through the proxy on the panel, asking the proxy for its status', async () => {
+    const url = 'http://localhost/api/datasources/proxy/uid/duckdbwasm/_plain/a.parquet';
+    const fetchMock = jest.fn(async () => ({ status: 404 }) as Response);
+    const original = global.fetch;
+    global.fetch = fetchMock as unknown as typeof fetch;
+    try {
+      const failing = `SELECT error('No files found that match the pattern "${url}"')`;
+      const response = await withUrl({}).runPanelQueries(makeRequest<DuckQuery>([{ refId: 'A', rawSql: failing }]));
+      expect(fetchMock).toHaveBeenCalledWith(url, { method: 'HEAD', credentials: 'same-origin' });
+      expect(response.errors?.[0].message).toContain("Not found on the server behind this datasource's proxy (HTTP 404)");
+    } finally {
+      global.fetch = original;
+    }
+  });
 });

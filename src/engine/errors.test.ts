@@ -20,6 +20,7 @@ describe('explainError', () => {
     const e = explainError(new Error('IO Error: Could not read "https://x/y.parquet": NetworkError when attempting to fetch resource.'));
     expect(e.kind).toBe('cors');
     expect(e.message).toContain('Load it through a "datasource" source');
+    expect(e.message).toContain("$__proxy('…')");
   });
 
   it('states the memory limit', () => {
