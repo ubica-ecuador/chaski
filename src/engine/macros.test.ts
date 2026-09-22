@@ -22,6 +22,18 @@ describe('expandMacros', () => {
     );
   });
 
+  it('keeps a comma inside a quoted literal in one argument', () => {
+    expect(expandMacros("$__timeFilter(s || ',x')", ctx)).toBe(
+      "s || ',x' >= '2026-09-18T00:00:00Z' AND s || ',x' <= '2026-09-19T12:30:00Z'"
+    );
+  });
+
+  it('does not close an argument on a parenthesis inside a quoted literal', () => {
+    expect(expandMacros("$__timeFilter(coalesce(ts, ')'))", ctx)).toBe(
+      "coalesce(ts, ')') >= '2026-09-18T00:00:00Z' AND coalesce(ts, ')') <= '2026-09-19T12:30:00Z'"
+    );
+  });
+
   it('expands $__timeFrom() and $__timeTo() with no arguments, as the server datasource does', () => {
     expect(expandMacros('CAST($__timeFrom() AS TIMESTAMPTZ), $__timeTo()', ctx)).toBe(
       "CAST('2026-09-18T00:00:00Z' AS TIMESTAMPTZ), '2026-09-19T12:30:00Z'"

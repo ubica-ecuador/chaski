@@ -64,9 +64,11 @@ function expand(name: string, args: string[], ctx: MacroContext): string {
 
 /**
  * Reads `(a, f(b, c))` starting at `start`. Commas inside nested parentheses
- * stay in their argument. No parenthesis means no arguments; `()` too.
+ * stay in their argument, and so do commas and parentheses inside a quoted
+ * literal or identifier (`outside` is `outsideQuotes(sql)`). No parenthesis
+ * means no arguments; `()` too.
  */
-function parseArgs(sql: string, start: number): { args: string[]; length: number } {
+function parseArgs(sql: string, start: number, outside: boolean[]): { args: string[]; length: number } {
   if (sql[start] !== '(') {
     return { args: [], length: 0 };
   }
@@ -75,6 +77,11 @@ function parseArgs(sql: string, start: number): { args: string[]; length: number
   let current = '';
   for (let i = start; i < sql.length; i++) {
     const ch = sql[i];
+    if (!outside[i]) {
+      // Inside a quoted literal or identifier: commas and parentheses there are text.
+      current += ch;
+      continue;
+    }
     if (ch === '(') {
       depth++;
       if (depth === 1) {
@@ -132,7 +139,7 @@ export function expandMacros(sql: string, ctx: MacroContext): string {
       continue;
     }
     const afterName = match.index + match[0].length;
-    const parsed = parseArgs(sql, afterName);
+    const parsed = parseArgs(sql, afterName, outside);
     out += sql.slice(last, match.index) + expand(match[1], parsed.args, ctx);
     last = afterName + parsed.length;
     pattern.lastIndex = last;
