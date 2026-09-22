@@ -1,8 +1,10 @@
-# DuckDB WASM for Grafana
+# Chaski
 
-Loads a dashboard's data **once** into DuckDB running in the browser, and answers every panel query
-locally. Changing a variable, an ad hoc filter or the time range re-queries the browser, not the
-server: filters take milliseconds, and every panel (native, catalog, kepler) keeps working.
+Named after the runners who carried word along the Andean roads: the data is already here, so the
+answer is immediate. Chaski loads a dashboard's data **once** into DuckDB running in the browser, and
+answers every panel query locally. Changing a variable, an ad hoc filter or the time range re-queries
+the browser, not the server: filters take milliseconds, and every panel (native, catalog, kepler)
+keeps working.
 
 ## Datasets
 

@@ -48,8 +48,8 @@ jest.mock('./components/VariableQueryEditor', () => ({ VariableQueryEditor: () =
 const settings = {
   id: 1,
   uid: 'duckdbwasm',
-  type: 'ubica-duckdbwasm-datasource',
-  name: 'DuckDB WASM',
+  type: 'ubica-chaski-datasource',
+  name: 'Chaski',
   jsonData: { memoryLimitMB: 256 },
   meta: {},
   readOnly: false,

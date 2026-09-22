@@ -113,7 +113,7 @@ describe('expandMacros', () => {
 
     it('fails clearly outside a datasource query', () => {
       expect(() => expandMacros("$__proxy('a.parquet')", ctx)).toThrow(
-        '$__proxy is only available in a DuckDB WASM datasource query'
+        '$__proxy is only available in a Chaski datasource query'
       );
     });
   });

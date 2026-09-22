@@ -1,6 +1,6 @@
 {
   "uid": "duckdbwasm-bench-1m",
-  "title": "DuckDB WASM · 1 M rows",
+  "title": "Chaski · 1 M rows",
   "schemaVersion": 39,
   "editable": true,
   "time": {
@@ -18,7 +18,7 @@
         "skipUrlSync": true,
         "refresh": 2,
         "datasource": {
-          "type": "ubica-duckdbwasm-datasource",
+          "type": "ubica-chaski-datasource",
           "uid": "duckdbwasm"
         },
         "query": {
@@ -60,14 +60,14 @@
         "h": 8
       },
       "datasource": {
-        "type": "ubica-duckdbwasm-datasource",
+        "type": "ubica-chaski-datasource",
         "uid": "duckdbwasm"
       },
       "targets": [
         {
           "refId": "A",
           "datasource": {
-            "type": "ubica-duckdbwasm-datasource",
+            "type": "ubica-chaski-datasource",
             "uid": "duckdbwasm"
           },
           "rawSql": "SELECT count(*)::DOUBLE AS rows FROM $synthetic WHERE cat IN ($cat)"
@@ -85,14 +85,14 @@
         "h": 8
       },
       "datasource": {
-        "type": "ubica-duckdbwasm-datasource",
+        "type": "ubica-chaski-datasource",
         "uid": "duckdbwasm"
       },
       "targets": [
         {
           "refId": "A",
           "datasource": {
-            "type": "ubica-duckdbwasm-datasource",
+            "type": "ubica-chaski-datasource",
             "uid": "duckdbwasm"
           },
           "rawSql": "SELECT $__timeGroup(t, 1h) AS time, avg(v) AS mean FROM $synthetic WHERE cat IN ($cat) AND $__timeFilter(t) GROUP BY 1 ORDER BY 1"
@@ -110,14 +110,14 @@
         "h": 10
       },
       "datasource": {
-        "type": "ubica-duckdbwasm-datasource",
+        "type": "ubica-chaski-datasource",
         "uid": "duckdbwasm"
       },
       "targets": [
         {
           "refId": "A",
           "datasource": {
-            "type": "ubica-duckdbwasm-datasource",
+            "type": "ubica-chaski-datasource",
             "uid": "duckdbwasm"
           },
           "rawSql": "SELECT cat, count(*)::DOUBLE AS n, avg(v) AS mean, max(v) AS max FROM $synthetic WHERE cat IN ($cat) GROUP BY 1 ORDER BY 1"

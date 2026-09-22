@@ -10,8 +10,8 @@ type Settings = DataSourceSettings<DuckOptions, DuckSecureOptions>;
 const base = {
   id: 1,
   uid: 'x',
-  name: 'DuckDB WASM',
-  type: 'ubica-duckdbwasm-datasource',
+  name: 'Chaski',
+  type: 'ubica-chaski-datasource',
   access: 'proxy',
   url: '',
   basicAuth: false,

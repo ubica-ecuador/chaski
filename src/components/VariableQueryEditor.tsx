@@ -84,7 +84,7 @@ function DatasetFields({ query, onChange }: { query: DatasetVariableQuery; onCha
             <DataSourcePicker
               current={source.datasource.uid || null}
               noDefault
-              filter={(ds) => ds.type !== 'ubica-duckdbwasm-datasource'}
+              filter={(ds) => ds.type !== 'ubica-chaski-datasource'}
               onChange={(ds) =>
                 onChange({
                   ...query,

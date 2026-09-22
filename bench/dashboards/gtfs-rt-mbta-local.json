@@ -17,7 +17,7 @@
         "skipUrlSync": true,
         "refresh": 2,
         "datasource": {
-          "type": "ubica-duckdbwasm-datasource",
+          "type": "ubica-chaski-datasource",
           "uid": "duckdbwasm"
         },
         "query": {
@@ -47,7 +47,7 @@
         "skipUrlSync": true,
         "refresh": 2,
         "datasource": {
-          "type": "ubica-duckdbwasm-datasource",
+          "type": "ubica-chaski-datasource",
           "uid": "duckdbwasm"
         },
         "query": {
@@ -91,7 +91,7 @@
         "includeAll": true,
         "refresh": 2,
         "datasource": {
-          "type": "ubica-duckdbwasm-datasource",
+          "type": "ubica-chaski-datasource",
           "uid": "duckdbwasm"
         },
         "query": {
@@ -163,14 +163,14 @@
         "h": 8
       },
       "datasource": {
-        "type": "ubica-duckdbwasm-datasource",
+        "type": "ubica-chaski-datasource",
         "uid": "duckdbwasm"
       },
       "targets": [
         {
           "refId": "A",
           "datasource": {
-            "type": "ubica-duckdbwasm-datasource",
+            "type": "ubica-chaski-datasource",
             "uid": "duckdbwasm"
           },
           "rawSql": "SELECT mode AS \"Mode\", count(*)::DOUBLE AS \"Vehicles\", (count(*) FILTER (WHERE age_s > 90))::DOUBLE AS \"Positions older than 90 s\", max(age_s) AS \"Oldest position\"\nFROM $vehicles WHERE mode IN ($mode) AND route IN ($route) AND status IN ($status) AND occupancy IN ($occupancy)\nGROUP BY 1 ORDER BY 2 DESC"
@@ -188,14 +188,14 @@
         "h": 12
       },
       "datasource": {
-        "type": "ubica-duckdbwasm-datasource",
+        "type": "ubica-chaski-datasource",
         "uid": "duckdbwasm"
       },
       "targets": [
         {
           "refId": "A",
           "datasource": {
-            "type": "ubica-duckdbwasm-datasource",
+            "type": "ubica-chaski-datasource",
             "uid": "duckdbwasm"
           },
           "rawSql": "-- Unfiltered on purpose: kepler filters the map on the GPU.\nSELECT vehicle, unit, route, mode, latitude, longitude, status, occupancy, age_s FROM $vehicles"
@@ -213,14 +213,14 @@
         "h": 8
       },
       "datasource": {
-        "type": "ubica-duckdbwasm-datasource",
+        "type": "ubica-chaski-datasource",
         "uid": "duckdbwasm"
       },
       "targets": [
         {
           "refId": "A",
           "datasource": {
-            "type": "ubica-duckdbwasm-datasource",
+            "type": "ubica-chaski-datasource",
             "uid": "duckdbwasm"
           },
           "rawSql": "SELECT line AS \"Line\", sum(n)::DOUBLE AS \"Samples\",\n       round(sum(sum_h) / sum(n) / 60, 1) AS \"Actual (mean, min)\",\n       round(sum(sum_hs) / sum(n) / 60, 1) AS \"Scheduled (mean, min)\",\n       round((sum(sum_h2) / (2 * sum(sum_h)) - sum(sum_hs2) / (2 * sum(sum_hs))) / 60, 2) AS \"Excess wait\",\n       round(100 * sum(bunched) / sum(n), 1) AS \"Bunched %\",\n       round(100 * sum(gaps) / sum(n), 1) AS \"Gaps %\"\nFROM $lamp\nWHERE 'Subway' IN ($mode) AND route_id IN ($route) AND $__timeFilter(hour)\nGROUP BY 1 ORDER BY 1"
@@ -238,14 +238,14 @@
         "h": 8
       },
       "datasource": {
-        "type": "ubica-duckdbwasm-datasource",
+        "type": "ubica-chaski-datasource",
         "uid": "duckdbwasm"
       },
       "targets": [
         {
           "refId": "A",
           "datasource": {
-            "type": "ubica-duckdbwasm-datasource",
+            "type": "ubica-chaski-datasource",
             "uid": "duckdbwasm"
           },
           "rawSql": "PIVOT (\n  SELECT hour AS time, line, 100 * sum(gaps) / sum(n) AS gaps\n  FROM $lamp\n  WHERE 'Subway' IN ($mode) AND route_id IN ($route) AND $__timeFilter(hour)\n  GROUP BY 1, 2\n) ON line USING first(gaps) ORDER BY time"

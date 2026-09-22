@@ -1,6 +1,6 @@
 {
   "uid": "duckdbwasm-e2e-range",
-  "title": "DuckDB WASM · e2e range reuse",
+  "title": "Chaski · e2e range reuse",
   "schemaVersion": 39,
   "editable": true,
   "time": { "from": "2026-01-01T00:00:00.000Z", "to": "2026-01-11T00:00:00.000Z" },
@@ -13,7 +13,7 @@
         "hide": 2,
         "skipUrlSync": true,
         "refresh": 2,
-        "datasource": { "type": "ubica-duckdbwasm-datasource", "uid": "duckdbwasm" },
+        "datasource": { "type": "ubica-chaski-datasource", "uid": "duckdbwasm" },
         "query": {
           "refId": "hourly",
           "kind": "dataset",
@@ -32,14 +32,14 @@
         "hide": 2,
         "skipUrlSync": true,
         "refresh": 2,
-        "datasource": { "type": "ubica-duckdbwasm-datasource", "uid": "duckdbwasm" },
+        "datasource": { "type": "ubica-chaski-datasource", "uid": "duckdbwasm" },
         "query": {
           "refId": "viaSource",
           "kind": "dataset",
           "name": "viaSource",
           "source": {
             "type": "datasource",
-            "datasource": { "type": "ubica-duckdbwasm-datasource", "uid": "duckdbwasm" },
+            "datasource": { "type": "ubica-chaski-datasource", "uid": "duckdbwasm" },
             "query": {
               "refId": "src",
               "rawSql": "SELECT id, t FROM read_parquet('http://localhost:8095/sample.parquet') WHERE epoch_ms(t) BETWEEN CAST(${__from} AS BIGINT) AND CAST(${__to} AS BIGINT)"
@@ -57,11 +57,11 @@
       "type": "stat",
       "title": "Hours in range",
       "gridPos": { "x": 0, "y": 0, "w": 12, "h": 6 },
-      "datasource": { "type": "ubica-duckdbwasm-datasource", "uid": "duckdbwasm" },
+      "datasource": { "type": "ubica-chaski-datasource", "uid": "duckdbwasm" },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "ubica-duckdbwasm-datasource", "uid": "duckdbwasm" },
+          "datasource": { "type": "ubica-chaski-datasource", "uid": "duckdbwasm" },
           "rawSql": "SELECT count(*)::DOUBLE AS hours FROM $hourly WHERE $__timeFilter(t)"
         }
       ]
@@ -71,11 +71,11 @@
       "type": "stat",
       "title": "Rows from the source",
       "gridPos": { "x": 12, "y": 0, "w": 12, "h": 6 },
-      "datasource": { "type": "ubica-duckdbwasm-datasource", "uid": "duckdbwasm" },
+      "datasource": { "type": "ubica-chaski-datasource", "uid": "duckdbwasm" },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "ubica-duckdbwasm-datasource", "uid": "duckdbwasm" },
+          "datasource": { "type": "ubica-chaski-datasource", "uid": "duckdbwasm" },
           "rawSql": "SELECT count(*)::DOUBLE AS rows FROM $viaSource WHERE $__timeFilter(t)"
         }
       ]

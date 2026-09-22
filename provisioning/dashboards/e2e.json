@@ -1,6 +1,6 @@
 {
   "uid": "duckdbwasm-e2e",
-  "title": "DuckDB WASM · e2e",
+  "title": "Chaski · e2e",
   "schemaVersion": 39,
   "editable": true,
   "time": {
@@ -28,7 +28,7 @@
         "skipUrlSync": true,
         "refresh": 1,
         "datasource": {
-          "type": "ubica-duckdbwasm-datasource",
+          "type": "ubica-chaski-datasource",
           "uid": "duckdbwasm"
         },
         "query": {
@@ -51,7 +51,7 @@
         "includeAll": true,
         "refresh": 1,
         "datasource": {
-          "type": "ubica-duckdbwasm-datasource",
+          "type": "ubica-chaski-datasource",
           "uid": "duckdbwasm"
         },
         "query": {
@@ -73,7 +73,7 @@
         "name": "Filters",
         "type": "adhoc",
         "datasource": {
-          "type": "ubica-duckdbwasm-datasource",
+          "type": "ubica-chaski-datasource",
           "uid": "duckdbwasm"
         },
         "filters": []
@@ -92,14 +92,14 @@
         "h": 8
       },
       "datasource": {
-        "type": "ubica-duckdbwasm-datasource",
+        "type": "ubica-chaski-datasource",
         "uid": "duckdbwasm"
       },
       "targets": [
         {
           "refId": "A",
           "datasource": {
-            "type": "ubica-duckdbwasm-datasource",
+            "type": "ubica-chaski-datasource",
             "uid": "duckdbwasm"
           },
           "rawSql": "SELECT city, count(*)::DOUBLE AS n FROM $sample WHERE city IN ($city) GROUP BY 1 ORDER BY 1"
@@ -117,14 +117,14 @@
         "h": 8
       },
       "datasource": {
-        "type": "ubica-duckdbwasm-datasource",
+        "type": "ubica-chaski-datasource",
         "uid": "duckdbwasm"
       },
       "targets": [
         {
           "refId": "A",
           "datasource": {
-            "type": "ubica-duckdbwasm-datasource",
+            "type": "ubica-chaski-datasource",
             "uid": "duckdbwasm"
           },
           "rawSql": "SELECT id, city, t, v FROM $sample WHERE city IN ($city) ORDER BY id LIMIT 10"

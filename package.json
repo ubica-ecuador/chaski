@@ -1,5 +1,5 @@
 {
-  "name": "duckdbwasm",
+  "name": "chaski",
   "version": "1.0.0",
   "scripts": {
     "prebuild": "node scripts/fetch-duckdb-extensions.mjs",

@@ -1,9 +1,9 @@
 apiVersion: 1
 
 datasources:
-  - name: 'DuckDB WASM'
+  - name: 'Chaski'
     uid: 'duckdbwasm'
-    type: 'ubica-duckdbwasm-datasource'
+    type: 'ubica-chaski-datasource'
     access: proxy
     isDefault: false
     orgId: 1
@@ -13,9 +13,9 @@ datasources:
       memoryLimitMB: 1024
   # Test instances for the data proxy (tests/proxy.spec.ts). The secrets are
   # fixture values for the local nginx in fixtures/nginx.conf, not credentials.
-  - name: 'DuckDB WASM · proxy bearer'
+  - name: 'Chaski · proxy bearer'
     uid: 'duckdbwasm-bearer'
-    type: 'ubica-duckdbwasm-datasource'
+    type: 'ubica-chaski-datasource'
     access: proxy
     orgId: 1
     version: 1
@@ -26,9 +26,9 @@ datasources:
       httpHeaderName1: Authorization
     secureJsonData:
       httpHeaderValue1: Bearer test-token
-  - name: 'DuckDB WASM · proxy basic'
+  - name: 'Chaski · proxy basic'
     uid: 'duckdbwasm-basic'
-    type: 'ubica-duckdbwasm-datasource'
+    type: 'ubica-chaski-datasource'
     access: proxy
     orgId: 1
     version: 1
@@ -40,9 +40,9 @@ datasources:
       memoryLimitMB: 1024
     secureJsonData:
       basicAuthPassword: test-pass
-  - name: 'DuckDB WASM · proxy keyed'
+  - name: 'Chaski · proxy keyed'
     uid: 'duckdbwasm-keyed'
-    type: 'ubica-duckdbwasm-datasource'
+    type: 'ubica-chaski-datasource'
     access: proxy
     orgId: 1
     version: 1
@@ -53,9 +53,9 @@ datasources:
       proxyKeyParam: apikey
     secureJsonData:
       proxyKeyValue: test-key
-  - name: 'DuckDB WASM · proxy wrong token'
+  - name: 'Chaski · proxy wrong token'
     uid: 'duckdbwasm-bearer-wrong'
-    type: 'ubica-duckdbwasm-datasource'
+    type: 'ubica-chaski-datasource'
     access: proxy
     orgId: 1
     version: 1

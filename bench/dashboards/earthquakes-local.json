@@ -23,7 +23,7 @@
   "panels": [
     {
       "datasource": {
-        "type": "ubica-duckdbwasm-datasource",
+        "type": "ubica-chaski-datasource",
         "uid": "duckdbwasm"
       },
       "description": "Time range sync is set to `variables`, not `toMap`. Moving the dashboard range would re-run this query, and every event outside the new range would leave the browser — the histogram under the slider would rescale and the window could never be widened again from the map. Publishing the window to variables instead keeps the whole month loaded and costs only the panels that read them. Clicking the map publishes the place to $​lat/$​lng (a Coordinates mapping); DuckDB builds a geodesic circle of $​radio km around it (query B) and intersects the quakes with it (query C), which come back as the coverage outline and a magnitude-weighted heatmap.",
@@ -185,7 +185,7 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "ubica-duckdbwasm-datasource",
+            "type": "ubica-chaski-datasource",
             "uid": "duckdbwasm"
           },
           "rawSql": "SELECT\n  place,\n  mag,\n  depth,\n  time,\n  latitude,\n  longitude\nFROM $quakes"
@@ -193,7 +193,7 @@
         {
           "refId": "B",
           "datasource": {
-            "type": "ubica-duckdbwasm-datasource",
+            "type": "ubica-chaski-datasource",
             "uid": "duckdbwasm"
           },
           "rawSql": "WITH params AS (\n  SELECT try_cast($lat AS DOUBLE) AS lat0,\n         try_cast($lng AS DOUBLE) AS lng0,\n         coalesce(try_cast($radio AS DOUBLE), 500) / 6371.0 AS d\n),\npts AS (\n  SELECT deg,\n         asin(sin(radians(lat0)) * cos(d) + cos(radians(lat0)) * sin(d) * cos(radians(deg))) AS lat2,\n         lat0, lng0, d\n  FROM params, (SELECT unnest(generate_series(0, 360, 6)) AS deg)\n  WHERE lat0 IS NOT NULL AND lng0 IS NOT NULL\n),\nring AS (\n  SELECT deg,\n         degrees(lat2) AS lat_deg,\n         lng0 + degrees(atan2(sin(radians(deg)) * sin(d) * cos(radians(lat0)),\n                              cos(d) - sin(radians(lat0)) * sin(lat2))) AS lng_deg\n  FROM pts\n)\nSELECT\n  ST_AsHEXWKB(ST_GeomFromText(\n    'POLYGON((' || string_agg(round(lng_deg, 5) || ' ' || round(lat_deg, 5), ',' ORDER BY deg) || '))'\n  )) AS geom,\n  'radio' AS name\nFROM ring\nHAVING count(*) > 0"
@@ -201,7 +201,7 @@
         {
           "refId": "C",
           "datasource": {
-            "type": "ubica-duckdbwasm-datasource",
+            "type": "ubica-chaski-datasource",
             "uid": "duckdbwasm"
           },
           "rawSql": "WITH params AS (\n  SELECT try_cast($lat AS DOUBLE) AS lat0,\n         try_cast($lng AS DOUBLE) AS lng0,\n         coalesce(try_cast($radio AS DOUBLE), 500) / 6371.0 AS d\n),\npts AS (\n  SELECT deg,\n         asin(sin(radians(lat0)) * cos(d) + cos(radians(lat0)) * sin(d) * cos(radians(deg))) AS lat2,\n         lat0, lng0, d\n  FROM params, (SELECT unnest(generate_series(0, 360, 6)) AS deg)\n  WHERE lat0 IS NOT NULL AND lng0 IS NOT NULL\n),\nring AS (\n  SELECT deg,\n         degrees(lat2) AS lat_deg,\n         lng0 + degrees(atan2(sin(radians(deg)) * sin(d) * cos(radians(lat0)),\n                              cos(d) - sin(radians(lat0)) * sin(lat2))) AS lng_deg\n  FROM pts\n),\ncircle AS (\n  SELECT ST_GeomFromText(\n    'POLYGON((' || string_agg(round(lng_deg, 5) || ' ' || round(lat_deg, 5), ',' ORDER BY deg) || '))'\n  ) AS geom\n  FROM ring\n  HAVING count(*) > 0\n)\nSELECT\n  latitude,\n  longitude,\n  mag\nFROM $quakes, circle\nWHERE ST_Contains(circle.geom, ST_Point(longitude, latitude))\n  AND time\n    BETWEEN COALESCE(try_cast($quakeFrom AS TIMESTAMP), '-infinity'::TIMESTAMP)\n        AND COALESCE(try_cast($quakeTo   AS TIMESTAMP), 'infinity'::TIMESTAMP)"
@@ -212,7 +212,7 @@
     },
     {
       "datasource": {
-        "type": "ubica-duckdbwasm-datasource",
+        "type": "ubica-chaski-datasource",
         "uid": "duckdbwasm"
       },
       "description": "Reads the map's window. Both variables start empty — before the slider has been touched — so each bound falls back to an infinity, and the summary covers everything rather than nothing.",
@@ -261,7 +261,7 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "ubica-duckdbwasm-datasource",
+            "type": "ubica-chaski-datasource",
             "uid": "duckdbwasm"
           },
           "rawSql": "SELECT\n  count(*)                 AS \"Sismos\",\n  round(max(mag), 1)       AS \"Magnitud máxima\",\n  round(avg(depth), 1) AS \"Profundidad media (km)\"\nFROM $quakes\nWHERE time\n  BETWEEN COALESCE(try_cast($quakeFrom AS TIMESTAMP), '-infinity'::TIMESTAMP)\n      AND COALESCE(try_cast($quakeTo   AS TIMESTAMP), 'infinity'::TIMESTAMP)\n  AND ($quakeArea = '' OR ST_Contains(ST_GeomFromText($quakeArea), ST_Point(longitude, latitude)))"
@@ -272,7 +272,7 @@
     },
     {
       "datasource": {
-        "type": "ubica-duckdbwasm-datasource",
+        "type": "ubica-chaski-datasource",
         "uid": "duckdbwasm"
       },
       "description": "The ten strongest events inside the map's window. Scrub the slider and this list follows. Clicking a row writes the quake's coordinates to $​lat/$​lng: the map centres there (the Center mapping) and the coverage circle and heatmap recompute around it.",
@@ -390,7 +390,7 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "ubica-duckdbwasm-datasource",
+            "type": "ubica-chaski-datasource",
             "uid": "duckdbwasm"
           },
           "rawSql": "SELECT\n  strftime(time, '%d %b %H:%M') AS \"Fecha\",\n  place                                            AS \"Lugar\",\n  mag                                              AS \"Mag\",\n  latitude,\n  longitude\nFROM $quakes\nWHERE time\n  BETWEEN COALESCE(try_cast($quakeFrom AS TIMESTAMP), '-infinity'::TIMESTAMP)\n      AND COALESCE(try_cast($quakeTo   AS TIMESTAMP), 'infinity'::TIMESTAMP)\n  AND ($quakeArea = '' OR ST_Contains(ST_GeomFromText($quakeArea), ST_Point(longitude, latitude)))\nORDER BY mag DESC\nLIMIT 10"
@@ -401,7 +401,7 @@
     },
     {
       "datasource": {
-        "type": "ubica-duckdbwasm-datasource",
+        "type": "ubica-chaski-datasource",
         "uid": "duckdbwasm"
       },
       "description": "Deliberately unfiltered: this is the context the slider moves through, so it must show the whole month whatever the window is.",
@@ -514,7 +514,7 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "ubica-duckdbwasm-datasource",
+            "type": "ubica-chaski-datasource",
             "uid": "duckdbwasm"
           },
           "rawSql": "SELECT\n  date_trunc('day', time) AS time,\n  count(*)           AS \"Sismos\",\n  round(max(mag), 1) AS \"Magnitud máxima\"\nFROM $quakes\nGROUP BY 1\nORDER BY 1"
@@ -541,7 +541,7 @@
         "skipUrlSync": true,
         "refresh": 1,
         "datasource": {
-          "type": "ubica-duckdbwasm-datasource",
+          "type": "ubica-chaski-datasource",
           "uid": "duckdbwasm"
         },
         "query": {

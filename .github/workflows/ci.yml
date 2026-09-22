@@ -202,7 +202,7 @@ jobs:
       - name: Docker logs
         if: ${{ always() && steps.run-tests.outcome == 'failure' }}
         run: |
-          docker logs ubica-duckdbwasm-datasource >& grafana-server.log
+          docker logs ubica-chaski-datasource >& grafana-server.log
 
       - name: Stop grafana docker
         run: docker compose down
