@@ -2,16 +2,19 @@ import { dateTime, type ScopedVars, type TimeRange } from '@grafana/data';
 
 import type { LoadWindow, RawTime } from '../engine/rangeReuse';
 
-const rawTime = (raw: unknown): RawTime => (typeof raw === 'string' ? raw : Number((raw as { valueOf(): number }).valueOf()));
+/** A raw bound as the reuse rule compares it: relative text as is, anything else as epoch ms. */
+function rawTime(raw: unknown, evaluated: number): RawTime {
+  if (typeof raw === 'string') {
+    return raw;
+  }
+  return raw === undefined || raw === null ? evaluated : Number((raw as { valueOf(): number }).valueOf());
+}
 
-/** A request's time range as the engine's reuse rule reads it. */
+/** A request's time range as the engine's reuse rule reads it. A missing raw bound counts as absolute. */
 export function windowOf(range: TimeRange): LoadWindow {
-  return {
-    from: range.from.valueOf(),
-    to: range.to.valueOf(),
-    rawFrom: rawTime(range.raw.from),
-    rawTo: rawTime(range.raw.to),
-  };
+  const from = range.from.valueOf();
+  const to = range.to.valueOf();
+  return { from, to, rawFrom: rawTime(range.raw?.from, from), rawTo: rawTime(range.raw?.to, to) };
 }
 
 /** A loaded window back as a TimeRange, to interpolate a source as it read at load time. */

@@ -1,4 +1,4 @@
-import { dateTime } from '@grafana/data';
+import { dateTime, type TimeRange } from '@grafana/data';
 
 import { rangeOf, scopedTimeOf, windowOf } from './datasetWindow';
 
@@ -22,6 +22,12 @@ describe('windowOf', () => {
       rawFrom: from.valueOf(),
       rawTo: to.valueOf(),
     });
+  });
+
+  it('falls back to the evaluated bounds when the range has no raw part', () => {
+    const window = { from: from.valueOf(), to: to.valueOf(), rawFrom: from.valueOf(), rawTo: to.valueOf() };
+    expect(windowOf({ from, to } as TimeRange)).toEqual(window);
+    expect(windowOf({ from, to, raw: {} } as TimeRange)).toEqual(window);
   });
 });
 
