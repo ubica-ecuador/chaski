@@ -30,6 +30,7 @@ import { type Engine, getEngine } from './grafana/engine';
 import { loadFromDatasource } from './grafana/externalSource';
 import { interpolateSql } from './grafana/interpolate';
 import { staleNotices } from './grafana/notices';
+import { KEY_ROUTE, PLAIN_ROUTE, proxyBaseUrl } from './grafana/proxy';
 import { DuckVariableSupport } from './grafana/variableSupport';
 import {
   DEFAULT_MEMORY_LIMIT_MB,
@@ -51,11 +52,16 @@ interface PanelPlan {
 
 export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
   readonly memoryLimitMB: number;
+  /** Where `$__proxy` points: this instance's data proxy plus the route its settings call for. */
+  readonly proxyBase: string | undefined;
   private readonly panelsInFlight = new SingleFlight<DataQueryResponse>();
 
   constructor(instanceSettings: DataSourceInstanceSettings<DuckOptions>) {
     super(instanceSettings);
     this.memoryLimitMB = instanceSettings.jsonData.memoryLimitMB ?? DEFAULT_MEMORY_LIMIT_MB;
+    this.proxyBase = instanceSettings.url
+      ? proxyBaseUrl(instanceSettings.url, instanceSettings.jsonData.proxyKeyParam?.trim() ? KEY_ROUTE : PLAIN_ROUTE)
+      : undefined;
     this.variables = new DuckVariableSupport(this);
   }
 
@@ -316,6 +322,7 @@ export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
       scopedVars: request.scopedVars,
       range: request.range,
       isDatasetTable: (name) => engine.registry.byTable(name) !== undefined,
+      proxyBase: this.proxyBase,
     });
   }
 

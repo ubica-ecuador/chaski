@@ -603,3 +603,31 @@ describe('identical panel requests in flight', () => {
     expect(heard).toEqual(['busy', 'settled']);
   });
 });
+
+describe('$__proxy in a DataSource', () => {
+  const withUrl = (jsonData: DuckOptions) =>
+    new DataSource({
+      ...settings,
+      url: '/api/datasources/proxy/uid/duckdbwasm',
+      jsonData,
+    } as DataSourceInstanceSettings<DuckOptions>);
+
+  async function valueOf(source: DataSource, sql: string): Promise<string> {
+    const response = await source.runVariableQuery(
+      makeRequest<DuckVariableQuery>([{ refId: 'v', kind: 'values', sql }])
+    );
+    return response.data[0].fields.find((f: { name: string }) => f.name === 'value').values[0] as string;
+  }
+
+  it("points at this instance's data proxy", async () => {
+    expect(await valueOf(withUrl({}), "SELECT $__proxy('cuenca/vias.parquet')")).toBe(
+      'http://localhost/api/datasources/proxy/uid/duckdbwasm/_plain/cuenca/vias.parquet'
+    );
+  });
+
+  it('goes through the key route when an API key parameter is set', async () => {
+    expect(await valueOf(withUrl({ proxyKeyParam: 'apikey' }), "SELECT $__proxy('a.parquet')")).toBe(
+      'http://localhost/api/datasources/proxy/uid/duckdbwasm/_key/a.parquet'
+    );
+  });
+});

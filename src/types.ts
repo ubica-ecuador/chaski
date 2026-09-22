@@ -39,6 +39,8 @@ export type DuckVariableQuery = DatasetVariableQuery | ValuesVariableQuery;
 
 export interface DuckOptions extends DataSourceJsonData {
   memoryLimitMB?: number;
+  /** Query-string parameter the `_key` route adds with the secret API key. Empty: no key in the URL. */
+  proxyKeyParam?: string;
 }
 
 export const DEFAULT_MEMORY_LIMIT_MB = 1024;
