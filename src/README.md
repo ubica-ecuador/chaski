@@ -81,6 +81,9 @@ request, and the file comes back as the server sent it. The secrets stay encrypt
 - Every byte passes through Grafana, and Grafana does not cut off a slow download.
 - The proxy can't sign requests. For a private S3 bucket, use presigned URLs directly instead.
 - Public files that allow CORS are faster read directly, without `$__proxy`.
+- The credentials reach the whole server, not just the path given to `$__proxy`: that path is a
+  starting point, not a sandbox, and it can be climbed out of with `%2e%2e%2f`. Anyone who may query
+  this datasource can read anywhere on that server.
 
 ## Limits
 
