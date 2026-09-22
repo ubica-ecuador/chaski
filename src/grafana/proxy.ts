@@ -24,12 +24,15 @@ export function proxyBaseUrl(instanceUrl: string, route: ProxyRoute, baseURI: st
   return new URL(`${path.replace(/\/+$/, '')}/${route}`, base.origin).href;
 }
 
-// DuckDB quotes the file it could not read; this picks a data proxy URL out of the message.
-const PROXY_URL = /https?:\/\/[^\s"']*\/api\/datasources\/proxy\/uid\/[^\s"']+/;
+// DuckDB-WASM reports every failed HTTP read this way, quoting the URL it could not
+// read. Matching only this shape (not the whole message) keeps a query DuckDB merely
+// echoes back, such as in a parser or binder error, from being mistaken for a read
+// failure: see explainProxyError, which further checks the URL is this instance's own.
+const IO_ERROR_URL = /No files found that match the pattern "([^"]+)"/;
 
-/** The data proxy URL an error names, or undefined. */
+/** The URL a DuckDB IO-error read failure names, or undefined. */
 export function proxyUrlIn(message: string): string | undefined {
-  return PROXY_URL.exec(message)?.[0];
+  return IO_ERROR_URL.exec(message)?.[1];
 }
 
 /**
@@ -64,26 +67,39 @@ export function explainProxyStatus(status: number | undefined, detail: string): 
 /** The status the proxy answers for `url` now, or undefined when it can't be asked. */
 export async function proxyStatus(url: string): Promise<number | undefined> {
   try {
-    return (await fetch(url, { method: 'HEAD', credentials: 'same-origin' })).status;
+    return (await fetch(url, { method: 'HEAD', credentials: 'same-origin', signal: AbortSignal.timeout(10_000) }))
+      .status;
   } catch {
     return undefined;
   }
 }
 
 /**
- * The explanation for a failed read through a data proxy, or undefined when
- * the error is not one. DuckDB-WASM reports every failed HTTP read as "No
- * files found that match the pattern", whatever the status, so the status
- * comes from asking the proxy once more: one HEAD, only after a failure.
+ * The explanation for a failed read through this instance's data proxy, or
+ * undefined when the error is not one. DuckDB-WASM reports every failed HTTP
+ * read as "No files found that match the pattern", whatever the status, so
+ * the status comes from asking the proxy once more: one HEAD, only after a
+ * failure, and only for a URL that is actually this instance's proxy —
+ * `proxyBase` is this instance's own (undefined outside a datasource query),
+ * and the extracted URL must start with it, so another instance's or
+ * another host's URL named in the text (or merely echoed in an unrelated
+ * error) is left alone. A 2xx probe result means the read failed for some
+ * other reason, so that is left alone too: the caller falls through to
+ * DuckDB's own message.
  */
 export async function explainProxyError(
   error: unknown,
+  proxyBase: string | undefined,
   status: (url: string) => Promise<number | undefined> = proxyStatus
 ): Promise<string | undefined> {
   const raw = error instanceof Error ? error.message : String(error);
   const url = proxyUrlIn(raw);
-  if (!url) {
+  if (!url || !proxyBase || !url.startsWith(proxyBase)) {
     return undefined;
   }
-  return explainProxyStatus(await status(url), raw.split('\n')[0]);
+  const result = await status(url);
+  if (result !== undefined && result >= 200 && result < 300) {
+    return undefined;
+  }
+  return explainProxyStatus(result, raw.split('\n')[0]);
 }

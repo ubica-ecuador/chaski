@@ -34,14 +34,27 @@ const WRONG_TOKEN =
   "LINE 1: SELECT count(*)::DOUBLE AS n FROM read_parquet('http://localhost:3005/api/datasources/proxy...\n" +
   '                                          ^';
 const WRONG_TOKEN_URL = 'http://localhost:3005/api/datasources/proxy/uid/duckdbwasm-bearer-wrong/_plain/sample.parquet';
+const PROXY_BASE = 'http://localhost:3005/api/datasources/proxy/uid/duckdbwasm-bearer-wrong/_plain';
+
+// A mistyped query using $__proxy: DuckDB's parser error echoes the SQL line, which carries the
+// expanded proxy URL as a quoted string literal, not as a read failure.
+const PARSER_ERROR_ECHOING_PROXY_URL =
+  'Parser Error: syntax error at or near "read_parquet"\n' +
+  "LINE 1: SELECT * FORM read_parquet(('http://localhost/api/datasources/proxy/uid/duckdbwasm/_plain/' || ('x.parquet')))";
 
 describe('proxyUrlIn', () => {
-  it('finds the data proxy URL DuckDB could not read', () => {
+  it('finds the URL a DuckDB IO-error read failure names', () => {
     expect(proxyUrlIn(WRONG_TOKEN)).toBe(WRONG_TOKEN_URL);
   });
 
-  it('finds nothing in an error about another URL', () => {
-    expect(proxyUrlIn('IO Error: No files found that match the pattern "https://x.example/y.parquet"')).toBeUndefined();
+  it('finds any URL an IO-error read failure names, proxy or not (callers filter by instance)', () => {
+    expect(proxyUrlIn('IO Error: No files found that match the pattern "https://x.example/y.parquet"')).toBe(
+      'https://x.example/y.parquet'
+    );
+  });
+
+  it('finds nothing outside the IO-error shape, even when the text echoes a proxy URL', () => {
+    expect(proxyUrlIn(PARSER_ERROR_ECHOING_PROXY_URL)).toBeUndefined();
     expect(proxyUrlIn('Parser Error: syntax error at or near "SELEC"')).toBeUndefined();
   });
 });
@@ -82,7 +95,7 @@ describe('explainProxyStatus', () => {
 describe('explainProxyError', () => {
   it('asks the proxy for the status of the URL DuckDB could not read, and explains it', async () => {
     const status = jest.fn(async () => 400);
-    const message = await explainProxyError(new Error(WRONG_TOKEN), status);
+    const message = await explainProxyError(new Error(WRONG_TOKEN), PROXY_BASE, status);
     expect(status).toHaveBeenCalledWith(WRONG_TOKEN_URL);
     expect(message).toContain('refused the request (HTTP 400)');
     expect(message).toContain('No files found that match the pattern');
@@ -91,7 +104,37 @@ describe('explainProxyError', () => {
 
   it('leaves other errors alone without asking anything', async () => {
     const status = jest.fn(async () => 404);
-    expect(await explainProxyError(new Error('Parser Error: syntax error at or near "SELEC"'), status)).toBeUndefined();
+    expect(
+      await explainProxyError(new Error('Parser Error: syntax error at or near "SELEC"'), PROXY_BASE, status)
+    ).toBeUndefined();
     expect(status).not.toHaveBeenCalled();
+  });
+
+  it('leaves a parser error alone even when it echoes a proxy URL of this instance, without probing', async () => {
+    const status = jest.fn(async () => 400);
+    const echoedBase = 'http://localhost/api/datasources/proxy/uid/duckdbwasm/_plain';
+    expect(await explainProxyError(new Error(PARSER_ERROR_ECHOING_PROXY_URL), echoedBase, status)).toBeUndefined();
+    expect(status).not.toHaveBeenCalled();
+  });
+
+  it("leaves an IO error naming another instance's URL alone, without probing", async () => {
+    const status = jest.fn(async () => 400);
+    const anotherUid = 'http://localhost:3005/api/datasources/proxy/uid/duckdbwasm-bearer/_plain';
+    const anotherHost = 'http://other-host:3005/api/datasources/proxy/uid/duckdbwasm-bearer-wrong/_plain';
+    expect(await explainProxyError(new Error(WRONG_TOKEN), anotherUid, status)).toBeUndefined();
+    expect(await explainProxyError(new Error(WRONG_TOKEN), anotherHost, status)).toBeUndefined();
+    expect(status).not.toHaveBeenCalled();
+  });
+
+  it('returns undefined without a base to compare against, whatever the URL', async () => {
+    const status = jest.fn(async () => 400);
+    expect(await explainProxyError(new Error(WRONG_TOKEN), undefined, status)).toBeUndefined();
+    expect(status).not.toHaveBeenCalled();
+  });
+
+  it('returns undefined when the proxy answers 2xx: the read failed for some other reason', async () => {
+    const status = jest.fn(async () => 200);
+    expect(await explainProxyError(new Error(WRONG_TOKEN), PROXY_BASE, status)).toBeUndefined();
+    expect(status).toHaveBeenCalledWith(WRONG_TOKEN_URL);
   });
 });

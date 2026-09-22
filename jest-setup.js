@@ -18,4 +18,17 @@ if (typeof window !== 'undefined') {
       removeEventListener() {}
     };
   }
+
+  // jsdom 20 has no AbortSignal.timeout (added to jsdom after this pin).
+  // src/grafana/proxy.ts's proxyStatus passes one to fetch's options; without
+  // this stub the call throws synchronously and proxyStatus's catch swallows
+  // it, so fetch — jest's mock, in tests — is never reached.
+  if (typeof window.AbortSignal !== 'undefined' && typeof window.AbortSignal.timeout !== 'function') {
+    window.AbortSignal.timeout = (ms) => {
+      const controller = new window.AbortController();
+      const timer = setTimeout(() => controller.abort(new Error('TimeoutError')), ms);
+      timer.unref?.();
+      return controller.signal;
+    };
+  }
 }

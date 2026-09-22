@@ -337,7 +337,7 @@ export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
    * DuckDB's own errors.
    */
   private async errorMessage(error: unknown): Promise<string> {
-    return (await explainProxyError(error)) ?? explainError(error, this.memoryLimitMB).message;
+    return (await explainProxyError(error, this.proxyBase)) ?? explainError(error, this.memoryLimitMB).message;
   }
 }
 

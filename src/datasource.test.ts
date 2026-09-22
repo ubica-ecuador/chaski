@@ -639,8 +639,23 @@ describe('$__proxy in a DataSource', () => {
     try {
       const failing = `SELECT error('No files found that match the pattern "${url}"')`;
       const response = await withUrl({}).runPanelQueries(makeRequest<DuckQuery>([{ refId: 'A', rawSql: failing }]));
-      expect(fetchMock).toHaveBeenCalledWith(url, { method: 'HEAD', credentials: 'same-origin' });
+      expect(fetchMock).toHaveBeenCalledWith(url, expect.objectContaining({ method: 'HEAD', credentials: 'same-origin' }));
       expect(response.errors?.[0].message).toContain("Not found on the server behind this datasource's proxy (HTTP 404)");
+    } finally {
+      global.fetch = original;
+    }
+  });
+
+  it("does not turn a parser error that merely echoes this instance's proxy URL into a proxy explanation", async () => {
+    const fetchMock = jest.fn();
+    const original = global.fetch;
+    global.fetch = fetchMock as unknown as typeof fetch;
+    try {
+      const failing = "SELECT * FORM read_parquet($__proxy('x.parquet'))";
+      const response = await withUrl({}).runPanelQueries(makeRequest<DuckQuery>([{ refId: 'A', rawSql: failing }]));
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(response.errors?.[0].message).toContain('Parser Error');
+      expect(response.errors?.[0].message).not.toContain("this datasource's proxy");
     } finally {
       global.fetch = original;
     }
