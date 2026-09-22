@@ -44,6 +44,8 @@ multi-value → `'a','b'`, `${x:raw}` verbatim), and its macros work the same: `
 `$__timeFrom()`, `$__timeTo()`. `$__timeGroup(col, 1h)` becomes a `time_bucket`. Geometry columns
 reach panels as WKB in hex, which the Kepler panel draws.
 
+`$__proxy('path')` reads a file through Grafana's data proxy (below).
+
 Identical requests for a panel that are in flight at once share one execution. A query reading the
 clock (`now()`), random numbers or a URL may therefore get the answer of an identical request that
 started moments earlier.
@@ -55,6 +57,30 @@ left. The event has type `ubica-duckdbwasm-activity` and payload `{ state: 'busy
 pending }`, and it is sent only on those two transitions. The kepler panel uses it to publish its next
 playback step only once the panels reading the previous one have answered. A panel that wants it
 declares its own event class with the same `type` string; there is nothing to import.
+
+## Files behind the proxy
+
+Some files can't be read from the browser: the server sends no CORS headers, or it wants a secret the
+viewer mustn't see. Grafana's data proxy reads them instead. Set a **URL** in this datasource's
+settings, plus whichever credentials the server takes:
+
+- **Basic auth**: a user and a password.
+- **Headers**: such as `Authorization: Bearer …` or `X-API-Key: …`.
+- **API key in the URL**: the parameter name (such as `apikey`) and the key.
+
+Then give `$__proxy` the path under that URL:
+
+    SELECT * FROM read_parquet($__proxy('cuenca/vias.parquet'))
+    SELECT * FROM read_parquet($__proxy('zonas/' || $region || '.parquet'))
+
+The browser asks Grafana, on Grafana's own origin. Grafana adds the credentials and forwards the
+request, and the file comes back as the server sent it. The secrets stay encrypted on the server.
+
+- One server per datasource instance. For another server, add another instance: all instances share
+  the browser's DuckDB, so their datasets meet in SQL.
+- Every byte passes through Grafana, and Grafana does not cut off a slow download.
+- The proxy can't sign requests. For a private S3 bucket, use presigned URLs directly instead.
+- Public files that allow CORS are faster read directly, without `$__proxy`.
 
 ## Limits
 
