@@ -109,7 +109,7 @@ jobs:
       - name: Package plugin
         id: package-plugin
         run: |
-          mv dist ${PLUGIN_ID}
+          cp -a dist ${PLUGIN_ID}
           zip ${ARCHIVE} ${PLUGIN_ID} -r
         env:
           ARCHIVE: ${{ steps.metadata.outputs.archive }}
@@ -123,12 +123,17 @@ jobs:
         env:
           ARCHIVE: ${{ steps.metadata.outputs.archive }}
 
-      - name: Archive Build
-        uses: actions/upload-artifact@v7
+      # The e2e jobs read the build from the Actions cache instead of an
+      # artifact. dist is 62 MB of DuckDB-WASM and the spatial extension, 15 MB
+      # zipped, and uploading that on every run fills the account's artifact
+      # storage quota, which then fails this job. The cache has a quota of its
+      # own and evicts by itself.
+      - name: Cache build for e2e
+        if: steps.check-for-e2e.outputs.has-e2e == 'true'
+        uses: actions/cache/save@v6
         with:
-          name: ${{ steps.metadata.outputs.plugin-id }}-${{ steps.metadata.outputs.plugin-version }}
-          path: ${{ steps.metadata.outputs.plugin-id }}
-          retention-days: 5
+          path: dist
+          key: build-${{ github.run_id }}
 
   resolve-versions:
     name: Resolve e2e images
@@ -162,11 +167,12 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Download plugin
-        uses: actions/download-artifact@v8
+      - name: Restore plugin build
+        uses: actions/cache/restore@v6
         with:
           path: dist
-          name: ${{ needs.build.outputs.plugin-id }}-${{ needs.build.outputs.plugin-version }}
+          key: build-${{ github.run_id }}
+          fail-on-cache-miss: true
 
       - name: Execute permissions on binary
         if: needs.build.outputs.has-backend == 'true'
