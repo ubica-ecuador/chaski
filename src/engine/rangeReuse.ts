@@ -43,8 +43,10 @@ const sameRaw = (a: LoadWindow, b: LoadWindow) => a.rawFrom === b.rawFrom && a.r
  * the loaded one and nothing else about the source moved. Two windows that both
  * end at 'now' count as sharing their end, so switching from "Last 7 days" to
  * "Last 24 hours" stays local; the data then runs to the last load rather than
- * to this second. Anything uncertain loads: the worst case is a missed reuse,
- * never wrong data.
+ * to this second. They must still overlap: a window that starts after the
+ * loaded one ended ("Last 1 hour", picked hours later) has none of its rows in
+ * the table, so it loads. Anything uncertain loads: the worst case is a missed
+ * reuse, never wrong data.
  */
 export function decideDatasetLoad(loaded: LoadedWindow | undefined, next: NextLoad): LoadDecision {
   if (!loaded || loaded.stale || next.loading || loaded.visit !== next.visit) {
@@ -56,7 +58,8 @@ export function decideDatasetLoad(loaded: LoadedWindow | undefined, next: NextLo
   if (next.signatureAtLoadedWindow === undefined || next.signatureAtLoadedWindow !== loaded.signature) {
     return 'load';
   }
-  const endsAtNow = loaded.window.rawTo === 'now' && next.window.rawTo === 'now';
-  const contained = next.window.from >= loaded.window.from && (next.window.to <= loaded.window.to || endsAtNow);
+  const overlaps = next.window.from < loaded.window.to;
+  const nowRule = loaded.window.rawTo === 'now' && next.window.rawTo === 'now' && overlaps;
+  const contained = next.window.from >= loaded.window.from && (next.window.to <= loaded.window.to || nowRule);
   return contained ? 'reuse' : 'load';
 }

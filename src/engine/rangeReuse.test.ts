@@ -1,6 +1,7 @@
 import { decideDatasetLoad, type LoadedWindow, type LoadWindow, type NextLoad } from './rangeReuse';
 
-const DAY = 86_400_000;
+const HOUR = 3_600_000;
+const DAY = 24 * HOUR;
 const T0 = Date.UTC(2026, 8, 1);
 
 const abs = (from: number, to: number): LoadWindow => ({ from, to, rawFrom: from, rawTo: to });
@@ -48,6 +49,14 @@ describe('decideDatasetLoad', () => {
     const week = loaded(rel(T0, T0 + 7 * DAY, 'now-7d'));
     const fiveMinutesLater = T0 + 7 * DAY + 300_000;
     expect(decideDatasetLoad(week, next(rel(fiveMinutesLater - DAY, fiveMinutesLater, 'now-24h')))).toBe('reuse');
+  });
+
+  it('loads a window ending at now that starts after the loaded one ended', () => {
+    const week = loaded(rel(T0, T0 + 7 * DAY, 'now-7d'));
+    const fiveHoursLater = T0 + 7 * DAY + 5 * HOUR;
+    expect(decideDatasetLoad(week, next(rel(fiveHoursLater - HOUR, fiveHoursLater, 'now-1h')))).toBe('load');
+    const touching = T0 + 7 * DAY + HOUR;
+    expect(decideDatasetLoad(week, next(rel(touching - HOUR, touching, 'now-1h')))).toBe('load');
   });
 
   it('gives no such allowance to an end that is not exactly now', () => {

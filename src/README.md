@@ -14,8 +14,9 @@ dashboard opens, or on every time-range change if its refresh says so. Panels re
 A dataset set to reload on time-range change **keeps its table when the new range fits inside the one
 it loaded** and nothing else in its source changed. Zooming in on a chart, or moving from "Last 7 days"
 to "Last 24 hours", is answered in the browser. Two ranges that both end at `now` count as ending
-together, so after such a switch the data runs to the last load, not to this second. Refreshing (the
-button, or auto-refresh) always reloads, and so does a range that reaches outside what was loaded.
+together when they overlap, so after such a switch the data runs to the last load, not to this second.
+A range that starts after the last load, such as "Last 1 hour" picked hours later, reloads. Refreshing
+(the button, or auto-refresh) always reloads, and so does a range that reaches outside what was loaded.
 
 Rows come from:
 
