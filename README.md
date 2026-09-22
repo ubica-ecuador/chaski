@@ -1,115 +1,157 @@
-# Grafana data source plugin template
+# Chaski
 
-This template is a starting point for building a Data Source Plugin for Grafana.
+A Grafana datasource that loads a dashboard's data **once** into DuckDB running in the browser, and
+answers every panel query there. It is named after the runners who carried word along the Andean
+roads: the data is already here, so the answer is immediate. Changing a variable, an ad hoc filter or
+the time range re-queries the browser, not the server. Filters take milliseconds, and every panel
+keeps working: native, catalog and the kepler map.
 
-## What are Grafana data source plugins?
+- **Plugin id:** `ubica-chaski-datasource`. Frontend only: no backend, no alerting.
+- **Engine:** DuckDB 1.4.3 through `@duckdb/duckdb-wasm` 1.32.0, running in a Web Worker.
+- **Distribution:** git only, unsigned. It ships in the self-hosted Grafana Geospatial Stack and is not
+  published in the Grafana catalog.
+- **For dashboard authors:** how to write datasets and panel SQL is in [src/README.md](src/README.md). That
+  file is the page Grafana shows for the plugin.
 
-Grafana supports a wide range of data sources, including Prometheus, MySQL, and even Datadog. There’s a good chance you can already visualize metrics from the systems you have set up. In some cases, though, you already have an in-house metrics solution that you’d like to add to your Grafana dashboards. Grafana Data Source Plugins enables integrating such solutions with Grafana.
+## How it works
 
-## Getting started
+- **Datasets.** A dataset is a hidden query variable of this datasource. It loads into a versioned
+  DuckDB table when the dashboard opens, or on a time-range change if its refresh says so. Panels read it
+  by name (`FROM $vehicles`). Its rows come from one of two places:
+  - another Grafana datasource (server DuckDB, Postgres, Infinity…), through that datasource's own query
+    path;
+  - SQL in the browser (`read_parquet`/`read_csv`/`read_json` on a URL that allows CORS, or a `SELECT`
+    over another dataset).
+- **Files behind Grafana's data proxy.** A server without CORS headers, or one that wants a secret,
+  is read through Grafana instead: `$__proxy('path')` builds a URL under
+  `/api/datasources/proxy/uid/<uid>/`, and Grafana adds the credentials the datasource stores
+  encrypted (basic auth, headers, or a key in the query string). The plugin declares GET and HEAD
+  routes for it, so query permission never turns into write access to that server.
+- **Range reuse.** A dataset that reloads on time-range change keeps its table when the new range fits
+  inside the loaded one, within the same visit to the dashboard, and nothing else in its source changed.
+  Refreshing always reloads. The rules this puts on authors are in [src/README.md](src/README.md).
+- **Panel queries.** Panel SQL runs locally with the server DuckDB datasource's quoting and macros.
+  Around that:
+  - each query's column list is remembered, so repeat runs skip the `DESCRIBE`;
+  - identical in-flight requests for a panel share one execution;
+  - ad hoc filters apply locally.
+- **Activity.** The datasource publishes `ubica-duckdbwasm-activity` (`busy`/`settled`) on Grafana's app
+  event bus. The kepler panel uses it to pace its playback. The event keeps its old name on purpose:
+  the published panel matches it as a string, so renaming it would break playback pacing for anyone
+  on the current version.
 
-### Frontend
+`window.__duckdbwasm.stats` records every load, reuse, panel answer, shared request and activity
+transition on the page. The e2e suite and the bench read it, and it is handy when debugging a dashboard.
 
-1. Install dependencies
+## Requirements
 
-   ```bash
-   npm install
+- **Grafana 12.0.0 or later** (`grafanaDependency` in `src/plugin.json`). It is tested on 12.0.10
+  and 13.2.2.
+- **Unsigned plugin:** Grafana must allow loading it, with
+  `GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS=ubica-chaski-datasource`.
+- **Browser memory.** Each viewer's browser holds the datasets. The limit is a datasource setting
+  (`memoryLimitMB`, 1024 by default). Aggregate on the server, and let only the working set reach the
+  browser.
+- **Content Security Policy.**
+  - The engine starts under Grafana's stock policy with nothing extra to allow.
+  - A browser-side read of another host needs that host to send CORS headers. If CSP is on, the host
+    also has to be in `connect-src`. Otherwise read it through the data proxy (`$__proxy`), which is
+    same-origin, or through a server datasource.
+
+## Install (self-hosted)
+
+1. Build it: `npm ci && npm run build`. This writes `dist/`, including the DuckDB worker, the wasm and
+   the extensions.
+2. Put `dist/` in Grafana's plugin directory as `ubica-chaski-datasource/`, either copied or mounted.
+3. Allow the unsigned plugin (see Requirements) and restart Grafana. Changes to `src/plugin.json` also
+   need a restart; a rebuilt `dist/` is picked up on the next page load.
+4. Provision the datasource, as in [provisioning/datasources/datasources.yml](provisioning/datasources/datasources.yml):
+
+   ```yaml
+   apiVersion: 1
+   datasources:
+     - name: 'Chaski'
+       uid: 'duckdbwasm'
+       type: 'ubica-chaski-datasource'
+       access: proxy
+       jsonData:
+         memoryLimitMB: 1024
    ```
 
-2. Build plugin in development mode and run in watch mode
+## Develop
 
-   ```bash
-   npm run dev
-   ```
+You need Node 22 or later, and Docker for the dev Grafana.
 
-3. Build plugin in production mode
+```bash
+npm ci
+npm run dev        # webpack in watch mode
+npm run build      # production build into dist/
+npm run server     # dev Grafana on :3005 plus the fixtures server on :8095
+```
 
-   ```bash
-   npm run build
-   ```
+- `prebuild`/`predev` run `scripts/fetch-duckdb-extensions.mjs`. It downloads `parquet`, `json`,
+  `httpfs` and `spatial` for the DuckDB version stated in `src/engine/duckdbVersion.ts`. The plugin serves
+  them itself, because it cannot load code from a CDN. When bumping `@duckdb/duckdb-wasm`, bump that
+  version too.
+- **The dev Grafana** runs **12.0.10** by default, the floor of the supported range. Choose another version
+  with `GRAFANA_VERSION=13.2.1 npm run server`. `docker compose --profile csp up` adds a Grafana with the
+  stock CSP on **:3006**.
+- **The fixtures server** on :8095 serves `fixtures/` with open CORS, the way a public bucket would.
+  `scripts/make-fixture.py` regenerates `sample.parquet`.
+- Use webpack and the configuration in `.config/`. Don't edit anything under `.config/`; extend it
+  instead (`webpack.config.ts`).
 
-4. Run the tests (using Jest)
+### Layout
 
-   ```bash
-   # Runs the tests and watches for changes, requires git init first
-   npm run test
+| Path                | Role                                                                                                                                                                                                                                                                                                                                       |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/engine/`       | The engine. It has no Grafana imports (`@grafana/*` is forbidden there by ESLint). It holds the DuckDB runner, the dataset registry and its visits, the range-reuse rule (`rangeReuse.ts`), panel execution with the schema cache (`executor.ts`, `schemaCache.ts`), `singleFlight.ts`, `activity.ts`, macros and quoting, and `stats.ts`. |
+| `src/grafana/`      | The Grafana side: the engine singleton, interpolation, Arrow ⇄ DataFrame conversion, loading from other datasources, dashboard keys and navigation, the data proxy (`proxy.ts`: base URL, routes, error explanations), the activity event, and notices.                                                                                    |
+| `src/datasource.ts` | `DataSourceApi`: panel queries, dataset and values variables, ad hoc filter options.                                                                                                                                                                                                                                                       |
+| `src/components/`   | The config, query and variable editors.                                                                                                                                                                                                                                                                                                    |
+| `tests/`            | End-to-end tests (`@grafana/plugin-e2e`).                                                                                                                                                                                                                                                                                                  |
+| `fixtures/`         | What the fixtures server serves: `sample.parquet`, plus three locations that send no CORS headers and want a bearer token, basic auth or a key in the URL — what the data proxy tests read through.                                                                                                                                        |
+| `provisioning/`     | The dev Grafana's datasources and dashboards (`e2e`, `e2e-range`, `e2e-proxy`, `bench-1m`). Besides the plain instance it provisions four that read through the data proxy, one per way in plus one with a wrong token.                                                                                                                    |
+| `bench/`            | Measurement scripts and bench dashboards (see Bench).                                                                                                                                                                                                                                                                                      |
 
-   # Exits after running all the tests
-   npm run test:ci
-   ```
+## Test
 
-5. Spin up a Grafana instance and run the plugin inside it (using Docker)
+```bash
+npm run test:ci    # Jest; engine tests run on DuckDB's Node build
+npm run typecheck
+npm run lint
+npm run e2e        # Playwright against the dev Grafana (npm run server first)
+```
 
-   ```bash
-   npm run server
-   ```
+- The e2e tests default to `http://localhost:3005`. Point them elsewhere with `GRAFANA_URL`.
+- Run them on both ends of the supported range: the default 12.0.10, and 13.2.1 with `GRAFANA_VERSION`.
+- They cover:
+  - loading a dataset and filtering without network requests;
+  - ad hoc filters;
+  - keeping the last good data when a reload fails;
+  - range reuse, including a dataset loaded through another datasource;
+  - reading files through the data proxy behind a token, basic auth and a key in the URL, plus the
+    messages a rejected credential and a direct read without CORS produce;
+  - Save & test.
 
-6. Run the E2E tests (using Playwright)
+## Bench
 
-   ```bash
-   # Spins up a Grafana instance first that we tests against
-   npm run server
+The scripts in `bench/` drive a real Chromium through Playwright and print one JSON report per run.
+Results go to `bench/results/`, which git ignores.
 
-   # If you wish to start a certain Grafana version. If not specified will use latest by default
-   GRAFANA_VERSION=11.3.0 npm run server
+| Script                 | Measures                                                                                                                                                                                                                                             |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `measure.mjs`          | Cold and warm load, memory, filter latency, auto-refresh reloads, and range reuse on zoom-in/zoom-out (`--zoom`/`--unzoom`).                                                                                                                         |
+| `playback.mjs`         | Whether the panels following kepler's time slider keep up while it plays: the share of publishes answered before the next one, publish-to-answer latency (also per panel), dropped frames and long tasks. It uses hardware GL and a narrowed window. |
+| `playbackMetrics.mjs`  | The arithmetic behind `playback.mjs`. Test it with `node --test bench/playbackMetrics.test.mjs`.                                                                                                                                                     |
+| `setup-bench.mjs`      | Registers the datasource and uploads the bench dashboards: `bench-1m`, `--with-gtfs`, `--with-earthquakes`.                                                                                                                                          |
+| `make-earthquakes.mjs` | Regenerates `earthquakes-local`/`earthquakes-server` from kepler-grafana's `earthquakes` dashboard.                                                                                                                                                  |
 
-   # Starts the tests
-   npm run e2e
-   ```
+`grafana-sources.override.yaml` mounts this plugin into kepler-grafana's :3002 bench. That checkout is
+often shared with other work, so check that its `dist/` is the build you mean to measure before you
+trust the numbers.
 
-7. Run the linter
+## Changelog and license
 
-   ```bash
-   npm run lint
-
-   # or
-
-   npm run lint:fix
-   ```
-
-# Distributing your plugin
-
-When distributing a Grafana plugin either within the community or privately the plugin must be signed so the Grafana application can verify its authenticity. This can be done with the `@grafana/sign-plugin` package.
-
-_Note: It's not necessary to sign a plugin during development. The docker development environment that is scaffolded with `@grafana/create-plugin` caters for running the plugin without a signature._
-
-## Initial steps
-
-Before signing a plugin please read the Grafana [plugin publishing and signing criteria](https://grafana.com/legal/plugins/#plugin-publishing-and-signing-criteria) documentation carefully.
-
-`@grafana/create-plugin` has added the necessary commands and workflows to make signing and distributing a plugin via the grafana plugins catalog as straightforward as possible.
-
-Before signing a plugin for the first time please consult the Grafana [plugin signature levels](https://grafana.com/legal/plugins/#what-are-the-different-classifications-of-plugins) documentation to understand the differences between the types of signature level.
-
-1. Create a [Grafana Cloud account](https://grafana.com/signup).
-2. Make sure that the first part of the plugin ID matches the slug of your Grafana Cloud account.
-   - _You can find the plugin ID in the `plugin.json` file inside your plugin directory. For example, if your account slug is `acmecorp`, you need to prefix the plugin ID with `acmecorp-`._
-3. Create a Grafana Cloud API key with the `PluginPublisher` role.
-4. Keep a record of this API key as it will be required for signing a plugin
-
-## Signing a plugin
-
-### Using Github actions release workflow
-
-If the plugin is using the github actions supplied with `@grafana/create-plugin` signing a plugin is included out of the box. The [release workflow](./.github/workflows/release.yml) can prepare everything to make submitting your plugin to Grafana as easy as possible. Before being able to sign the plugin however a secret needs adding to the Github repository.
-
-1. Please navigate to "settings > secrets > actions" within your repo to create secrets.
-2. Click "New repository secret"
-3. Name the secret "GRAFANA_API_KEY"
-4. Paste your Grafana Cloud API key in the Secret field
-5. Click "Add secret"
-
-#### Push a version tag
-
-To trigger the workflow we need to push a version tag to github. This can be achieved with the following steps:
-
-1. Run `npm version <major|minor|patch>`
-2. Run `git push origin main --follow-tags`
-
-## Learn more
-
-Below you can find source code for existing app plugins and other related documentation.
-
-- [Basic data source plugin example](https://github.com/grafana/grafana-plugin-examples/tree/master/examples/datasource-basic#readme)
-- [`plugin.json` documentation](https://grafana.com/developers/plugin-tools/reference/plugin-json)
-- [How to sign a plugin?](https://grafana.com/developers/plugin-tools/publish-a-plugin/sign-a-plugin)
+- Changes: [CHANGELOG.md](CHANGELOG.md).
+- License: Apache-2.0 ([LICENSE](LICENSE)).
