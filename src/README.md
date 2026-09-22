@@ -6,9 +6,12 @@ answers every panel query locally. Changing a variable, an ad hoc filter or the 
 the browser, not the server: filters take milliseconds, and every panel (native, catalog, kepler)
 keeps working.
 
+A worked example, from a live feed to a map, is in the repository:
+[docs/tutorial-earthquakes.md](https://github.com/ubica-ecuador/chaski/blob/main/docs/tutorial-earthquakes.md).
+
 ## Datasets
 
-A dataset is a hidden **query variable** of this datasource (kind *Dataset*). It loads when the
+A dataset is a hidden **query variable** of this datasource (kind _Dataset_). It loads when the
 dashboard opens, or on every time-range change if its refresh says so. Panels read it by name:
 
     SELECT route, count(*) FROM $vehicles WHERE mode IN ($mode) GROUP BY 1
@@ -27,7 +30,7 @@ After a zoom-in the table still holds the wider range it loaded, so such a datas
 - the **panels reading it filter by time themselves**, for example `WHERE $__timeFilter(t)`, or they
   show rows outside the picked range.
 
-A dataset that can't follow both should load with the dashboard instead (refresh *On dashboard load*).
+A dataset that can't follow both should load with the dashboard instead (refresh _On dashboard load_).
 
 Rows come from:
 

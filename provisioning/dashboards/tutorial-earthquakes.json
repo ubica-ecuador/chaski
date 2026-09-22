@@ -1,0 +1,210 @@
+{
+  "uid": "chaski-tutorial-earthquakes",
+  "title": "Chaski \u00b7 earthquakes tutorial",
+  "schemaVersion": 39,
+  "editable": true,
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "refresh": "",
+  "templating": {
+    "list": [
+      {
+        "name": "quakes",
+        "label": "Earthquakes",
+        "type": "query",
+        "hide": 2,
+        "skipUrlSync": true,
+        "refresh": 1,
+        "datasource": {
+          "type": "ubica-chaski-datasource",
+          "uid": "duckdbwasm"
+        },
+        "query": {
+          "refId": "quakes",
+          "kind": "dataset",
+          "name": "quakes",
+          "source": {
+            "type": "sql",
+            "sql": "SELECT\n  to_timestamp(f.properties.time / 1000) AS time,\n  f.properties.mag::DOUBLE AS mag,\n  f.properties.place AS place,\n  f.geometry.coordinates[1]::DOUBLE AS longitude,\n  f.geometry.coordinates[2]::DOUBLE AS latitude,\n  f.geometry.coordinates[3]::DOUBLE AS depth_km\nFROM read_json('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_month.geojson'),\n     unnest(features) AS t(f)\nWHERE f.properties.mag IS NOT NULL"
+          }
+        },
+        "current": {},
+        "options": []
+      },
+      {
+        "name": "minmag",
+        "label": "Minimum magnitude",
+        "type": "custom",
+        "query": "0, 2, 3, 4.5, 5",
+        "current": {
+          "text": "3",
+          "value": "3"
+        },
+        "options": [
+          {
+            "text": "0",
+            "value": "0",
+            "selected": false
+          },
+          {
+            "text": "2",
+            "value": "2",
+            "selected": false
+          },
+          {
+            "text": "3",
+            "value": "3",
+            "selected": true
+          },
+          {
+            "text": "4.5",
+            "value": "4.5",
+            "selected": false
+          },
+          {
+            "text": "5",
+            "value": "5",
+            "selected": false
+          }
+        ]
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Earthquakes at or above the chosen magnitude",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "datasource": {
+        "type": "ubica-chaski-datasource",
+        "uid": "duckdbwasm"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "ubica-chaski-datasource",
+            "uid": "duckdbwasm"
+          },
+          "rawSql": "SELECT count(*)::DOUBLE AS n FROM $quakes WHERE mag >= $minmag AND $__timeFilter(time)"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "table",
+      "title": "Strongest",
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 10,
+        "h": 5
+      },
+      "datasource": {
+        "type": "ubica-chaski-datasource",
+        "uid": "duckdbwasm"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "ubica-chaski-datasource",
+            "uid": "duckdbwasm"
+          },
+          "rawSql": "SELECT time, mag, place, depth_km FROM $quakes WHERE mag >= $minmag AND $__timeFilter(time) ORDER BY mag DESC LIMIT 10"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Per day",
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 8,
+        "h": 5
+      },
+      "datasource": {
+        "type": "ubica-chaski-datasource",
+        "uid": "duckdbwasm"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "ubica-chaski-datasource",
+            "uid": "duckdbwasm"
+          },
+          "rawSql": "SELECT $__timeGroup(time, 1d) AS time, count(*)::DOUBLE AS earthquakes FROM $quakes WHERE mag >= $minmag AND $__timeFilter(time) GROUP BY 1 ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "geomap",
+      "title": "Where",
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 24,
+        "h": 11
+      },
+      "datasource": {
+        "type": "ubica-chaski-datasource",
+        "uid": "duckdbwasm"
+      },
+      "options": {
+        "basemap": {
+          "type": "osm-standard",
+          "name": "Basemap"
+        },
+        "layers": [
+          {
+            "type": "markers",
+            "name": "Earthquakes",
+            "location": {
+              "mode": "auto"
+            },
+            "config": {
+              "style": {
+                "size": {
+                  "field": "mag",
+                  "min": 2,
+                  "max": 12
+                },
+                "color": {
+                  "field": "depth_km"
+                }
+              }
+            }
+          }
+        ],
+        "view": {
+          "id": "zero",
+          "lat": 0,
+          "lon": 0,
+          "zoom": 1
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "ubica-chaski-datasource",
+            "uid": "duckdbwasm"
+          },
+          "rawSql": "SELECT latitude, longitude, mag, depth_km, place FROM $quakes WHERE mag >= $minmag AND $__timeFilter(time)"
+        }
+      ]
+    }
+  ]
+}
