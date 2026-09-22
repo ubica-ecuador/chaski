@@ -67,11 +67,13 @@ function expand(name: string, args: string[], ctx: MacroContext): string {
       return `'${rfc3339(ctx.to)}'`;
     case 'timeGroup':
       return `time_bucket(INTERVAL '${toDuckInterval(args[1])}', ${args[0]})`;
-    default:
+    case 'proxy':
       if (!ctx.proxyBase) {
         throw new Error('$__proxy is only available in a DuckDB WASM datasource query');
       }
       return `(${quoteLiteral(`${ctx.proxyBase}/`)} || (${args[0]}))`;
+    default:
+      throw new Error(`Unknown macro $__${name}`);
   }
 }
 
