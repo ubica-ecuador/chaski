@@ -136,11 +136,19 @@ export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
     };
   }
 
+  /**
+   * Runs the plan's targets in order. Once `signal` aborts, nobody is waiting
+   * for the answer, so the targets not yet started are skipped and nothing is
+   * recorded for them: `stats.queries` only lists what ran.
+   */
   private async executePanelPlan(plan: PanelPlan, signal?: AbortSignal): Promise<DataQueryResponse> {
     const { engine, dashboard, panelId } = plan;
     const data: DataFrame[] = [];
     const errors: DataQueryError[] = [];
     for (const target of plan.targets) {
+      if (signal?.aborted) {
+        break;
+      }
       if ('failed' in target) {
         recordQuery({ refId: target.refId, ms: 0, rows: 0, ok: false, at: Date.now(), panelId });
         errors.push({ refId: target.refId, message: target.failed });

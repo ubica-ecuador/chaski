@@ -512,6 +512,26 @@ describe('identical panel requests in flight', () => {
     expect(second.seen.response).toBeUndefined();
   });
 
+  it('runs none of the remaining targets once every request has been abandoned', async () => {
+    const { held, ran, openAll } = holdingRunner({ hold: true });
+    const twoTargets = makeRequest<DuckQuery>(
+      [
+        { refId: 'A', rawSql: 'SELECT 1 AS one' },
+        { refId: 'B', rawSql: 'SELECT 2 AS two' },
+      ],
+      { requestId: 'SQR1', panelId: 3, dashboardUID: 'dash' }
+    );
+    const abandoned = subscribe(twoTargets);
+    await until(() => held.length === 1);
+    abandoned.subscription.unsubscribe();
+    expect(held[0].signal?.aborted).toBe(true);
+    openAll();
+    await until(settled);
+    expect(ran).toEqual(['SELECT 1 AS one']);
+    // Only what ran is recorded: the target in flight when the request was abandoned.
+    expect(stats.queries.map((q) => q.refId)).toEqual(['A']);
+  });
+
   it('runs an identical request again once the first has answered', async () => {
     const { ran } = holdingRunner({ hold: false });
     await lastValueFrom(ds.query(panel('SQR1')));
