@@ -44,6 +44,13 @@ multi-value → `'a','b'`, `${x:raw}` verbatim), and its macros work the same: `
 `$__timeFrom()`, `$__timeTo()`. `$__timeGroup(col, 1h)` becomes a `time_bucket`. Geometry columns
 reach panels as WKB in hex, which the Kepler panel draws.
 
+On a map with many rows, ask for GeoJSON instead — `SELECT ST_AsGeoJSON(geom) AS geom` — and the
+panel skips decoding the hex itself. DuckDB does that work in WebAssembly, which measured 3 to 5
+times cheaper than the panel's JavaScript: about 0.2 s against 1.0 s for 200k points, and 0.3 s
+against 1.1 s for 20k polygons of 24 vertices. The text is a little larger than the hex, but it
+never leaves the browser. Here `ST_AsGeoJSON` already returns text; on the server DuckDB datasource
+the same call needs a `::VARCHAR` cast.
+
 `$__proxy('path')` reads a file through Grafana's data proxy (below).
 
 Identical requests for a panel that are in flight at once share one execution. A query reading the
