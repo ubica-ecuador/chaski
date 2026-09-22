@@ -58,14 +58,14 @@ export async function runPanelQuery(
   const schemas = schemasOf(runner);
   const key = maskStringLiterals(base);
   const cached = schemas.get(key);
+  const remembered = cached !== UNSTABLE ? cached : undefined;
 
-  let failed: Failure | undefined;
-  if (cached !== undefined && cached !== UNSTABLE) {
-    const reused = await reuse(runner, base, cached, filters, options.signal);
-    if ('table' in reused) {
-      return { table: reused.table, executed: reused.executed, columns: cached.columns, ms: now() - started };
+  let reused: Reused | undefined;
+  if (remembered) {
+    reused = await reuse(runner, base, remembered, filters, options.signal);
+    if (reused.outcome === 'proven') {
+      return { table: reused.table, executed: reused.executed, columns: remembered.columns, ms: now() - started };
     }
-    failed = reused.failed;
   }
 
   let columns: ColumnInfo[];
@@ -76,10 +76,17 @@ export async function runPanelQuery(
     const table = await runner.query(base, options.signal);
     return { table, executed: base, columns: [], ms: now() - started };
   }
+  if (remembered && reused?.outcome === 'unproven' && sameColumns(remembered.columns, columns)) {
+    // The empty result never evaluated the assertion, but DESCRIBE has just
+    // shown it holds: a fresh wrapper would be the very query that ran, minus
+    // an assertion that removes no rows. Its empty result is the answer.
+    return { table: reused.table, executed: reused.executed, columns: remembered.columns, ms: now() - started };
+  }
   // Columns that moved with the values, or a result the wrapper can't
   // reproduce, would fail every reuse: describe this statement every time.
   const unstable =
-    cached === UNSTABLE || (cached !== undefined && (failed === 'mismatch' || !sameColumns(cached.columns, columns)));
+    cached === UNSTABLE ||
+    (remembered !== undefined && (reused?.outcome === 'mismatch' || !sameColumns(remembered.columns, columns)));
   if (unstable) {
     schemas.set(key, UNSTABLE);
   }
@@ -91,7 +98,7 @@ export async function runPanelQuery(
   return { table, executed, columns, ms: now() - started };
 }
 
-type Failure = 'error' | 'mismatch' | 'unproven';
+type Reused = { outcome: 'proven' | 'unproven'; table: Table; executed: string } | { outcome: 'error' | 'mismatch' };
 
 /**
  * Runs `base` wrapped with remembered columns, and keeps the result only when
@@ -103,7 +110,8 @@ type Failure = 'error' | 'mismatch' | 'unproven';
  * - a column whose DuckDB type the result can't show (one the wrapper casts,
  *   or one Arrow carries as binary: BLOB, BIT and GEOMETRY alike) is asserted
  *   with `typeof`, which DuckDB folds away while it holds. An empty result
- *   never evaluates the assertion, so it proves nothing when there is one.
+ *   never evaluates the assertion, so it proves nothing when there is one:
+ *   it comes back `unproven`, for a DESCRIBE to vouch for.
  *
  * Any error is left to the fresh run, which gives the error of today.
  */
@@ -113,7 +121,7 @@ async function reuse(
   cached: CachedSchema,
   filters: AdHocFilter[],
   signal?: AbortSignal
-): Promise<{ table: Table; executed: string } | { failed: Failure }> {
+): Promise<Reused> {
   const executed = wrap(base, cached.columns, filters, cached.asserted);
   let table: Table;
   try {
@@ -122,15 +130,13 @@ async function reuse(
     if (signal?.aborted) {
       throw error;
     }
-    return { failed: 'error' };
+    return { outcome: 'error' };
   }
   if (shapeOf(table) !== cached.shape) {
-    return { failed: 'mismatch' };
+    return { outcome: 'mismatch' };
   }
-  if (cached.asserted.length > 0 && table.numRows === 0) {
-    return { failed: 'unproven' };
-  }
-  return { table, executed };
+  const outcome = cached.asserted.length > 0 && table.numRows === 0 ? 'unproven' : 'proven';
+  return { outcome, table, executed };
 }
 
 function wrap(base: string, columns: ColumnInfo[], filters: AdHocFilter[], asserted: ColumnInfo[] = []): string {

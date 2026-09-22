@@ -173,14 +173,39 @@ describe('runPanelQuery reusing columns', () => {
     expect(second.table.get(0)?.x).toBe('0101');
   });
 
-  it('checks the columns again when an empty result cannot vouch for them', async () => {
-    const { spy, describes } = counting();
+  it('checks the columns again when an empty result cannot vouch for them, without running it again', async () => {
+    const { spy, sent, describes } = counting();
     const sql = (city: string) => `SELECT n::HUGEINT AS big FROM cities WHERE city = '${city}'`;
     await runPanelQuery(spy, sql('Quito'));
+    const before = sent.length;
     const empty = await runPanelQuery(spy, sql('Nowhere'));
+    // The reuse, then DESCRIBE: the fresh wrapper would be the same query minus
+    // the assertion DESCRIBE has just shown holds, so it isn't run a second time.
+    expect(sent.slice(before).map((s) => s.split(' ')[0])).toEqual(['SELECT', 'DESCRIBE']);
     expect(describes()).toBe(2);
     expect(empty.table.numRows).toBe(0);
     expect(fieldNames(empty)).toEqual(['big']);
+    expect(String(empty.table.schema.fields[0].type)).toBe('Float64');
+    expect(empty.columns).toEqual([{ name: 'big', type: 'HUGEINT' }]);
+    expect(empty.executed).toContain('CAST("big" AS DOUBLE)');
+    // Still remembered: the next run with rows is a plain reuse.
+    const again = await runPanelQuery(spy, sql('Cuenca'));
+    expect(describes()).toBe(2);
+    expect(again.table.toArray().map((row) => row.big)).toEqual([2]);
+  });
+
+  it('runs afresh when the columns an empty result could not vouch for have changed', async () => {
+    const { spy, sent } = counting();
+    const sql = (field: string, city: string) =>
+      `SELECT struct_extract({'h': n::HUGEINT, 'm': n::DECIMAL(18,3)}, '${field}') AS x FROM cities WHERE city = '${city}'`;
+    await runPanelQuery(spy, sql('h', 'Quito'));
+    const before = sent.length;
+    const empty = await runPanelQuery(spy, sql('m', 'Nowhere'));
+    expect(sent.slice(before).map((s) => s.split(' ')[0])).toEqual(['SELECT', 'DESCRIBE', 'SELECT']);
+    expect(empty.columns).toEqual([{ name: 'x', type: 'DECIMAL(18,3)' }]);
+    expect(empty.executed).not.toContain('typeof');
+    expect(empty.table.numRows).toBe(0);
+    expect(String(empty.table.schema.fields[0].type)).toBe('Float64');
   });
 
   it('fails a wrong query with the error it gives today', async () => {
