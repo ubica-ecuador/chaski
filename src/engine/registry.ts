@@ -112,7 +112,17 @@ export class DatasetRegistry {
     const table = `d${shortHash(dashboard)}_${sanitizeName(name)}_v${version}`;
     const promise: Promise<DatasetState> = this.materialize(table, loader)
       .then((rows) =>
-        this.adopt(key, entry, { dashboard, name, table, version, loadedAt: this.now(), rows, signature, window, visit })
+        this.adopt(key, entry, {
+          dashboard,
+          name,
+          table,
+          version,
+          loadedAt: this.now(),
+          rows,
+          signature,
+          window,
+          visit,
+        })
       )
       .catch((error: unknown) => this.fail(key, entry, version, table, error))
       .finally(() => {

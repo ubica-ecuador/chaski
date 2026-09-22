@@ -22,7 +22,7 @@ export interface LoadedWindow {
 
 export interface NextLoad {
   window: LoadWindow;
-  /** The source's signature now, with the range pinned to the *loaded* window; undefined if it could not be computed. */
+  /** The source's signature now, with the range pinned to the *loaded* window; undefined if it can't be computed. */
   signatureAtLoadedWindow: string | undefined;
   visit: number;
   /** Whether a load of this dataset is already in flight. */

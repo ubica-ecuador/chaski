@@ -1,5 +1,11 @@
 /** @jest-environment jsdom */
-import { type DataQueryRequest, type DataQueryResponse, type DataSourceInstanceSettings, dateTime, EventBusSrv } from '@grafana/data';
+import {
+  type DataQueryRequest,
+  type DataQueryResponse,
+  type DataSourceInstanceSettings,
+  dateTime,
+  EventBusSrv,
+} from '@grafana/data';
 import type { DataQuery } from '@grafana/schema';
 import { lastValueFrom } from 'rxjs';
 
@@ -22,7 +28,9 @@ const mockHistoryListeners = new Set<(location: { pathname: string }) => void>()
 
 jest.mock('@grafana/runtime', () => ({
   getTemplateSrv: () => mockTemplateSrv.current,
-  getDataSourceSrv: () => ({ get: async () => ({ name: 'upstream', query: (...args: unknown[]) => mockSourceQuery(...args) }) }),
+  getDataSourceSrv: () => ({
+    get: async () => ({ name: 'upstream', query: (...args: unknown[]) => mockSourceQuery(...args) }),
+  }),
   locationService: {
     getLocation: () => ({ pathname: '/d/dash1/test' }),
     getHistory: () => ({
@@ -204,7 +212,8 @@ describe('range reuse', () => {
   const HOUR = 3_600_000;
   const FROM = Date.UTC(2026, 8, 18);
   const TO = Date.UTC(2026, 8, 19);
-  const HOURS = "SELECT * FROM (SELECT TIMESTAMP '2026-09-18' + to_hours(range) AS t FROM range(24)) WHERE $__timeFilter(t)";
+  const HOURS =
+    "SELECT * FROM (SELECT TIMESTAMP '2026-09-18' + to_hours(range) AS t FROM range(24)) WHERE $__timeFilter(t)";
 
   const absolute = (from: number, to: number): Partial<DataQueryRequest<DuckVariableQuery>> => {
     const f = dateTime(from);
@@ -215,7 +224,10 @@ describe('range reuse', () => {
     range: { from: dateTime(from), to: dateTime(to), raw: { from: rawFrom, to: 'now' } },
   });
   const sqlDataset = (sql: string, extra: Partial<DataQueryRequest<DuckVariableQuery>>) =>
-    makeRequest<DuckVariableQuery>([{ refId: 'h', kind: 'dataset', name: 'hours', source: { type: 'sql', sql } }], extra);
+    makeRequest<DuckVariableQuery>(
+      [{ refId: 'h', kind: 'dataset', name: 'hours', source: { type: 'sql', sql } }],
+      extra
+    );
   const tableOf = (response: DataQueryResponse) =>
     response.data[0].fields.find((f: { name: string }) => f.name === 'value').values[0] as string;
 
@@ -241,7 +253,9 @@ describe('range reuse', () => {
 
   it('reloads on a refresh, which keeps the raw range', async () => {
     const first = tableOf(await ds.runVariableQuery(sqlDataset(HOURS, relative(FROM, TO, 'now-1d'))));
-    const second = tableOf(await ds.runVariableQuery(sqlDataset(HOURS, relative(FROM + 60_000, TO + 60_000, 'now-1d'))));
+    const second = tableOf(
+      await ds.runVariableQuery(sqlDataset(HOURS, relative(FROM + 60_000, TO + 60_000, 'now-1d')))
+    );
     expect(second).not.toBe(first);
   });
 
@@ -322,7 +336,9 @@ describe('activity', () => {
     const subscription = mockBus.subscribe(DuckdbWasmActivityEvent, (event) => heard.push(event.payload.state));
     await lastValueFrom(
       ds.variableQuery(
-        makeRequest<DuckVariableQuery>([{ refId: 'c', kind: 'dataset', name: 'cities', source: { type: 'sql', sql: CITIES } }])
+        makeRequest<DuckVariableQuery>([
+          { refId: 'c', kind: 'dataset', name: 'cities', source: { type: 'sql', sql: CITIES } },
+        ])
       )
     );
     await lastValueFrom(ds.query(makeRequest<DuckQuery>([{ refId: 'A', rawSql: 'SELECT 1 AS one' }])));

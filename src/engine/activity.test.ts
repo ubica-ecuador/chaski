@@ -11,7 +11,10 @@ function deferred<T>() {
 function setup() {
   const said: Activity[] = [];
   let clock = 0;
-  const counter = new ActivityCounter((a) => said.push(a), () => ++clock);
+  const counter = new ActivityCounter(
+    (a) => said.push(a),
+    () => ++clock
+  );
   return { said, counter };
 }
 

@@ -196,15 +196,15 @@ export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
       if (!name) {
         throw new Error('A dataset variable needs a name');
       }
-      const source = query.source;
+      const datasetSource = query.source;
       const window = windowOf(request.range);
       // The source as it reads with its range pinned to `at`. Two windows giving
       // the same text mean only the range moved (see decideDatasetLoad).
       const signatureAt = (at: LoadWindow): string =>
-        source.type === 'sql'
-          ? this.interpolate(engine, source.sql, { ...request, range: rangeOf(at) })
+        datasetSource.type === 'sql'
+          ? this.interpolate(engine, datasetSource.sql, { ...request, range: rangeOf(at) })
           : JSON.stringify([
-              getTemplateSrv().replace(JSON.stringify(source), { ...request.scopedVars, ...scopedTimeOf(at) }),
+              getTemplateSrv().replace(JSON.stringify(datasetSource), { ...request.scopedVars, ...scopedTimeOf(at) }),
               at.from,
               at.to,
             ]);
@@ -230,9 +230,9 @@ export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
 
       const signature = signatureAt(window);
       const loader: DatasetLoader =
-        source.type === 'sql'
+        datasetSource.type === 'sql'
           ? { kind: 'sql', sql: signature }
-          : { kind: 'arrow', fetch: () => loadFromDatasource(source, request as DataQueryRequest<DataQuery>) };
+          : { kind: 'arrow', fetch: () => loadFromDatasource(datasetSource, request as DataQueryRequest<DataQuery>) };
       const started = performance.now();
       try {
         const state = await engine.registry.load(key, name, loader, signature, window);
@@ -357,9 +357,10 @@ function panelKey(plan: PanelPlan): string {
 /**
  * Each request's own response when requests share an execution. Grafana writes
  * to the frames and fields it gets (it resets every `field.state` on arrival,
- * and caches reductions there), so the response, frames, fields, their config
- * and the frame meta are copied. The column values, the only large part, are
- * shared: nothing writes to them.
+ * and caches reductions there), so the response, the frames, the fields and
+ * their config are copied. The frame `meta` is a shallow copy: its `notices`
+ * and `stats` arrays are shared, like the column values, the only large part,
+ * which nothing writes to.
  */
 function ownCopy(response: DataQueryResponse): DataQueryResponse {
   const copy: DataQueryResponse = {

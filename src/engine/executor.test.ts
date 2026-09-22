@@ -196,13 +196,13 @@ describe('runPanelQuery reusing columns', () => {
 
   it('runs afresh when the columns an empty result could not vouch for have changed', async () => {
     const { spy, sent } = counting();
-    const sql = (field: string, city: string) =>
-      `SELECT struct_extract({'h': n::HUGEINT, 'm': n::DECIMAL(18,3)}, '${field}') AS x FROM cities WHERE city = '${city}'`;
+    const sql = (f: string, city: string) =>
+      `SELECT struct_extract({'h': n::HUGEINT, 'm': n::DECIMAL(9,2)}, '${f}') AS x FROM cities WHERE city = '${city}'`;
     await runPanelQuery(spy, sql('h', 'Quito'));
     const before = sent.length;
     const empty = await runPanelQuery(spy, sql('m', 'Nowhere'));
     expect(sent.slice(before).map((s) => s.split(' ')[0])).toEqual(['SELECT', 'DESCRIBE', 'SELECT']);
-    expect(empty.columns).toEqual([{ name: 'x', type: 'DECIMAL(18,3)' }]);
+    expect(empty.columns).toEqual([{ name: 'x', type: 'DECIMAL(9,2)' }]);
     expect(empty.executed).not.toContain('typeof');
     expect(empty.table.numRows).toBe(0);
     expect(String(empty.table.schema.fields[0].type)).toBe('Float64');

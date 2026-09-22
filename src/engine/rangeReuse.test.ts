@@ -81,12 +81,18 @@ describe('decideDatasetLoad', () => {
   });
 
   it('loads while another load of the dataset is in flight', () => {
-    const decision = decideDatasetLoad(loaded(abs(T0, T0 + 10 * DAY)), next(abs(T0 + DAY, T0 + 2 * DAY), { loading: true }));
+    const decision = decideDatasetLoad(
+      loaded(abs(T0, T0 + 10 * DAY)),
+      next(abs(T0 + DAY, T0 + 2 * DAY), { loading: true })
+    );
     expect(decision).toBe('load');
   });
 
   it('never reuses a table left over from a failed reload', () => {
-    const decision = decideDatasetLoad(loaded(abs(T0, T0 + 10 * DAY), { stale: true }), next(abs(T0 + DAY, T0 + 2 * DAY)));
+    const decision = decideDatasetLoad(
+      loaded(abs(T0, T0 + 10 * DAY), { stale: true }),
+      next(abs(T0 + DAY, T0 + 2 * DAY))
+    );
     expect(decision).toBe('load');
   });
 
