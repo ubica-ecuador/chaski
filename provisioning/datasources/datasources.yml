@@ -66,3 +66,14 @@ datasources:
       httpHeaderName1: Authorization
     secureJsonData:
       httpHeaderValue1: Bearer wrong-token
+
+  # For docs/tutorial-earthquakes.md, step 2: Infinity fetches a feed from the
+  # server, for APIs that send no CORS headers of their own.
+  - name: 'Infinity'
+    uid: 'infinity'
+    type: 'yesoreyeram-infinity-datasource'
+    access: proxy
+    orgId: 1
+    version: 1
+    editable: true
+    jsonData: {}

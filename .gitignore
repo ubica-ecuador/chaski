@@ -49,3 +49,6 @@ ci/
 
 vendor/
 bench/results/
+
+# Downloaded by scripts/fetch-quakes.mjs for docs/tutorial-earthquakes.md
+fixtures/quakes.geojson

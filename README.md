@@ -11,7 +11,9 @@ keeps working: native, catalog and the kepler map.
 - **Distribution:** git only, unsigned. It ships in the self-hosted Grafana Geospatial Stack and is not
   published in the Grafana catalog.
 - **For dashboard authors:** how to write datasets and panel SQL is in [src/README.md](src/README.md). That
-  file is the page Grafana shows for the plugin.
+  file is the page Grafana shows for the plugin. For a worked example, follow
+  [docs/tutorial-earthquakes.md](docs/tutorial-earthquakes.md), which builds a dashboard from a live
+  feed three ways: read in the browser, fetched by another datasource, and through the data proxy.
 
 ## How it works
 

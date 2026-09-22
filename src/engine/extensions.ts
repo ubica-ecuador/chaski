@@ -1,5 +1,5 @@
 /** The DuckDB extensions this plugin ships in its own dist/extensions/. */
-export const SHIPPED_EXTENSIONS = ['spatial', 'json', 'parquet', 'httpfs'] as const;
+export const SHIPPED_EXTENSIONS = ['spatial', 'json', 'parquet', 'httpfs', 'icu'] as const;
 
 // DuckDB's Catalog Error for a function that a known-but-unloaded extension
 // defines, e.g.: `Catalog Error: Scalar Function with name "st_aswkb" is not

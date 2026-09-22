@@ -5,7 +5,7 @@
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-const EXTENSIONS = ['parquet', 'json', 'httpfs', 'spatial'];
+const EXTENSIONS = ['parquet', 'json', 'httpfs', 'spatial', 'icu'];
 const PLATFORM = 'wasm_eh';
 
 const source = await readFile(path.join(process.cwd(), 'src/engine/duckdbVersion.ts'), 'utf8');
