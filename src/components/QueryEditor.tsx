@@ -10,7 +10,7 @@ export function QueryEditor({ query, onChange, onRunQuery }: QueryEditorProps<Da
   return (
     <Field
       label="SQL"
-      description="Runs in the browser. Read a dataset with FROM $name; $__timeFilter(column) and the other macros work as in the server DuckDB datasource."
+      description="Runs in the browser. Read a dataset with FROM $name; $__timeFilter(column) and the other macros work as in the server DuckDB datasource. $__proxy('path') reads a file through this datasource's proxy."
     >
       <SqlEditor
         label="SQL"

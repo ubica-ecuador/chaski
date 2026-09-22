@@ -40,4 +40,11 @@ describe('interpolateSql', () => {
     const withHack = { templateSrv: injected, range, isDatasetTable };
     expect(interpolateSql('SELECT $hack', withHack)).toBe("SELECT '$__timeGroup(c, || 1 ||)'");
   });
+
+  it('expands $__proxy with the base it is given, after quoting variables', () => {
+    const proxyBase = 'https://g.example/api/datasources/proxy/uid/u/_plain';
+    expect(interpolateSql("read_parquet($__proxy('zonas/' || $file))", { ...options, proxyBase })).toBe(
+      "read_parquet(('https://g.example/api/datasources/proxy/uid/u/_plain/' || ('zonas/' || 'a.parquet')))"
+    );
+  });
 });

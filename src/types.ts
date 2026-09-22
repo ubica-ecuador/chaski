@@ -39,6 +39,17 @@ export type DuckVariableQuery = DatasetVariableQuery | ValuesVariableQuery;
 
 export interface DuckOptions extends DataSourceJsonData {
   memoryLimitMB?: number;
+  /** Query-string parameter the `_key` route adds with the secret API key. Empty: no key in the URL. */
+  proxyKeyParam?: string;
+  /** Grafana's standard custom headers, read by its data proxy from 1 up to the first gap. */
+  [header: `httpHeaderName${number}`]: string | undefined;
+}
+
+/** Secrets, encrypted by Grafana and only ever read by its data proxy. */
+export interface DuckSecureOptions {
+  basicAuthPassword?: string;
+  proxyKeyValue?: string;
+  [header: `httpHeaderValue${number}`]: string | undefined;
 }
 
 export const DEFAULT_MEMORY_LIMIT_MB = 1024;

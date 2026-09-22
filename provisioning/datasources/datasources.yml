@@ -11,3 +11,58 @@ datasources:
     editable: true
     jsonData:
       memoryLimitMB: 1024
+  # Test instances for the data proxy (tests/proxy.spec.ts). The secrets are
+  # fixture values for the local nginx in fixtures/nginx.conf, not credentials.
+  - name: 'DuckDB WASM · proxy bearer'
+    uid: 'duckdbwasm-bearer'
+    type: 'ubica-duckdbwasm-datasource'
+    access: proxy
+    orgId: 1
+    version: 1
+    editable: true
+    url: http://fixtures/bearer
+    jsonData:
+      memoryLimitMB: 1024
+      httpHeaderName1: Authorization
+    secureJsonData:
+      httpHeaderValue1: Bearer test-token
+  - name: 'DuckDB WASM · proxy basic'
+    uid: 'duckdbwasm-basic'
+    type: 'ubica-duckdbwasm-datasource'
+    access: proxy
+    orgId: 1
+    version: 1
+    editable: true
+    url: http://fixtures/basic
+    basicAuth: true
+    basicAuthUser: test
+    jsonData:
+      memoryLimitMB: 1024
+    secureJsonData:
+      basicAuthPassword: test-pass
+  - name: 'DuckDB WASM · proxy keyed'
+    uid: 'duckdbwasm-keyed'
+    type: 'ubica-duckdbwasm-datasource'
+    access: proxy
+    orgId: 1
+    version: 1
+    editable: true
+    url: http://fixtures/keyed
+    jsonData:
+      memoryLimitMB: 1024
+      proxyKeyParam: apikey
+    secureJsonData:
+      proxyKeyValue: test-key
+  - name: 'DuckDB WASM · proxy wrong token'
+    uid: 'duckdbwasm-bearer-wrong'
+    type: 'ubica-duckdbwasm-datasource'
+    access: proxy
+    orgId: 1
+    version: 1
+    editable: true
+    url: http://fixtures/bearer
+    jsonData:
+      memoryLimitMB: 1024
+      httpHeaderName1: Authorization
+    secureJsonData:
+      httpHeaderValue1: Bearer wrong-token

@@ -16,3 +16,6 @@ Initial release.
 - Identical requests for a panel that are in flight at once share one execution. Grafana sends a
   panel's request twice when two variables change together (kepler's time window), and both used to
   run in full. Nothing is cached once the execution ends.
+- Files on servers without CORS, or behind credentials, load through Grafana's data proxy with
+  `$__proxy('path')`. Credentials (basic auth, headers, an API key in the URL) stay encrypted on the
+  server. The plugin now declares data proxy routes, so Grafana must be restarted after upgrading.

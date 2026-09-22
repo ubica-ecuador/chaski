@@ -30,6 +30,7 @@ import { type Engine, getEngine } from './grafana/engine';
 import { loadFromDatasource } from './grafana/externalSource';
 import { interpolateSql } from './grafana/interpolate';
 import { staleNotices } from './grafana/notices';
+import { explainProxyError, KEY_ROUTE, PLAIN_ROUTE, proxyBaseUrl } from './grafana/proxy';
 import { DuckVariableSupport } from './grafana/variableSupport';
 import {
   DEFAULT_MEMORY_LIMIT_MB,
@@ -51,11 +52,16 @@ interface PanelPlan {
 
 export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
   readonly memoryLimitMB: number;
+  /** Where `$__proxy` points: this instance's data proxy plus the route its settings call for. */
+  readonly proxyBase: string | undefined;
   private readonly panelsInFlight = new SingleFlight<DataQueryResponse>();
 
   constructor(instanceSettings: DataSourceInstanceSettings<DuckOptions>) {
     super(instanceSettings);
     this.memoryLimitMB = instanceSettings.jsonData.memoryLimitMB ?? DEFAULT_MEMORY_LIMIT_MB;
+    this.proxyBase = instanceSettings.url
+      ? proxyBaseUrl(instanceSettings.url, instanceSettings.jsonData.proxyKeyParam?.trim() ? KEY_ROUTE : PLAIN_ROUTE)
+      : undefined;
     this.variables = new DuckVariableSupport(this);
   }
 
@@ -173,7 +179,7 @@ export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
         data.push(frame);
       } catch (error) {
         recordQuery({ refId: target.refId, ms: 0, rows: 0, ok: false, at: Date.now(), panelId });
-        errors.push({ refId: target.refId, message: explainError(error, this.memoryLimitMB).message });
+        errors.push({ refId: target.refId, message: await this.errorMessage(error) });
       }
     }
     return errors.length > 0 ? { data, errors } : { data };
@@ -244,7 +250,7 @@ export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
         return { data: [textValueFrame([live.table], [live.table])] };
       } catch (error) {
         recordLoad({ name, ms: performance.now() - started, rows: 0, ok: false, at: Date.now() });
-        throw new Error(explainError(error, this.memoryLimitMB).message);
+        throw new Error(await this.errorMessage(error));
       }
     }
 
@@ -256,7 +262,7 @@ export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
         const textField = frame.fields[1] ?? valueField;
         return { data: [textValueFrame(asText(textField?.values), asText(valueField?.values))] };
       } catch (error) {
-        throw this.explain(error);
+        throw new Error(await this.errorMessage(error));
       }
     }
 
@@ -316,12 +322,22 @@ export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
       scopedVars: request.scopedVars,
       range: request.range,
       isDatasetTable: (name) => engine.registry.byTable(name) !== undefined,
+      proxyBase: this.proxyBase,
     });
   }
 
   /** Turns any error into the same actionable message `runPanelQueries` and `testDatasource` give. */
   private explain(error: unknown): Error {
     return new Error(explainError(error, this.memoryLimitMB).message);
+  }
+
+  /**
+   * The text a failed SQL run shows: a read through a data proxy first, which
+   * costs one HEAD to learn the status DuckDB's message leaves out, then
+   * DuckDB's own errors.
+   */
+  private async errorMessage(error: unknown): Promise<string> {
+    return (await explainProxyError(error, this.proxyBase)) ?? explainError(error, this.memoryLimitMB).message;
   }
 }
 

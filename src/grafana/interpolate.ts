@@ -21,6 +21,8 @@ export interface InterpolateOptions {
   range: TimeRange;
   /** Whether a variable's value names a loaded dataset table. */
   isDatasetTable: (name: string) => boolean;
+  /** This instance's data proxy base for `$__proxy` (see proxyBaseUrl). */
+  proxyBase?: string;
 }
 
 /**
@@ -33,5 +35,9 @@ export function interpolateSql(sql: string, options: InterpolateOptions): string
   const withVariables = options.templateSrv.replace(sql, options.scopedVars, (value: unknown) =>
     typeof value === 'string' && options.isDatasetTable(value) ? quoteIdent(value) : sqlStringFormat(value)
   );
-  return expandMacros(withVariables, { from: options.range.from.valueOf(), to: options.range.to.valueOf() });
+  return expandMacros(withVariables, {
+    from: options.range.from.valueOf(),
+    to: options.range.to.valueOf(),
+    proxyBase: options.proxyBase,
+  });
 }

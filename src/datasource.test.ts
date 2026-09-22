@@ -603,3 +603,61 @@ describe('identical panel requests in flight', () => {
     expect(heard).toEqual(['busy', 'settled']);
   });
 });
+
+describe('$__proxy in a DataSource', () => {
+  const withUrl = (jsonData: DuckOptions) =>
+    new DataSource({
+      ...settings,
+      url: '/api/datasources/proxy/uid/duckdbwasm',
+      jsonData,
+    } as DataSourceInstanceSettings<DuckOptions>);
+
+  async function valueOf(source: DataSource, sql: string): Promise<string> {
+    const response = await source.runVariableQuery(
+      makeRequest<DuckVariableQuery>([{ refId: 'v', kind: 'values', sql }])
+    );
+    return response.data[0].fields.find((f: { name: string }) => f.name === 'value').values[0] as string;
+  }
+
+  it("points at this instance's data proxy", async () => {
+    expect(await valueOf(withUrl({}), "SELECT $__proxy('cuenca/vias.parquet')")).toBe(
+      'http://localhost/api/datasources/proxy/uid/duckdbwasm/_plain/cuenca/vias.parquet'
+    );
+  });
+
+  it('goes through the key route when an API key parameter is set', async () => {
+    expect(await valueOf(withUrl({ proxyKeyParam: 'apikey' }), "SELECT $__proxy('a.parquet')")).toBe(
+      'http://localhost/api/datasources/proxy/uid/duckdbwasm/_key/a.parquet'
+    );
+  });
+
+  it('explains a failed read through the proxy on the panel, asking the proxy for its status', async () => {
+    const url = 'http://localhost/api/datasources/proxy/uid/duckdbwasm/_plain/a.parquet';
+    const fetchMock = jest.fn(async () => ({ status: 404 }) as Response);
+    const original = global.fetch;
+    global.fetch = fetchMock as unknown as typeof fetch;
+    try {
+      const failing = `SELECT error('No files found that match the pattern "${url}"')`;
+      const response = await withUrl({}).runPanelQueries(makeRequest<DuckQuery>([{ refId: 'A', rawSql: failing }]));
+      expect(fetchMock).toHaveBeenCalledWith(url, expect.objectContaining({ method: 'HEAD', credentials: 'same-origin' }));
+      expect(response.errors?.[0].message).toContain("Not found on the server behind this datasource's proxy (HTTP 404)");
+    } finally {
+      global.fetch = original;
+    }
+  });
+
+  it("does not turn a parser error that merely echoes this instance's proxy URL into a proxy explanation", async () => {
+    const fetchMock = jest.fn();
+    const original = global.fetch;
+    global.fetch = fetchMock as unknown as typeof fetch;
+    try {
+      const failing = "SELECT * FORM read_parquet($__proxy('x.parquet'))";
+      const response = await withUrl({}).runPanelQueries(makeRequest<DuckQuery>([{ refId: 'A', rawSql: failing }]));
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(response.errors?.[0].message).toContain('Parser Error');
+      expect(response.errors?.[0].message).not.toContain("this datasource's proxy");
+    } finally {
+      global.fetch = original;
+    }
+  });
+});
