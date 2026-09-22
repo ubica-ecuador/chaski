@@ -16,7 +16,7 @@ x-grafana: &grafana
       development: 'false'
       anonymous_auth_enabled: ${ANONYMOUS_AUTH_ENABLED:-true}
   volumes:
-    - ./dist:/var/lib/grafana/plugins/ubica-duckdbwasm-datasource
+    - ./dist:/var/lib/grafana/plugins/ubica-chaski-datasource
     - ./provisioning:/etc/grafana/provisioning
   depends_on:
     - fixtures
@@ -24,13 +24,13 @@ x-grafana: &grafana
 services:
   grafana:
     <<: *grafana
-    container_name: 'ubica-duckdbwasm-datasource'
+    container_name: 'ubica-chaski-datasource'
     ports:
       - '3005:3000/tcp'
     environment:
       NODE_ENV: development
       GF_LOG_LEVEL: info
-      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: ubica-duckdbwasm-datasource
+      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: ubica-chaski-datasource
       # Session tokens rotate every 10 min by default and a long e2e run lands on
       # the login page after that (measured on the kepler bench, 13.x).
       GF_AUTH_TOKEN_ROTATION_INTERVAL_MINUTES: 60
@@ -39,21 +39,21 @@ services:
   # under it. Started only with `--profile csp`.
   grafana-csp:
     <<: *grafana
-    container_name: 'ubica-duckdbwasm-datasource-csp'
+    container_name: 'ubica-chaski-datasource-csp'
     profiles: ['csp']
     ports:
       - '3006:3000/tcp'
     environment:
       NODE_ENV: development
       GF_LOG_LEVEL: info
-      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: ubica-duckdbwasm-datasource
+      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: ubica-chaski-datasource
       GF_SECURITY_CONTENT_SECURITY_POLICY: 'true'
 
   # Static files with open CORS, so the `sql` source reads them over httpfs the
   # way it would read a public bucket.
   fixtures:
     image: nginx:1.27-alpine
-    container_name: 'ubica-duckdbwasm-fixtures'
+    container_name: 'ubica-chaski-fixtures'
     ports:
       - '8095:80'
     volumes:

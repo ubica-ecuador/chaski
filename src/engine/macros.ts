@@ -69,7 +69,7 @@ function expand(name: string, args: string[], ctx: MacroContext): string {
       return `time_bucket(INTERVAL '${toDuckInterval(args[1])}', ${args[0]})`;
     case 'proxy':
       if (!ctx.proxyBase) {
-        throw new Error('$__proxy is only available in a DuckDB WASM datasource query');
+        throw new Error('$__proxy is only available in a Chaski datasource query');
       }
       return `(${quoteLiteral(`${ctx.proxyBase}/`)} || (${args[0]}))`;
     default:

@@ -28,8 +28,8 @@ async function api(method, path, body) {
 const existing = await api('GET', '/api/datasources/uid/duckdbwasm');
 if (existing.status === 404) {
   const created = await api('POST', '/api/datasources', {
-    name: 'DuckDB WASM',
-    type: 'ubica-duckdbwasm-datasource',
+    name: 'Chaski',
+    type: 'ubica-chaski-datasource',
     uid: 'duckdbwasm',
     access: 'proxy',
     jsonData: { memoryLimitMB: 1024 },

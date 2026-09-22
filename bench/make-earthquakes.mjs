@@ -10,7 +10,7 @@ if (!source) {
   throw new Error('usage: node bench/make-earthquakes.mjs <path to kepler earthquakes.json>');
 }
 const original = JSON.parse(await readFile(source, 'utf8'));
-const LOCAL = { type: 'ubica-duckdbwasm-datasource', uid: 'duckdbwasm' };
+const LOCAL = { type: 'ubica-chaski-datasource', uid: 'duckdbwasm' };
 const USGS_CALL = "read_csv_auto('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_month.csv')";
 
 const copy = () => JSON.parse(JSON.stringify(original));
