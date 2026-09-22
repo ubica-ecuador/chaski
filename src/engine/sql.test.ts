@@ -1,5 +1,5 @@
 /** @jest-environment node */
-import { quoteIdent, quoteLiteral, sanitizeName, shortHash, stripTrailingSemicolons } from './sql';
+import { maskStringLiterals, quoteIdent, quoteLiteral, sanitizeName, shortHash, stripTrailingSemicolons } from './sql';
 
 describe('sql helpers', () => {
   it('quotes identifiers, doubling embedded quotes', () => {
@@ -25,5 +25,18 @@ describe('sql helpers', () => {
     expect(sanitizeName('my-set.v2')).toBe('my_set_v2');
     expect(sanitizeName('')).toBe('dataset');
     expect(sanitizeName('x'.repeat(60))).toHaveLength(40);
+  });
+
+  it('masks single-quoted literals, so a statement keeps its shape whatever values were interpolated', () => {
+    const a = "SELECT n FROM \"d1_t_v2\" WHERE t BETWEEN '2026-09-01T00:00:00Z' AND 'O''Brien' AND k = 3";
+    const b = "SELECT n FROM \"d1_t_v2\" WHERE t BETWEEN '2026-09-02T12:00:00Z' AND '' AND k = 3";
+    expect(maskStringLiterals(a)).toBe('SELECT n FROM "d1_t_v2" WHERE t BETWEEN ? AND ? AND k = 3');
+    expect(maskStringLiterals(b)).toBe(maskStringLiterals(a));
+  });
+
+  it('keeps identifiers, numbers and raw values in the mask', () => {
+    expect(maskStringLiterals('SELECT "it\'s" FROM "d1_t_v3" LIMIT 10')).toBe('SELECT "it\'s" FROM "d1_t_v3" LIMIT 10');
+    expect(maskStringLiterals("SELECT * FROM t WHERE c IN ('a','b')")).toBe('SELECT * FROM t WHERE c IN (?,?)');
+    expect(maskStringLiterals("SELECT 'open")).toBe('SELECT ?');
   });
 });

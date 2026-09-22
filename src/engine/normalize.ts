@@ -13,17 +13,24 @@ const TO_TEXT = new Set(['INTERVAL', 'UUID', 'BIT', 'TIME', 'TIME WITH TIME ZONE
  * datasource fails to deliver (its geometry arrives UTF-8-mangled).
  */
 export function normalizingReplace(columns: ColumnInfo[]): string | undefined {
-  const parts: string[] = [];
-  for (const { name, type } of columns) {
-    const column = quoteIdent(name);
-    const upper = type.toUpperCase();
-    if (upper === 'GEOMETRY') {
-      parts.push(`ST_AsWKB(${column}) AS ${column}`);
-    } else if (TO_DOUBLE.has(upper) || upper.startsWith('DECIMAL')) {
-      parts.push(`CAST(${column} AS DOUBLE) AS ${column}`);
-    } else if (TO_TEXT.has(upper)) {
-      parts.push(`CAST(${column} AS VARCHAR) AS ${column}`);
-    }
-  }
+  const parts = columns.map(normalizing).filter((part): part is string => part !== undefined);
   return parts.length > 0 ? parts.join(', ') : undefined;
+}
+
+/** Whether normalizingReplace casts this column. */
+export function isNormalized(column: ColumnInfo): boolean {
+  return normalizing(column) !== undefined;
+}
+
+function normalizing({ name, type }: ColumnInfo): string | undefined {
+  const column = quoteIdent(name);
+  const upper = type.toUpperCase();
+  if (upper === 'GEOMETRY') {
+    return `ST_AsWKB(${column}) AS ${column}`;
+  } else if (TO_DOUBLE.has(upper) || upper.startsWith('DECIMAL')) {
+    return `CAST(${column} AS DOUBLE) AS ${column}`;
+  } else if (TO_TEXT.has(upper)) {
+    return `CAST(${column} AS VARCHAR) AS ${column}`;
+  }
+  return undefined;
 }

@@ -1,3 +1,5 @@
+import { quotedSpans } from './sql';
+
 /**
  * Grafana's SQL time macros, expanded the way the server DuckDB datasource
  * (motherduck-duckdb-datasource 0.4.5) does, so a query moves between the two
@@ -97,32 +99,13 @@ function parseArgs(sql: string, start: number): { args: string[]; length: number
 
 /**
  * True at every index of `sql` that sits outside a single-quoted string
- * literal ('…', with '' as the escaped quote) and outside a double-quoted
- * identifier ("…", with "" as the escaped quote). A doubled quote is
- * consumed as one escaped character and does not end the literal.
+ * literal and outside a double-quoted identifier (see quotedSpans; an opening
+ * quote itself counts as outside).
  */
 function outsideQuotes(sql: string): boolean[] {
-  const outside = new Array<boolean>(sql.length);
-  let quote: '\'' | '"' | null = null;
-  for (let i = 0; i < sql.length; i++) {
-    const ch = sql[i];
-    if (quote === null) {
-      outside[i] = true;
-      if (ch === "'" || ch === '"') {
-        quote = ch;
-      }
-      continue;
-    }
-    outside[i] = false;
-    if (ch === quote) {
-      if (sql[i + 1] === quote) {
-        // A doubled quote escapes into the same literal; consume both chars.
-        outside[i + 1] = false;
-        i++;
-      } else {
-        quote = null;
-      }
-    }
+  const outside = new Array<boolean>(sql.length).fill(true);
+  for (const span of quotedSpans(sql)) {
+    outside.fill(false, span.start + 1, span.end);
   }
   return outside;
 }

@@ -53,6 +53,165 @@ describe('runPanelQuery', () => {
   });
 
   it('surfaces DuckDB errors from the real statement', async () => {
-    await expect(runPanelQuery(runner, 'SELECT * FROM nowhere')).rejects.toThrow('Table with name nowhere does not exist');
+    await expect(runPanelQuery(runner, 'SELECT * FROM nowhere')).rejects.toThrow(
+      'Table with name nowhere does not exist'
+    );
+  });
+});
+
+describe('runPanelQuery reusing columns', () => {
+  /** The same DuckDB, counting the statements sent: each wrapper is a runner with its own schema cache. */
+  function counting() {
+    const sent: string[] = [];
+    const spy: SqlRunner = {
+      ...runner,
+      query: (sql: string, signal?: AbortSignal) => {
+        sent.push(sql);
+        return runner.query(sql, signal);
+      },
+    };
+    const describes = () => sent.filter((sql) => sql.startsWith('DESCRIBE')).length;
+    return { spy, sent, describes };
+  }
+  const fieldNames = (result: { table: { schema: { fields: Array<{ name: string }> } } }) =>
+    result.table.schema.fields.map((f) => f.name);
+
+  beforeAll(async () => {
+    await runner.exec('CREATE TABLE cities_v1 AS SELECT * FROM cities');
+    await runner.exec('CREATE TABLE cities_v2 AS SELECT * FROM cities');
+  });
+
+  it('does not describe again when only a quoted value changed', async () => {
+    const { spy, sent, describes } = counting();
+    await runPanelQuery(spy, "SELECT city, n FROM cities WHERE city = 'Quito'");
+    const second = await runPanelQuery(spy, "SELECT city, n FROM cities WHERE city = 'Cuenca'");
+    expect(describes()).toBe(1);
+    expect(sent).toHaveLength(3);
+    expect(second.executed).toBe("SELECT city, n FROM cities WHERE city = 'Cuenca'");
+    expect(second.columns).toEqual([
+      { name: 'city', type: 'VARCHAR' },
+      { name: 'n', type: 'INTEGER' },
+    ]);
+    expect(second.table.toArray().map((row) => row.n)).toEqual([2]);
+  });
+
+  it('describes again when the table it reads is a new version', async () => {
+    const { spy, describes } = counting();
+    await runPanelQuery(spy, `SELECT city FROM "cities_v1" WHERE city = 'Quito'`);
+    await runPanelQuery(spy, `SELECT city FROM "cities_v2" WHERE city = 'Quito'`);
+    expect(describes()).toBe(2);
+  });
+
+  it('still applies ad hoc filters and casts with the columns it remembered', async () => {
+    const { spy, describes } = counting();
+    const sql = (city: string) => `SELECT city, n::HUGEINT AS big FROM cities WHERE city <> '${city}'`;
+    await runPanelQuery(spy, sql('Loja'));
+    const second = await runPanelQuery(spy, sql('Cuenca'), {
+      filters: [{ key: 'city', operator: '=', value: 'Quito' }],
+    });
+    expect(describes()).toBe(1);
+    expect(second.executed).toContain(`WHERE "city" = 'Quito'`);
+    expect(second.executed).toContain('CAST("big" AS DOUBLE)');
+    expect(second.table.toArray().map((row) => row.big)).toEqual([1, 3]);
+  });
+
+  it('recovers when an unaliased literal names a column the wrapper refers to', async () => {
+    const { spy, describes } = counting();
+    const sql = (city: string) => `SELECT sum(n) FILTER (WHERE city = '${city}') FROM cities`;
+    await runPanelQuery(spy, sql('Quito'));
+    const second = await runPanelQuery(spy, sql('Cuenca'));
+    expect(describes()).toBe(2);
+    expect(fieldNames(second)).toEqual([`sum(n) FILTER (WHERE (city = 'Cuenca'))`]);
+    expect(second.table.get(0)?.toArray()).toEqual([2]);
+  });
+
+  it('recovers when an unaliased literal names a column the wrapper never touches', async () => {
+    const { spy, describes } = counting();
+    await runPanelQuery(spy, "SELECT 'abc', n FROM cities ORDER BY n");
+    const second = await runPanelQuery(spy, "SELECT 'def', n FROM cities ORDER BY n");
+    expect(fieldNames(second)).toEqual(["'def'", 'n']);
+    expect(second.columns.map((c) => c.name)).toEqual(["'def'", 'n']);
+    expect(second.table.toArray().map((row) => row.n)).toEqual([1, 2, 3]);
+    expect(describes()).toBe(2);
+  });
+
+  it('stops reusing columns for a statement whose columns follow its values', async () => {
+    const { spy, sent } = counting();
+    await runPanelQuery(spy, "SELECT 'abc', n FROM cities");
+    await runPanelQuery(spy, "SELECT 'def', n FROM cities");
+    const before = sent.length;
+    await runPanelQuery(spy, "SELECT 'ghi', n FROM cities");
+    expect(sent.slice(before).map((sql) => sql.split(' ')[0])).toEqual(['DESCRIBE', 'SELECT']);
+  });
+
+  it('notices a type change that the remembered cast would hide', async () => {
+    const { spy } = counting();
+    const sql = (field: string) =>
+      `SELECT struct_extract({'i': INTERVAL 1 DAY, 'd': DATE '2026-09-21'}, '${field}') AS x`;
+    await runPanelQuery(spy, sql('i'));
+    const second = await runPanelQuery(spy, sql('d'));
+    expect(second.columns).toEqual([{ name: 'x', type: 'DATE' }]);
+    expect(String(second.table.schema.fields[0].type)).toBe('Date32<DAY>');
+    expect(second.executed).toBe(sql('d'));
+  });
+
+  it('notices a type change that needs a cast the remembered columns lack', async () => {
+    const { spy } = counting();
+    const sql = (field: string) => `SELECT struct_extract({'n': 1, 'h': 2::HUGEINT}, '${field}') AS x`;
+    await runPanelQuery(spy, sql('n'));
+    const second = await runPanelQuery(spy, sql('h'));
+    expect(second.executed).toContain('CAST("x" AS DOUBLE)');
+    expect(second.table.get(0)?.x).toBe(2);
+  });
+
+  it('notices a binary column turning into another type Arrow also carries as binary', async () => {
+    const { spy } = counting();
+    const sql = (field: string) => `SELECT struct_extract({'b': 'ab'::BLOB, 't': '0101'::BIT}, '${field}') AS x`;
+    await runPanelQuery(spy, sql('b'));
+    const second = await runPanelQuery(spy, sql('t'));
+    expect(second.executed).toContain('CAST("x" AS VARCHAR)');
+    expect(second.table.get(0)?.x).toBe('0101');
+  });
+
+  it('checks the columns again when an empty result cannot vouch for them', async () => {
+    const { spy, describes } = counting();
+    const sql = (city: string) => `SELECT n::HUGEINT AS big FROM cities WHERE city = '${city}'`;
+    await runPanelQuery(spy, sql('Quito'));
+    const empty = await runPanelQuery(spy, sql('Nowhere'));
+    expect(describes()).toBe(2);
+    expect(empty.table.numRows).toBe(0);
+    expect(fieldNames(empty)).toEqual(['big']);
+  });
+
+  it('fails a wrong query with the error it gives today', async () => {
+    const { spy } = counting();
+    const sql = (value: string) => `SELECT CAST('${value}' AS INTEGER) AS v`;
+    await runPanelQuery(spy, sql('1'));
+    const today = await runPanelQuery(counting().spy, sql('abc')).catch((error: Error) => error.message);
+    expect(today).toMatch(/Could not convert string 'abc'/);
+    await expect(runPanelQuery(spy, sql('abc'))).rejects.toThrow(today as string);
+    await expect(runPanelQuery(spy, 'SELECT * FROM nowhere')).rejects.toThrow('Table with name nowhere does not exist');
+  });
+
+  it('does not try again once the request was cancelled', async () => {
+    const sent: string[] = [];
+    const cancelling: SqlRunner = {
+      ...runner,
+      query: async (sql: string, signal?: AbortSignal) => {
+        sent.push(sql);
+        if (signal?.aborted) {
+          throw new DOMException('The query was cancelled', 'AbortError');
+        }
+        return runner.query(sql);
+      },
+    };
+    await runPanelQuery(cancelling, "SELECT city FROM cities WHERE city = 'Quito'");
+    const controller = new AbortController();
+    controller.abort();
+    const before = sent.length;
+    await expect(
+      runPanelQuery(cancelling, "SELECT city FROM cities WHERE city = 'Cuenca'", { signal: controller.signal })
+    ).rejects.toThrow('The query was cancelled');
+    expect(sent.slice(before)).toEqual(["SELECT city FROM cities WHERE city = 'Cuenca'"]);
   });
 });

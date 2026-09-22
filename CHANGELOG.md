@@ -8,3 +8,6 @@ Initial release.
   loaded one (a zoom-in, or presets that end at `now`). Refreshing still reloads.
 - The datasource announces when it starts and finishes answering queries (`ubica-duckdbwasm-activity`
   on Grafana's app event bus), for panels that pace themselves on it.
+- A panel query that runs again with new variable values reuses the columns it found last time instead
+  of asking DuckDB for them first, one worker round trip less per query. The result must show the
+  columns still hold, or the query is described and run again as before.
