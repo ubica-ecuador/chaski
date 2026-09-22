@@ -3,6 +3,7 @@ import { EngineStartError } from '../engine/errors';
 import { DatasetRegistry } from '../engine/registry';
 import { stats } from '../engine/stats';
 import type { SqlRunner } from '../engine/types';
+import { leaveDashboardOnNavigation } from './dashboardKey';
 
 export interface Engine {
   runner: SqlRunner;
@@ -20,13 +21,15 @@ export function assetBase(): string {
 /**
  * One engine per page, shared by every panel and every instance of this
  * datasource. The first instance to ask sets the memory limit. A failed start
- * is forgotten, so the next query retries.
+ * is forgotten, so the next query retries. From its start, the engine's
+ * registry hears when the user leaves a dashboard, for as long as the page lives.
  */
 export function getEngine(memoryLimitMB: number): Promise<Engine> {
   if (!enginePromise) {
     enginePromise = createBrowserRunner({ assetBase: assetBase(), memoryLimitMB })
       .then((runner) => {
         const engine: Engine = { runner, registry: new DatasetRegistry(runner), version: runner.version };
+        leaveDashboardOnNavigation(engine.registry);
         (window as unknown as { __duckdbwasm: unknown }).__duckdbwasm = { stats, runner };
         return engine;
       })

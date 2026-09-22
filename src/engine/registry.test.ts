@@ -247,6 +247,31 @@ describe('DatasetRegistry', () => {
     expect(registry.visitOf('never')).toBe(0);
   });
 
+  it('starts a new visit when the dashboard on screen was left for a page this datasource does not serve', async () => {
+    await registry.activate('a');
+    const a = await registry.load('a', 'v', sqlLoader(1), 'a1');
+    registry.leave();
+    await registry.activate('a');
+    expect(registry.visitOf('a')).toBe(2);
+    await registry.activate('a');
+    expect(registry.visitOf('a')).toBe(2);
+    // Only reuse eligibility changes: a dashboard restored by browser Back still finds its tables.
+    expect(registry.get('a', 'v')).toEqual(a);
+    expect(await exists(runner, a.table)).toBe(true);
+  });
+
+  it('leaving changes neither the other dashboards’ visits nor what is kept', async () => {
+    await registry.activate('a');
+    const a = await registry.load('a', 'v', sqlLoader(1), 'a1');
+    await registry.activate('b');
+    registry.leave();
+    await registry.activate('c');
+    expect([registry.visitOf('a'), registry.visitOf('b'), registry.visitOf('c')]).toEqual([1, 1, 1]);
+    await registry.activate('a');
+    expect(registry.visitOf('a')).toBe(2);
+    expect(registry.get('a', 'v')).toEqual(a);
+  });
+
   it('says whether a load is in flight', async () => {
     const gate = deferred<Table>();
     const pending = registry.load('dash', 'v', { kind: 'arrow', fetch: () => gate.promise }, 's');

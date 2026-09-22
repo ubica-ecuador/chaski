@@ -8,6 +8,7 @@ import { DatasetRegistry } from './engine/registry';
 import { stats } from './engine/stats';
 import { createNodeRunner } from './engine/testing/nodeRunner';
 import type { SqlRunner } from './engine/types';
+import { leaveDashboardOnNavigation } from './grafana/dashboardKey';
 import { setEngineForTests } from './grafana/engine';
 import { fakeTemplateSrv, makeRequest } from './grafana/testing/fakes';
 import { DuckdbWasmActivityEvent } from './grafana/activity';
@@ -16,11 +17,21 @@ import type { DuckOptions, DuckQuery, DuckVariableQuery } from './types';
 const mockTemplateSrv = { current: fakeTemplateSrv({}) };
 const mockSourceQuery = jest.fn((..._args: unknown[]): unknown => ({ data: [] }));
 const mockBus = new EventBusSrv();
+/** Grafana's history listeners; `navigate` below plays a navigation to them. */
+const mockHistoryListeners = new Set<(location: { pathname: string }) => void>();
 
 jest.mock('@grafana/runtime', () => ({
   getTemplateSrv: () => mockTemplateSrv.current,
   getDataSourceSrv: () => ({ get: async () => ({ name: 'upstream', query: (...args: unknown[]) => mockSourceQuery(...args) }) }),
-  locationService: { getLocation: () => ({ pathname: '/d/dash1/test' }) },
+  locationService: {
+    getLocation: () => ({ pathname: '/d/dash1/test' }),
+    getHistory: () => ({
+      listen: (listener: (location: { pathname: string }) => void) => {
+        mockHistoryListeners.add(listener);
+        return () => mockHistoryListeners.delete(listener);
+      },
+    }),
+  },
   getAppEvents: () => mockBus,
 }));
 // The real editor pulls in @grafana/ui, which needs a DOM.
@@ -255,6 +266,29 @@ describe('range reuse', () => {
     await registry.activate('elsewhere');
     const second = tableOf(await ds.runVariableQuery(sqlDataset(HOURS, absolute(FROM + HOUR, FROM + 2 * HOUR))));
     expect(second).not.toBe(first);
+  });
+
+  describe('across navigation', () => {
+    const navigate = (pathname: string) => mockHistoryListeners.forEach((listener) => listener({ pathname }));
+    let stopWatching: () => void;
+    beforeEach(() => (stopWatching = leaveDashboardOnNavigation(registry)));
+    afterEach(() => stopWatching());
+
+    it('reloads after a trip to a page without this datasource and back', async () => {
+      const first = tableOf(await ds.runVariableQuery(sqlDataset(HOURS, absolute(FROM, TO))));
+      navigate('/'); // Home: nothing there asks this datasource anything
+      navigate('/d/dash1/test');
+      const second = tableOf(await ds.runVariableQuery(sqlDataset(HOURS, absolute(FROM + HOUR, FROM + 2 * HOUR))));
+      expect(second).not.toBe(first);
+      expect(stats.reuses).toEqual([]);
+    });
+
+    it('still keeps the table when only the query string moved', async () => {
+      const first = tableOf(await ds.runVariableQuery(sqlDataset(HOURS, absolute(FROM, TO))));
+      navigate('/d/dash1/test');
+      const second = tableOf(await ds.runVariableQuery(sqlDataset(HOURS, absolute(FROM + HOUR, FROM + 2 * HOUR))));
+      expect(second).toBe(first);
+    });
   });
 
   it('keeps a table from another datasource whose query reads __from, when only the range moved', async () => {

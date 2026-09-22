@@ -41,6 +41,8 @@ export class DatasetRegistry {
   private nextVersion = 0;
   /** How many times each dashboard has become the active one: a new visit starts every time. */
   private readonly visits = new Map<string, number>();
+  /** Set when the user left lru[0] for a page this datasource doesn't serve (see leave). */
+  private frontLeft = false;
 
   constructor(
     private readonly runner: SqlRunner,
@@ -48,16 +50,21 @@ export class DatasetRegistry {
   ) {}
 
   /**
-   * Makes `dashboard` the most recently used one. Once more than
-   * KEEP_DASHBOARDS have been activated, the least recently used dashboard's
-   * tables are dropped (see KEEP_DASHBOARDS for why more than one is kept).
+   * Makes `dashboard` the most recently used one, starting a new visit unless
+   * it already was the one on screen. Once more than KEEP_DASHBOARDS have been
+   * activated, the least recently used dashboard's tables are dropped (see
+   * KEEP_DASHBOARDS for why more than one is kept).
    */
   async activate(dashboard: string): Promise<void> {
     const index = this.lru.indexOf(dashboard);
+    if (index === 0 && !this.frontLeft) {
+      return;
+    }
+    this.frontLeft = false;
+    this.visits.set(dashboard, this.visitOf(dashboard) + 1);
     if (index === 0) {
       return;
     }
-    this.visits.set(dashboard, this.visitOf(dashboard) + 1);
     if (index !== -1) {
       this.lru.splice(index, 1);
     }
@@ -74,6 +81,18 @@ export class DatasetRegistry {
         }
       }
     }
+  }
+
+  /**
+   * The user left the dashboard on screen. Only requests from this datasource
+   * activate dashboards, so a trip to a page without it (Home, or a dashboard
+   * on another datasource) and back would otherwise look like one long visit.
+   * The next activate() of the same dashboard starts a new visit. Its tables
+   * stay: a dashboard restored by browser Back without re-running its
+   * variables still finds them; only reusing them for a new range is ruled out.
+   */
+  leave(): void {
+    this.frontLeft = true;
   }
 
   load(
