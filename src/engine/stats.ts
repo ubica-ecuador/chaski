@@ -33,6 +33,12 @@ export interface ReuseStat {
   at: number;
 }
 
+/** A panel request that joined an identical one already in flight instead of running again. */
+export interface SharedStat {
+  panelId?: number;
+  at: number;
+}
+
 export interface ActivityStat {
   state: 'busy' | 'settled';
   pending: number;
@@ -45,12 +51,13 @@ export interface EngineStats {
   queries: QueryStat[];
   keys: KeyStat[];
   reuses: ReuseStat[];
+  shared: SharedStat[];
   activity: ActivityStat[];
 }
 
 const LIMIT = 500;
 
-export const stats: EngineStats = { loads: [], queries: [], keys: [], reuses: [], activity: [] };
+export const stats: EngineStats = { loads: [], queries: [], keys: [], reuses: [], shared: [], activity: [] };
 
 function push<T>(list: T[], entry: T): void {
   list.push(entry);
@@ -63,4 +70,5 @@ export const recordLoad = (entry: LoadStat) => push(stats.loads, entry);
 export const recordQuery = (entry: QueryStat) => push(stats.queries, entry);
 export const recordKey = (entry: KeyStat) => push(stats.keys, entry);
 export const recordReuse = (entry: ReuseStat) => push(stats.reuses, entry);
+export const recordShared = (entry: SharedStat) => push(stats.shared, entry);
 export const recordActivity = (entry: ActivityStat) => push(stats.activity, entry);

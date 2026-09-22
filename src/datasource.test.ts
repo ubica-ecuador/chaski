@@ -59,6 +59,13 @@ beforeEach(async () => {
 
 afterEach(() => setEngineForTests(undefined));
 
+/** Waits up to 3 s for `check` to hold, then lets the test's assertions speak. */
+async function until(check: () => boolean) {
+  for (let i = 0; i < 300 && !check(); i++) {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
 describe('DataSource', () => {
   it('loads a dataset variable and lets panels read it by variable', async () => {
     const table = await loadDataset('cities', CITIES);
@@ -276,12 +283,6 @@ describe('range reuse', () => {
 });
 
 describe('activity', () => {
-  const until = async (check: () => boolean) => {
-    for (let i = 0; i < 300 && !check(); i++) {
-      await new Promise((resolve) => setTimeout(resolve, 10));
-    }
-  };
-
   it('announces busy and settled around variable and panel queries', async () => {
     const heard: string[] = [];
     const subscription = mockBus.subscribe(DuckdbWasmActivityEvent, (event) => heard.push(event.payload.state));
@@ -304,6 +305,231 @@ describe('activity', () => {
     running.unsubscribe();
     await until(() => heard.length === 2);
     subscription.unsubscribe();
+    expect(heard).toEqual(['busy', 'settled']);
+  });
+});
+
+describe('identical panel requests in flight', () => {
+  interface Held {
+    sql: string;
+    signal?: AbortSignal;
+    release: () => void;
+  }
+
+  /**
+   * The Node runner, recording each statement a panel runs and holding it until
+   * released, so a test can line requests up while one is in flight. DESCRIBE
+   * passes straight through: it takes no signal.
+   */
+  let releaseAll: (() => void) | undefined;
+
+  function holdingRunner(options: { hold: boolean }) {
+    const held: Held[] = [];
+    const ran: string[] = [];
+    let open = !options.hold;
+    const holding: SqlRunner = {
+      ...runner,
+      query: async (sql, signal) => {
+        if (!sql.startsWith('DESCRIBE')) {
+          ran.push(sql);
+          if (!open) {
+            await new Promise<void>((release) => held.push({ sql, signal, release }));
+          }
+        }
+        return runner.query(sql, signal);
+      },
+    };
+    setEngineForTests({ runner: holding, registry, version: 'v1.4.3' });
+    releaseAll = () => {
+      open = true;
+      held.forEach((h) => h.release());
+    };
+    return { held, ran, openAll: releaseAll };
+  }
+
+  function subscribe(request: DataQueryRequest<DuckQuery>) {
+    const seen: { response?: DataQueryResponse; error?: unknown; done: boolean } = { done: false };
+    const subscription = ds.query(request).subscribe({
+      next: (response) => (seen.response = response),
+      error: (error: unknown) => {
+        seen.error = error;
+        seen.done = true;
+      },
+      complete: () => (seen.done = true),
+    });
+    return { seen, subscription };
+  }
+
+  const panel = (requestId: string, extra: Partial<DataQueryRequest<DuckQuery>> = {}) =>
+    makeRequest<DuckQuery>([{ refId: 'A', rawSql: 'SELECT 1 AS one' }], {
+      requestId,
+      panelId: 3,
+      dashboardUID: 'dash',
+      ...extra,
+    });
+  const valuesOf = (response?: DataQueryResponse) =>
+    response?.data.map((frame: { fields: Array<{ values: unknown[] }> }) => frame.fields.map((f) => f.values));
+  const settled = () => stats.activity.at(-1)?.state === 'settled';
+
+  beforeEach(() => {
+    stats.queries.length = 0;
+    stats.activity.length = 0;
+    stats.shared.length = 0;
+  });
+
+  // A failed test must not leave work held, which would keep the page busy for the next.
+  afterEach(async () => {
+    releaseAll?.();
+    releaseAll = undefined;
+    await until(() => (stats.activity.at(-1)?.state ?? 'settled') === 'settled');
+  });
+
+  it('runs two identical requests once and answers both', async () => {
+    const { held, ran, openAll } = holdingRunner({ hold: true });
+    const twoTargets = (requestId: string) =>
+      makeRequest<DuckQuery>(
+        [
+          { refId: 'A', rawSql: 'SELECT 1 AS one' },
+          { refId: 'B', rawSql: "SELECT 'x' AS x" },
+        ],
+        { requestId, panelId: 3, dashboardUID: 'dash' }
+      );
+    const first = lastValueFrom(ds.query(twoTargets('SQR1')));
+    const second = lastValueFrom(ds.query(twoTargets('SQR2')));
+    await until(() => stats.shared.length === 1 && held.length === 1);
+    openAll();
+    const [a, b] = await Promise.all([first, second]);
+
+    expect(ran).toEqual(['SELECT 1 AS one', "SELECT 'x' AS x"]);
+    expect(stats.queries).toHaveLength(2);
+    expect(stats.shared).toEqual([{ panelId: 3, at: expect.any(Number) }]);
+    expect(a.errors).toBeUndefined();
+    expect(valuesOf(a)).toEqual([[[1]], [['x']]]);
+    expect(valuesOf(b)).toEqual(valuesOf(a));
+    expect(b.data[0].meta).toEqual(a.data[0].meta);
+    // Grafana writes to the frames and fields it gets (field.state, for one), so
+    // each request has its own; only the column values are shared.
+    expect(b.data[0]).not.toBe(a.data[0]);
+    expect(b.data[0].fields[0]).not.toBe(a.data[0].fields[0]);
+    expect(b.data[0].fields[0].values).toBe(a.data[0].fields[0].values);
+  });
+
+  it.each<[string, Partial<DataQueryRequest<DuckQuery>>, Partial<DataQueryRequest<DuckQuery>>]>([
+    [
+      'SQL',
+      { targets: [{ refId: 'A', rawSql: 'SELECT 1 AS one' }] },
+      { targets: [{ refId: 'A', rawSql: 'SELECT 2 AS one' }] },
+    ],
+    [
+      'variable values',
+      { targets: [{ refId: 'A', rawSql: 'SELECT $v AS one' }], scopedVars: { v: { text: '1', value: '1' } } },
+      { targets: [{ refId: 'A', rawSql: 'SELECT $v AS one' }], scopedVars: { v: { text: '2', value: '2' } } },
+    ],
+    ['panel', { panelId: 1 }, { panelId: 2 }],
+    ['dashboard', { dashboardUID: 'one' }, { dashboardUID: 'two' }],
+    ['ad hoc filters', { filters: [{ key: 'one', operator: '=', value: '1' }] }, { filters: [] }],
+  ])('runs requests that differ in %s separately', async (_what, one, two) => {
+    const { held, openAll } = holdingRunner({ hold: true });
+    const first = lastValueFrom(ds.query(panel('SQR1', one)));
+    const second = lastValueFrom(ds.query(panel('SQR2', two)));
+    await until(() => held.length === 2);
+    expect(held).toHaveLength(2);
+    openAll();
+    await Promise.all([first, second]);
+    expect(stats.shared).toEqual([]);
+  });
+
+  it('keeps running for the request that stays when its twin is abandoned', async () => {
+    const heard: string[] = [];
+    const listening = mockBus.subscribe(DuckdbWasmActivityEvent, (event) => heard.push(event.payload.state));
+    const { held, ran, openAll } = holdingRunner({ hold: true });
+    const leaving = subscribe(panel('SQR1'));
+    const staying = subscribe(panel('SQR2'));
+    await until(() => stats.shared.length === 1 && held.length === 1);
+    leaving.subscription.unsubscribe();
+    expect(held[0].signal?.aborted).toBe(false);
+    openAll();
+    await until(() => staying.seen.done);
+    listening.unsubscribe();
+
+    expect(staying.seen.error).toBeUndefined();
+    expect(staying.seen.response?.errors).toBeUndefined();
+    expect(valuesOf(staying.seen.response)).toEqual([[[1]]]);
+    expect(ran).toHaveLength(1);
+    expect(heard).toEqual(['busy', 'settled']);
+  });
+
+  it('aborts the execution once every request has been abandoned', async () => {
+    const { held, openAll } = holdingRunner({ hold: true });
+    const first = subscribe(panel('SQR1'));
+    const second = subscribe(panel('SQR2'));
+    await until(() => stats.shared.length === 1 && held.length === 1);
+    first.subscription.unsubscribe();
+    expect(held[0].signal?.aborted).toBe(false);
+    second.subscription.unsubscribe();
+    expect(held[0].signal?.aborted).toBe(true);
+    // The page stays busy until the aborted work has wound down, as it would unshared.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(stats.activity.at(-1)?.state).toBe('busy');
+    openAll();
+    await until(settled);
+    expect(stats.activity.map((a) => a.state)).toEqual(['busy', 'settled']);
+    expect(first.seen.response).toBeUndefined();
+    expect(second.seen.response).toBeUndefined();
+  });
+
+  it('runs an identical request again once the first has answered', async () => {
+    const { ran } = holdingRunner({ hold: false });
+    await lastValueFrom(ds.query(panel('SQR1')));
+    const again = await lastValueFrom(ds.query(panel('SQR2')));
+    expect(ran).toHaveLength(2);
+    expect(valuesOf(again)).toEqual([[[1]]]);
+    expect(stats.shared).toEqual([]);
+  });
+
+  it('gives a request that arrives after its twin was abandoned an execution of its own', async () => {
+    const { held, ran, openAll } = holdingRunner({ hold: true });
+    const abandoned = subscribe(panel('SQR1'));
+    await until(() => held.length === 1);
+    abandoned.subscription.unsubscribe();
+    expect(held[0].signal?.aborted).toBe(true);
+
+    const late = subscribe(panel('SQR2'));
+    await until(() => held.length === 2);
+    expect(held).toHaveLength(2);
+    expect(held[1].signal?.aborted).toBe(false);
+
+    // The abandoned execution settles while the late one still runs: a third
+    // request must still find the late one and join it.
+    held[0].release();
+    await until(() => stats.queries.length === 1);
+    const third = subscribe(panel('SQR3'));
+    await until(() => stats.shared.length === 1);
+    openAll();
+    await until(() => late.seen.done && third.seen.done);
+
+    expect(abandoned.seen.response).toBeUndefined();
+    for (const { seen } of [late, third]) {
+      expect(seen.error).toBeUndefined();
+      expect(seen.response?.errors).toBeUndefined();
+      expect(valuesOf(seen.response)).toEqual([[[1]]]);
+    }
+    expect(ran).toHaveLength(2);
+    expect(stats.shared).toHaveLength(1);
+  });
+
+  it('says busy and settled once for the pair', async () => {
+    const heard: string[] = [];
+    const listening = mockBus.subscribe(DuckdbWasmActivityEvent, (event) => heard.push(event.payload.state));
+    const { held, openAll } = holdingRunner({ hold: true });
+    const first = lastValueFrom(ds.query(panel('SQR1')));
+    const second = lastValueFrom(ds.query(panel('SQR2')));
+    await until(() => stats.shared.length === 1 && held.length === 1);
+    expect(stats.shared).toHaveLength(1);
+    expect(heard).toEqual(['busy']);
+    openAll();
+    await Promise.all([first, second]);
+    listening.unsubscribe();
     expect(heard).toEqual(['busy', 'settled']);
   });
 });

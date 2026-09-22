@@ -19,7 +19,8 @@ import { explainError } from './engine/errors';
 import { describe as describeColumns, runPanelQuery } from './engine/executor';
 import { decideDatasetLoad, type LoadWindow } from './engine/rangeReuse';
 import { quoteIdent } from './engine/sql';
-import { recordKey, recordLoad, recordQuery, recordReuse } from './engine/stats';
+import { SingleFlight } from './engine/singleFlight';
+import { recordKey, recordLoad, recordQuery, recordReuse, recordShared } from './engine/stats';
 import type { AdHocFilter, DatasetLoader } from './engine/types';
 import { activity } from './grafana/activity';
 import { arrowToDataFrame } from './grafana/arrowToFrame';
@@ -38,8 +39,19 @@ import {
   type DuckVariableQuery,
 } from './types';
 
+/** A panel request ready to run: its targets' SQL interpolated once, before anything runs. */
+interface PanelPlan {
+  engine: Engine;
+  dashboard: string;
+  panelId?: number;
+  filters: AdHocFilter[];
+  /** In request order; a target whose SQL could not be interpolated carries its error message instead. */
+  targets: Array<{ refId: string; sql: string } | { refId: string; failed: string }>;
+}
+
 export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
   readonly memoryLimitMB: number;
+  private readonly panelsInFlight = new SingleFlight<DataQueryResponse>();
 
   constructor(instanceSettings: DataSourceInstanceSettings<DuckOptions>) {
     super(instanceSettings);
@@ -56,42 +68,90 @@ export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
   }
 
   query(request: DataQueryRequest<DuckQuery>): Observable<DataQueryResponse> {
-    return abortable((signal) => activity.track(() => this.runPanelQueries(request, signal)));
+    return abortable((signal) => activity.track(() => this.answerPanel(request, signal)));
   }
 
   variableQuery(request: DataQueryRequest<DuckVariableQuery>): Observable<DataQueryResponse> {
     return abortable(() => activity.track(() => this.runVariableQuery(request)));
   }
 
+  /**
+   * Runs a panel request, or joins the identical one already in flight. When
+   * two variables change together (kepler's window), Grafana's scenes can send
+   * a panel's request twice at once and keep both; the same SQL on the same
+   * panel gives the same answer, so both get it from one execution.
+   */
+  private async answerPanel(request: DataQueryRequest<DuckQuery>, signal: AbortSignal): Promise<DataQueryResponse> {
+    const planned = await this.planPanelQueries(request);
+    if ('answer' in planned) {
+      return planned.answer;
+    }
+    const { plan } = planned;
+    const response = await this.panelsInFlight.run(
+      panelKey(plan),
+      (shared) => this.executePanelPlan(plan, shared),
+      signal,
+      () => recordShared({ panelId: request.panelId, at: Date.now() })
+    );
+    return ownCopy(response);
+  }
+
   async runPanelQueries(request: DataQueryRequest<DuckQuery>, signal?: AbortSignal): Promise<DataQueryResponse> {
+    const planned = await this.planPanelQueries(request);
+    return 'answer' in planned ? planned.answer : this.executePanelPlan(planned.plan, signal);
+  }
+
+  /** Everything a panel request's answer depends on, or the answer itself when nothing is left to run. */
+  private async planPanelQueries(
+    request: DataQueryRequest<DuckQuery>
+  ): Promise<{ plan: PanelPlan } | { answer: DataQueryResponse }> {
     const targets = request.targets.filter((target) => this.filterQuery(target));
     if (targets.length === 0) {
-      return { data: [] };
+      return { answer: { data: [] } };
     }
     let engine: Engine;
     try {
       engine = await getEngine(this.memoryLimitMB);
     } catch (error) {
       const message = explainError(error, this.memoryLimitMB).message;
-      return { data: [], errors: targets.map((target) => ({ refId: target.refId, message })) };
+      return { answer: { data: [], errors: targets.map((target) => ({ refId: target.refId, message })) } };
     }
     const { key, source } = dashboardKey(request);
     recordKey({ kind: 'panel', source, key });
     await engine.registry.activate(key);
+    return {
+      plan: {
+        engine,
+        dashboard: key,
+        panelId: request.panelId,
+        filters: (request.filters ?? []) as AdHocFilter[],
+        targets: targets.map((target) => {
+          try {
+            return { refId: target.refId, sql: this.interpolate(engine, target.rawSql, request) };
+          } catch (error) {
+            return { refId: target.refId, failed: explainError(error, this.memoryLimitMB).message };
+          }
+        }),
+      },
+    };
+  }
 
+  private async executePanelPlan(plan: PanelPlan, signal?: AbortSignal): Promise<DataQueryResponse> {
+    const { engine, dashboard, panelId } = plan;
     const data: DataFrame[] = [];
     const errors: DataQueryError[] = [];
-    for (const target of targets) {
+    for (const target of plan.targets) {
+      if ('failed' in target) {
+        recordQuery({ refId: target.refId, ms: 0, rows: 0, ok: false, at: Date.now(), panelId });
+        errors.push({ refId: target.refId, message: target.failed });
+        continue;
+      }
       try {
-        const sql = this.interpolate(engine, target.rawSql, request);
-        const result = await runPanelQuery(engine.runner, sql, {
-          filters: (request.filters ?? []) as AdHocFilter[],
-          signal,
-        });
+        const result = await runPanelQuery(engine.runner, target.sql, { filters: plan.filters, signal });
         const frame = arrowToDataFrame(result.table, target.refId);
         frame.meta = {
           executedQueryString: result.executed,
-          notices: staleNotices(engine.registry.list(key), result.executed, Date.now()),
+          notices: staleNotices(engine.registry.list(dashboard), result.executed, Date.now()),
           stats: [{ displayName: 'Engine time', value: Math.round(result.ms), unit: 'ms' }],
         };
         recordQuery({
@@ -100,11 +160,11 @@ export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
           rows: result.table.numRows,
           ok: true,
           at: Date.now(),
-          panelId: request.panelId,
+          panelId,
         });
         data.push(frame);
       } catch (error) {
-        recordQuery({ refId: target.refId, ms: 0, rows: 0, ok: false, at: Date.now(), panelId: request.panelId });
+        recordQuery({ refId: target.refId, ms: 0, rows: 0, ok: false, at: Date.now(), panelId });
         errors.push({ refId: target.refId, message: explainError(error, this.memoryLimitMB).message });
       }
     }
@@ -269,6 +329,43 @@ function textValueFrame(text: string[], value: string[]): DataFrame {
 
 function asText(values: unknown[] | undefined): string[] {
   return (values ?? []).map((v) => (v === null || v === undefined ? '' : String(v)));
+}
+
+/**
+ * What two panel requests must share to get the same answer: the dashboard,
+ * the panel, the ad hoc filters and, target by target, the refId and the SQL
+ * as interpolated, which carries the variables' values and the time range.
+ * It is built from the very plan that runs, so it can't drift from it.
+ */
+function panelKey(plan: PanelPlan): string {
+  return JSON.stringify([
+    plan.dashboard,
+    plan.panelId ?? null,
+    plan.filters,
+    plan.targets.map((target) => ('sql' in target ? [target.refId, target.sql] : [target.refId, null, target.failed])),
+  ]);
+}
+
+/**
+ * Each request's own response when requests share an execution. Grafana writes
+ * to the frames and fields it gets (it resets every `field.state` on arrival,
+ * and caches reductions there), so the response, frames, fields, their config
+ * and the frame meta are copied. The column values, the only large part, are
+ * shared: nothing writes to them.
+ */
+function ownCopy(response: DataQueryResponse): DataQueryResponse {
+  const copy: DataQueryResponse = {
+    ...response,
+    data: response.data.map((frame: DataFrame) => ({
+      ...frame,
+      meta: frame.meta && { ...frame.meta },
+      fields: frame.fields.map((field) => ({ ...field, config: { ...field.config } })),
+    })),
+  };
+  if (response.errors) {
+    copy.errors = response.errors.map((error) => ({ ...error }));
+  }
+  return copy;
 }
 
 /** An Observable whose unsubscription (Grafana abandoning a query) aborts the work. */
