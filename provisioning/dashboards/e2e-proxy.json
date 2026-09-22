@@ -1,0 +1,114 @@
+{
+  "uid": "duckdbwasm-e2e-proxy",
+  "title": "DuckDB WASM · e2e proxy",
+  "schemaVersion": 39,
+  "editable": true,
+  "time": { "from": "2026-01-01T00:00:00.000Z", "to": "2026-01-03T00:00:00.000Z" },
+  "refresh": "",
+  "templating": {
+    "list": [
+      {
+        "name": "viaProxy",
+        "type": "query",
+        "hide": 2,
+        "skipUrlSync": true,
+        "refresh": 1,
+        "datasource": { "type": "ubica-duckdbwasm-datasource", "uid": "duckdbwasm-bearer" },
+        "query": {
+          "refId": "viaProxy",
+          "kind": "dataset",
+          "name": "viaProxy",
+          "source": { "type": "sql", "sql": "SELECT * FROM read_parquet($__proxy('sample.parquet'))" }
+        },
+        "current": {},
+        "options": []
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "Bearer token",
+      "gridPos": { "x": 0, "y": 0, "w": 8, "h": 5 },
+      "datasource": { "type": "ubica-duckdbwasm-datasource", "uid": "duckdbwasm-bearer" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "ubica-duckdbwasm-datasource", "uid": "duckdbwasm-bearer" },
+          "rawSql": "SELECT count(*)::DOUBLE AS n FROM read_parquet($__proxy('sample.parquet'))"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "table",
+      "title": "Basic auth",
+      "gridPos": { "x": 8, "y": 0, "w": 8, "h": 5 },
+      "datasource": { "type": "ubica-duckdbwasm-datasource", "uid": "duckdbwasm-basic" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "ubica-duckdbwasm-datasource", "uid": "duckdbwasm-basic" },
+          "rawSql": "SELECT count(*)::DOUBLE AS n FROM read_parquet($__proxy('sample.parquet'))"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "table",
+      "title": "Key in the URL",
+      "gridPos": { "x": 16, "y": 0, "w": 8, "h": 5 },
+      "datasource": { "type": "ubica-duckdbwasm-datasource", "uid": "duckdbwasm-keyed" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "ubica-duckdbwasm-datasource", "uid": "duckdbwasm-keyed" },
+          "rawSql": "SELECT count(*)::DOUBLE AS n FROM read_parquet($__proxy('sample.parquet'))"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "table",
+      "title": "Dataset via proxy",
+      "gridPos": { "x": 0, "y": 5, "w": 8, "h": 5 },
+      "datasource": { "type": "ubica-duckdbwasm-datasource", "uid": "duckdbwasm-bearer" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "ubica-duckdbwasm-datasource", "uid": "duckdbwasm-bearer" },
+          "rawSql": "SELECT count(*)::DOUBLE AS n FROM $viaProxy"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "table",
+      "title": "Wrong token",
+      "gridPos": { "x": 8, "y": 5, "w": 8, "h": 5 },
+      "datasource": { "type": "ubica-duckdbwasm-datasource", "uid": "duckdbwasm-bearer-wrong" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "ubica-duckdbwasm-datasource", "uid": "duckdbwasm-bearer-wrong" },
+          "rawSql": "SELECT count(*)::DOUBLE AS n FROM read_parquet($__proxy('sample.parquet'))"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "table",
+      "title": "Direct, no proxy",
+      "gridPos": { "x": 16, "y": 5, "w": 8, "h": 5 },
+      "datasource": { "type": "ubica-duckdbwasm-datasource", "uid": "duckdbwasm" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "ubica-duckdbwasm-datasource", "uid": "duckdbwasm" },
+          "rawSql": "SELECT count(*)::DOUBLE AS n FROM read_parquet('http://localhost:8095/bearer/sample.parquet')"
+        }
+      ]
+    }
+  ]
+}
