@@ -25,7 +25,10 @@
     "author": { "name": "UBICA" },
     "keywords": ["duckdb", "wasm", "sql", "parquet", "geospatial", "bi"],
     "logos": { "small": "img/logo.svg", "large": "img/logo.svg" },
-    "links": [],
+    "links": [
+      { "name": "Source code", "url": "https://github.com/ubica-ecuador/chaski" },
+      { "name": "Tutorial", "url": "https://github.com/ubica-ecuador/chaski/blob/main/docs/tutorial-earthquakes.md" }
+    ],
     "screenshots": [],
     "version": "%VERSION%",
     "updated": "%TODAY%"

@@ -8,8 +8,8 @@ keeps working: native, catalog and the kepler map.
 
 - **Plugin id:** `ubica-chaski-datasource`. Frontend only: no backend, no alerting.
 - **Engine:** DuckDB 1.4.3 through `@duckdb/duckdb-wasm` 1.32.0, running in a Web Worker.
-- **Distribution:** git only, unsigned. It ships in the self-hosted Grafana Geospatial Stack and is not
-  published in the Grafana catalog.
+- **Distribution:** built for the Grafana plugin catalog, Grafana Cloud included (there plugin files
+  come from a CDN on another origin). Until it is listed, install a build by hand (see Install).
 - **For dashboard authors:** how to write datasets and panel SQL is in [src/README.md](src/README.md). That
   file is the page Grafana shows for the plugin. For a worked example, follow
   [docs/tutorial-earthquakes.md](docs/tutorial-earthquakes.md), which builds a dashboard from a live
@@ -103,8 +103,8 @@ Scratch tables also share the datasource's memory limit with the datasets.
 
 - **Grafana 12.0.0 or later** (`grafanaDependency` in `src/plugin.json`). It is tested on 12.0.10
   and 13.2.2.
-- **Unsigned plugin:** Grafana must allow loading it, with
-  `GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS=ubica-chaski-datasource`.
+- **Unsigned builds** (from source, or a release before the catalog signs it): Grafana must allow
+  loading it, with `GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS=ubica-chaski-datasource`.
 - **Browser memory.** Each viewer's browser holds the datasets. The limit is a datasource setting
   (`memoryLimitMB`, 1024 by default). Aggregate on the server, and let only the working set reach the
   browser.

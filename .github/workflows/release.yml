@@ -13,17 +13,28 @@ jobs:
   release:
     permissions:
       contents: write
+      # For `attestation: true` below: `id-token` mints the workflow's OIDC
+      # identity, `attestations` stores the provenance record. The build fails
+      # without them instead of skipping the attestation.
+      id-token: write
+      attestations: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
+      # A plugin that was never published cannot be signed: the catalog review
+      # grants the signature level. Until then GRAFANA_ACCESS_POLICY_TOKEN is
+      # unset, the action skips its sign step, and the unsigned zip plus its
+      # sha1 on the draft release are what the submission form asks for. Once
+      # the level is granted, adding the secret signs the next tag with no
+      # change here.
       - uses: grafana/plugin-actions/build-plugin@build-plugin/v1.2.0
-        # Uncomment to enable plugin signing
-        # (For more info on how to generate the access policy token see https://grafana.com/developers/plugin-tools/publish-a-plugin/sign-a-plugin#generate-an-access-policy-token)
-        #with:
-        # Make sure to save the token in your repository secrets
-        #policy_token: $
-        # Usage of GRAFANA_API_KEY is deprecated, prefer `policy_token` option above
-        #grafana_token: $
+        with:
+          policy_token: ${{ secrets.GRAFANA_ACCESS_POLICY_TOKEN }}
+          # The catalog checks provenance on submission ("No provenance
+          # attestation" otherwise), and the local validator can't see it.
+          attestation: true
+          # use_changelog_generator stays off: it commits a generated
+          # changelog over the hand-written CHANGELOG.md.
