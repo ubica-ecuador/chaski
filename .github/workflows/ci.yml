@@ -200,6 +200,12 @@ jobs:
         with:
           url: http://localhost:3005/login
 
+      # grafana-cdn serves the plugin from a CDN, as Grafana Cloud does (tests/cdn.spec.ts).
+      - name: Wait for the CDN grafana server
+        uses: grafana/plugin-actions/wait-for-grafana@wait-for-grafana/v1.0.4
+        with:
+          url: http://localhost:3007/login
+
       - name: Install Playwright Browsers
         run: npm exec playwright install chromium --with-deps
 
@@ -211,6 +217,7 @@ jobs:
         if: ${{ failure() }}
         run: |
           docker logs ubica-chaski-datasource 2>&1 | tee grafana-server.log
+          docker logs ubica-chaski-datasource-cdn 2>&1 | tee grafana-cdn-server.log
 
       - name: Stop grafana docker
         run: docker compose down

@@ -52,6 +52,39 @@ services:
       GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: ubica-chaski-datasource
       GF_SECURITY_CONTENT_SECURITY_POLICY: 'true'
 
+  # Grafana serving the plugin the way Grafana Cloud does (measured on a Cloud
+  # stack, 13.3.0): the frontend comes from a plugin CDN on another origin, and
+  # the page carries Cloud's Content Security Policy, which only sets script-src.
+  # tests/cdn.spec.ts runs here.
+  grafana-cdn:
+    <<: *grafana
+    container_name: 'ubica-chaski-datasource-cdn'
+    ports:
+      - '3007:3000/tcp'
+    volumes:
+      - ./dist:/var/lib/grafana/plugins/ubica-chaski-datasource
+      - ./provisioning:/etc/grafana/provisioning
+      - ./plugin-cdn/grafana.ini:/etc/grafana/grafana.ini:ro
+    depends_on:
+      - fixtures
+      - plugin-cdn
+    environment:
+      NODE_ENV: development
+      GF_LOG_LEVEL: info
+      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: ubica-chaski-datasource
+      GF_AUTH_TOKEN_ROTATION_INTERVAL_MINUTES: 60
+      GF_SECURITY_CONTENT_SECURITY_POLICY: 'true'
+      GF_SECURITY_CONTENT_SECURITY_POLICY_TEMPLATE: "script-src 'self' 'unsafe-eval' 'unsafe-inline' 'strict-dynamic' $$NONCE http://localhost:8096/;object-src 'none';base-uri 'self';form-action 'self';frame-ancestors 'none'"
+
+  plugin-cdn:
+    image: nginx:1.27-alpine
+    container_name: 'ubica-chaski-plugin-cdn'
+    ports:
+      - '8096:80'
+    volumes:
+      - ./dist:/usr/share/nginx/dist:ro
+      - ./plugin-cdn/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+
   # Static files with open CORS, so the `sql` source reads them over httpfs the
   # way it would read a public bucket.
   fixtures:

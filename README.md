@@ -145,7 +145,7 @@ You need Node 22 or later, and Docker for the dev Grafana.
 npm ci
 npm run dev        # webpack in watch mode
 npm run build      # production build into dist/
-npm run server     # dev Grafana on :3005 plus the fixtures server on :8095
+npm run server     # dev Grafana on :3005, the CDN Grafana on :3007, the fixtures server on :8095
 ```
 
 - `prebuild`/`predev` run `scripts/fetch-duckdb-extensions.mjs`. It downloads `parquet`, `json`,
@@ -155,6 +155,8 @@ npm run server     # dev Grafana on :3005 plus the fixtures server on :8095
 - **The dev Grafana** runs **12.0.10** by default, the floor of the supported range. Choose another version
   with `GRAFANA_VERSION=13.2.1 npm run server`. `docker compose --profile csp up` adds a Grafana with the
   stock CSP on **:3006**.
+- **The CDN Grafana** on **:3007** serves the plugin the way Grafana Cloud does: its files come from a
+  plugin CDN on :8096 (`plugin-cdn/`), under Cloud's CSP. `tests/cdn.spec.ts` runs there.
 - **The fixtures server** on :8095 serves `fixtures/` with open CORS, the way a public bucket would.
   `scripts/make-fixture.py` regenerates `sample.parquet`.
 - Use webpack and the configuration in `.config/`. Don't edit anything under `.config/`; extend it
@@ -171,6 +173,7 @@ npm run server     # dev Grafana on :3005 plus the fixtures server on :8095
 | `tests/`            | End-to-end tests (`@grafana/plugin-e2e`).                                                                                                                                                                                                                                                                                                  |
 | `fixtures/`         | What the fixtures server serves: `sample.parquet`, plus three locations that send no CORS headers and want a bearer token, basic auth or a key in the URL — what the data proxy tests read through.                                                                                                                                        |
 | `provisioning/`     | The dev Grafana's datasources and dashboards (`e2e`, `e2e-range`, `e2e-proxy`, `bench-1m`). Besides the plain instance it provisions four that read through the data proxy, one per way in plus one with a wrong token.                                                                                                                    |
+| `plugin-cdn/`       | The CDN Grafana's settings and the nginx that plays the plugin CDN, so that one Grafana serves the plugin the way Grafana Cloud does.                                                                                                                                                                                                      |
 | `bench/`            | Measurement scripts and bench dashboards (see Bench).                                                                                                                                                                                                                                                                                      |
 
 ## Test
@@ -183,6 +186,7 @@ npm run e2e        # Playwright against the dev Grafana (npm run server first)
 ```
 
 - The e2e tests default to `http://localhost:3005`. Point them elsewhere with `GRAFANA_URL`.
+  `tests/cdn.spec.ts` runs on the CDN Grafana instead, `http://localhost:3007` or `GRAFANA_CDN_URL`.
 - Run them on both ends of the supported range: the default 12.0.10, and 13.2.1 with `GRAFANA_VERSION`.
 - They cover:
   - loading a dataset and filtering without network requests;
@@ -192,7 +196,8 @@ npm run e2e        # Playwright against the dev Grafana (npm run server first)
   - reading files through the data proxy behind a token, basic auth and a key in the URL, plus the
     messages a rejected credential and a direct read without CORS produce;
   - the engine API: a dataset read by name, a scratch table, and explore emptied on a dashboard change;
-  - Save & test.
+  - Save & test;
+  - the engine and the spatial extension starting from a plugin CDN, as on Grafana Cloud.
 
 ## Bench
 
