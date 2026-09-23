@@ -23,6 +23,21 @@ const next = (api: ChaskiEngineApi, kind: ChangeEvent['kind']) =>
       }
     });
   });
+/** The Node runner, with every exec recorded and optionally delayed or failed first by `before`. */
+const recording = (inner: SqlRunner, before: (sql: string) => Promise<void> = async () => undefined) => {
+  const execs: string[] = [];
+  const wrapped: SqlRunner = {
+    ...inner,
+    async exec(sql) {
+      execs.push(sql);
+      await before(sql);
+      return inner.exec(sql);
+    },
+  };
+  return { runner: wrapped, execs };
+};
+const apiOn = (wrapped: SqlRunner, on: DatasetRegistry) =>
+  createEngineApi({ runner: wrapped, registry: on, version: 'v1.4.3', track: (work) => work() });
 const rowsOf = async (api: ChaskiEngineApi, sql: string) => tableFromIPC(await api.queryIPC(sql)).toArray();
 
 let runner: SqlRunner;
@@ -159,5 +174,75 @@ describe('the engine API', () => {
     await api.releaseScratch();
     const left = await runner.query("SELECT count(*)::DOUBLE AS c FROM duckdb_tables() WHERE schema_name = 'explore'");
     expect(left.get(0)?.c).toBe(0);
+  });
+
+  it('delivers events in the order the registry produced them, across a switch', async () => {
+    // A slow release makes the dashboard step finish after the load for b adopts.
+    const { runner: slow } = recording(runner, (sql) =>
+      sql.startsWith('DROP SCHEMA IF EXISTS explore') ? new Promise((resolve) => setTimeout(resolve, 50)) : Promise.resolve()
+    );
+    const reg = new DatasetRegistry(runner);
+    const sut = apiOn(slow, reg);
+    await reg.activate('a');
+    const ready = next(sut, 'dataset');
+    await reg.load('a', 'sample', sqlLoader(2), 's1');
+    await ready;
+    const heard: ChangeEvent[] = [];
+    sut.onChange((event) => heard.push(event));
+    const landed = next(sut, 'dataset');
+    await Promise.all([reg.activate('b'), reg.load('b', 'sample', sqlLoader(3), 's1')]);
+    await landed;
+    expect(heard).toEqual([
+      { kind: 'dashboard', dashboard: 'b' },
+      { kind: 'dataset', name: 'sample', view: 'datasets."sample"' },
+    ]);
+    expect((await rowsOf(sut, 'SELECT count(*)::DOUBLE AS c FROM datasets.sample'))[0].c).toBe(3);
+  });
+
+  it('announces no dataset whose view could not be created', async () => {
+    const { runner: flaky } = recording(runner, async (sql) => {
+      if (sql.startsWith('CREATE OR REPLACE VIEW datasets."broken"')) {
+        throw new Error('no view for you');
+      }
+    });
+    const reg = new DatasetRegistry(runner);
+    const sut = apiOn(flaky, reg);
+    const heard: ChangeEvent[] = [];
+    sut.onChange((event) => heard.push(event));
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      await reg.activate('d');
+      await reg.load('d', 'broken', sqlLoader(1), 's1');
+      // Events arrive in registry order, so once `other` is heard, `broken` had its turn.
+      const later = next(sut, 'dataset');
+      await reg.load('d', 'other', sqlLoader(1), 's1');
+      await later;
+      expect(heard).toEqual([
+        { kind: 'dashboard', dashboard: 'd' },
+        { kind: 'dataset', name: 'other', view: 'datasets."other"' },
+      ]);
+      expect(warn).toHaveBeenCalledWith('Chaski: dataset view', expect.any(Error));
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('creates one view per load, not one per dataset on the dashboard', async () => {
+    const { runner: counted, execs } = recording(runner);
+    const reg = new DatasetRegistry(runner);
+    const sut = apiOn(counted, reg);
+    await reg.activate('d');
+    for (const name of ['x', 'y', 'z']) {
+      const ready = next(sut, 'dataset');
+      await reg.load('d', name, sqlLoader(2), 's1');
+      await ready;
+    }
+    execs.length = 0;
+    const ready = next(sut, 'dataset');
+    await reg.load('d', 'y', sqlLoader(4), 's2');
+    await ready;
+    expect(execs.filter((sql) => sql.startsWith('CREATE OR REPLACE VIEW'))).toEqual([
+      `CREATE OR REPLACE VIEW datasets."y" AS SELECT * FROM main."${reg.get('d', 'y')!.table}"`,
+    ]);
   });
 });

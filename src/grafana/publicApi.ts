@@ -78,20 +78,36 @@ export function createEngineApi({ runner, registry, version, track }: ApiDeps): 
     return dashboard === undefined ? [] : registry.list(dashboard);
   };
 
+  /*
+   * Follow-up work for registry events runs on one serial chain, in the order
+   * the registry emitted them, so consumers hear dashboard(b) before dataset(b).
+   * Each step reads the registry when it runs, not when its event arrived: a
+   * backlogged step must not point a view at a version dropped in the meantime.
+   * A step never rejects the chain, so one failure cannot stall the ones behind.
+   */
+  let chain: Promise<void> = Promise.resolve();
+  const enqueue = (step: () => Promise<void>) => {
+    chain = chain.then(step).catch((error: unknown) => console.warn('Chaski: engine API change', error));
+  };
+
   registry.subscribe((event) => {
     if (event.kind === 'adopted') {
-      // A slow load that lands after the user moved on must not re-point the views.
-      if (event.dashboard !== registry.activeDashboard()) {
-        return;
-      }
-      void views.sync(onScreen()).then(() => emit({ kind: 'dataset', name: event.name, view: viewOf(event.name) }));
+      const { dashboard, name } = event;
+      enqueue(async () => {
+        // A slow load that lands after the user moved on must not re-point the views.
+        const state = dashboard === registry.activeDashboard() ? registry.get(dashboard, name) : undefined;
+        if (state && (await views.point(name, state.table))) {
+          emit({ kind: 'dataset', name, view: viewOf(name) });
+        }
+      });
       return;
     }
-    void views
-      .sync(onScreen())
-      .then(() => scratch.releaseScratch())
-      .catch((error: unknown) => console.warn('Chaski: emptying explore', error))
-      .then(() => emit({ kind: 'dashboard', dashboard: event.dashboard }));
+    const { dashboard } = event;
+    enqueue(async () => {
+      await views.sync(onScreen());
+      await scratch.releaseScratch().catch((error: unknown) => console.warn('Chaski: emptying explore', error));
+      emit({ kind: 'dashboard', dashboard });
+    });
   });
 
   const run = (sql: string, opts?: QueryOpts): Promise<Table> =>
