@@ -27,8 +27,8 @@ export class DatasetViews {
   /** Makes the views match `states` exactly: one per state, on its table; no others. */
   sync(states: DatasetState[]): Promise<void> {
     const run = this.queue.then(() => this.apply(states));
-    this.queue = run;
-    return run;
+    this.queue = run.catch(() => undefined);
+    return run.catch(() => undefined);
   }
 
   private async apply(states: DatasetState[]): Promise<void> {
@@ -41,7 +41,7 @@ export class DatasetViews {
       );
       existing = result.toArray().map((row) => String(row.view_name));
     } catch (error) {
-      this.onError(error);
+      this.report(error);
     }
     for (const name of existing) {
       if (!wanted.has(name)) {
@@ -57,7 +57,15 @@ export class DatasetViews {
     try {
       await this.runner.exec(sql);
     } catch (error) {
+      this.report(error);
+    }
+  }
+
+  private report(error: unknown): void {
+    try {
       this.onError(error);
+    } catch (errorHandlerError) {
+      console.warn('Chaski: dataset view error handler threw', errorHandlerError);
     }
   }
 }

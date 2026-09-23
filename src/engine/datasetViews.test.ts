@@ -66,4 +66,17 @@ describe('DatasetViews', () => {
     expect(errors).toHaveLength(1);
     expect(await views(runner)).toEqual(['ok']);
   });
+
+  it('keeps syncing even if the error handler throws', async () => {
+    const throwingHandler = () => {
+      throw new Error('Handler explosion');
+    };
+    const sut = new DatasetViews(runner, throwingHandler);
+    // First sync with broken view and throwing handler should still resolve
+    await sut.sync([stateOf('broken', 'no_such_table'), stateOf('ok', 't1')]);
+    expect(await views(runner)).toEqual(['ok']);
+    // Later sync should work normally and not be stuck
+    await sut.sync([stateOf('next', 't2')]);
+    expect(await views(runner)).toEqual(['next']);
+  });
 });
