@@ -3,7 +3,9 @@ import { EngineStartError } from '../engine/errors';
 import { DatasetRegistry } from '../engine/registry';
 import { stats } from '../engine/stats';
 import type { SqlRunner } from '../engine/types';
+import { activity } from './activity';
 import { leaveDashboardOnNavigation } from './dashboardKey';
+import { createEngineApi, publishEngineApi } from './publicApi';
 
 export interface Engine {
   runner: SqlRunner;
@@ -31,10 +33,21 @@ export function getEngine(memoryLimitMB: number): Promise<Engine> {
         const engine: Engine = { runner, registry: new DatasetRegistry(runner), version: runner.version };
         leaveDashboardOnNavigation(engine.registry);
         (window as unknown as { __duckdbwasm: unknown }).__duckdbwasm = { stats, runner };
+        publishEngineApi(
+          Promise.resolve(
+            createEngineApi({
+              runner,
+              registry: engine.registry,
+              version: runner.version,
+              track: (work) => activity.track(work),
+            })
+          )
+        );
         return engine;
       })
       .catch((error: unknown) => {
         enginePromise = undefined;
+        publishEngineApi(undefined);
         throw new EngineStartError(error);
       });
   }
