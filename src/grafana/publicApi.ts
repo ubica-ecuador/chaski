@@ -47,7 +47,11 @@ export interface ChaskiEngineApi {
 
 export interface ChaskiGlobal {
   apiVersion: 1;
-  /** undefined until a Chaski query on this page has started the engine. */
+  /**
+   * undefined until a Chaski query on this page has started the engine; never
+   * starts it. While the engine starts, a pending promise; if the start fails,
+   * that promise rejects and engine() is undefined again.
+   */
   engine(): Promise<ChaskiEngineApi> | undefined;
 }
 
@@ -143,7 +147,7 @@ export function createEngineApi({ runner, registry, version, track }: ApiDeps): 
 
 let published: Promise<ChaskiEngineApi> | undefined;
 
-/** Called by engine.ts: the API once the engine starts, undefined when a start fails. */
+/** Called by engine.ts: the API's promise when a start begins, undefined when that start fails. */
 export function publishEngineApi(api: Promise<ChaskiEngineApi> | undefined): void {
   published = api;
 }
