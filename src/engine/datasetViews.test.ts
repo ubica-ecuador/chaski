@@ -79,4 +79,36 @@ describe('DatasetViews', () => {
     await sut.sync([stateOf('next', 't2')]);
     expect(await views(runner)).toEqual(['next']);
   });
+
+  it('points one view at a table, and re-points it', async () => {
+    const sut = new DatasetViews(runner);
+    expect(await sut.point('a', 't1')).toBe(true);
+    expect(await countThrough(runner, 'a')).toBe(1);
+    expect(await sut.point('a', 't3')).toBe(true);
+    expect(await views(runner)).toEqual(['a']);
+    expect(await countThrough(runner, 'a')).toBe(3);
+  });
+
+  it('resolves false and reports the error when a point names a missing table', async () => {
+    const errors: unknown[] = [];
+    const sut = new DatasetViews(runner, (error) => errors.push(error));
+    expect(await sut.point('broken', 'no_such_table')).toBe(false);
+    expect(errors).toHaveLength(1);
+    expect(await views(runner)).toEqual([]);
+  });
+
+  it('runs points and syncs on one queue, in call order', async () => {
+    const sut = new DatasetViews(runner);
+    const results = await Promise.all([
+      sut.sync([stateOf('a', 't1')]),
+      sut.point('a', 't3'),
+      sut.point('b', 't2'),
+      sut.sync([stateOf('a', 't2')]),
+      sut.point('a', 't1'),
+    ]);
+    expect(results.slice(1)).toEqual([true, true, undefined, true]);
+    // The last sync dropped b; the last point re-pointed a after it.
+    expect(await views(runner)).toEqual(['a']);
+    expect(await countThrough(runner, 'a')).toBe(1);
+  });
 });
