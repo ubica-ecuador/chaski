@@ -55,6 +55,9 @@ const chaski = (window as any).__chaski; // undefined when Chaski is not install
 const api = await chaski?.engine(); // undefined until a Chaski query has started the engine
 ```
 
+`engine()` never starts the engine itself. While a Chaski query is starting it, `engine()` returns a
+pending promise; if that start fails, the promise rejects and `engine()` is `undefined` again.
+
 `apiVersion` is `1`. Additive changes keep it; a breaking change adds `window.__chaski.v2` beside it
 for at least one release.
 
@@ -66,11 +69,22 @@ for at least one release.
   - `'explorer'` (the default) runs on the explorer's own connections and does not count toward
     `ubica-duckdbwasm-activity`;
   - `'panel'` runs on the panels' path and counts, which is what a panel reading data should use.
-- **`datasets()`** lists the dashboard's datasets: name, view, current table, rows, and `stale`
-  when the latest reload failed.
+    It has no explorer `search_path`: qualify every name (`datasets.sample`, `explore.hot`). An
+    unqualified `CREATE TABLE` there would land in `main`, beside the panels' tables. Don't.
+- **Extensions:** a statement that needs a shipped extension not loaded yet fails, loads it, and is
+  then retried in full. Don't let a multi-statement `exec` script depend on the effects of the
+  statements before the one that failed; they run again.
+- **`duckdbVersion`** is the engine's DuckDB version, e.g. `v1.4.3`.
+- **`datasets()`** lists the dashboard's datasets: name, view, current table, rows, `loadedAt` (when
+  that version was loaded, in epoch milliseconds), and `stale` when the latest reload failed.
 - **`onChange(listener)`** reports `{kind: 'dataset'}` once a dataset's view reads a new version, and
-  `{kind: 'dashboard'}` once another dashboard is on screen.
+  `{kind: 'dashboard'}` once another dashboard is on screen. Events arrive in the order the engine
+  produced them, so `dashboard` comes before the datasets of that dashboard. A `dataset` event is
+  sent only once its view was created; if that fails, the dataset is still readable by its table.
 - **`releaseScratch()`** empties `explore`.
+- **Leaving for a page without Chaski** (Home, or a dashboard on another datasource) fires no
+  `dashboard` event. `datasets()` keeps listing the last Chaski dashboard's datasets, and `explore` is
+  kept until another Chaski dashboard comes on screen or `releaseScratch()` is called.
 
 Two schemas go with it:
 
