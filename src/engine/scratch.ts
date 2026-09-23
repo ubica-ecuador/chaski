@@ -54,9 +54,19 @@ export class ScratchPool {
     }
   }
 
-  /** Drops everything in explore and recreates it empty. `datasets` and `main` are untouched. */
+  /**
+   * Drops everything in explore and recreates it empty. `datasets` and `main`
+   * are untouched. If the release fails halfway (dropped, not recreated), the
+   * schema is recreated before the error is rethrown: every pooled connection
+   * writes to explore, and would fail without it.
+   */
   async releaseScratch(): Promise<void> {
-    await this.runner.exec(`DROP SCHEMA IF EXISTS ${SCRATCH_SCHEMA} CASCADE; CREATE SCHEMA ${SCRATCH_SCHEMA}`);
+    try {
+      await this.runner.exec(`DROP SCHEMA IF EXISTS ${SCRATCH_SCHEMA} CASCADE; CREATE SCHEMA ${SCRATCH_SCHEMA}`);
+    } catch (error) {
+      await this.runner.exec(`CREATE SCHEMA IF NOT EXISTS ${SCRATCH_SCHEMA}`).catch(() => undefined);
+      throw error;
+    }
   }
 
   private async acquire(signal?: AbortSignal): Promise<SqlSession> {

@@ -35,6 +35,26 @@ describe('ScratchPool on DuckDB', () => {
     await pool.query('CREATE TABLE again AS SELECT 2 AS n');
     expect(await tablesIn(runner, 'explore')).toEqual(['again']);
   });
+
+  it('keeps explore when a release drops it but fails to recreate it', async () => {
+    const halfFailing: SqlRunner = {
+      ...runner,
+      async exec(sql) {
+        if (sql.startsWith('DROP SCHEMA IF EXISTS explore')) {
+          await runner.exec('DROP SCHEMA IF EXISTS explore CASCADE');
+          throw new Error('create failed');
+        }
+        return runner.exec(sql);
+      },
+    };
+    const pool = new ScratchPool(halfFailing);
+    await pool.query('CREATE TABLE hot AS SELECT 1 AS n');
+    await expect(pool.releaseScratch()).rejects.toThrow('create failed');
+    const schemas = await runner.query("SELECT count(*)::DOUBLE AS c FROM duckdb_schemas() WHERE schema_name = 'explore'");
+    expect(schemas.get(0)?.c).toBe(1);
+    await pool.query('CREATE TABLE again AS SELECT 2 AS n');
+    expect(await tablesIn(runner, 'explore')).toEqual(['again']);
+  });
 });
 
 describe('ScratchPool connections', () => {
