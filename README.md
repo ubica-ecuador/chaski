@@ -110,6 +110,9 @@ Scratch tables also share the datasource's memory limit with the datasets.
   browser.
 - **Content Security Policy.**
   - The engine starts under Grafana's stock policy with nothing extra to allow.
+  - Where Grafana serves plugin files from a CDN on another origin, as Grafana Cloud does, the
+    engine's worker starts from a `blob:` URL. A policy that sets `worker-src` must then allow
+    `blob:`. Grafana Cloud's own policy only sets `script-src`, and the engine starts under it.
   - A browser-side read of another host needs that host to send CORS headers. If CSP is on, the host
     also has to be in `connect-src`. Otherwise read it through the data proxy (`$__proxy`), which is
     same-origin, or through a server datasource.
