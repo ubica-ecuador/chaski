@@ -5,12 +5,36 @@ import { tableFromBatches } from './arrowTable';
 import { missingExtension } from './extensions';
 import { quoteLiteral } from './sql';
 import { stats } from './stats';
-import type { SqlRunner } from './types';
+import type { SqlRunner, SqlSession } from './types';
 
 export interface BrowserRunnerOptions {
   /** Absolute URL of the plugin's public folder, ending in '/'. */
   assetBase: string;
   memoryLimitMB: number;
+}
+
+/**
+ * Runs one statement on an already-open connection and returns its rows as
+ * Arrow. Shared by the runner's own per-call connection and by sessions'
+ * long-lived one.
+ */
+async function runOnConnection(conn: duckdb.AsyncDuckDBConnection, sql: string, signal?: AbortSignal): Promise<Table> {
+  if (signal?.aborted) {
+    throw new DOMException('The query was cancelled', 'AbortError');
+  }
+  const cancel = () => {
+    void conn.cancelSent();
+  };
+  signal?.addEventListener('abort', cancel);
+  try {
+    // Cancellation only works through the pending-query API: conn.query()
+    // ignores cancelSent(), so a query run that way could never be stopped.
+    const reader = await conn.send(sql);
+    const batches = await reader.readAll();
+    return tableFromBatches(reader.schema, batches);
+  } finally {
+    signal?.removeEventListener('abort', cancel);
+  }
 }
 
 /**
@@ -91,22 +115,10 @@ export async function createBrowserRunner(options: BrowserRunnerOptions): Promis
     version,
     query(sql: string, signal?: AbortSignal): Promise<Table> {
       return withExtensionRetry(async () => {
-        if (signal?.aborted) {
-          throw new DOMException('The query was cancelled', 'AbortError');
-        }
         const conn = await db.connect();
-        const cancel = () => {
-          void conn.cancelSent();
-        };
-        signal?.addEventListener('abort', cancel);
         try {
-          // Cancellation only works through the pending-query API: conn.query()
-          // ignores cancelSent(), so a query run that way could never be stopped.
-          const reader = await conn.send(sql);
-          const batches = await reader.readAll();
-          return tableFromBatches(reader.schema, batches);
+          return await runOnConnection(conn, sql, signal);
         } finally {
-          signal?.removeEventListener('abort', cancel);
           await conn.close();
         }
       });
@@ -128,6 +140,23 @@ export async function createBrowserRunner(options: BrowserRunnerOptions): Promis
       } finally {
         await conn.close();
       }
+    },
+    async openSession(setup: string[]): Promise<SqlSession> {
+      const conn = await db.connect();
+      try {
+        for (const sql of setup) {
+          await conn.query(sql);
+        }
+      } catch (error) {
+        await conn.close();
+        throw error;
+      }
+      return {
+        query(sql: string, signal?: AbortSignal): Promise<Table> {
+          return withExtensionRetry(() => runOnConnection(conn, sql, signal));
+        },
+        close: () => conn.close(),
+      };
     },
   };
 }

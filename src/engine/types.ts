@@ -2,6 +2,17 @@ import type { Table } from 'apache-arrow';
 
 import type { LoadWindow } from './rangeReuse';
 
+/**
+ * A long-lived connection that keeps its own settings (USE, search_path), for
+ * callers outside the panels. One statement at a time: whoever holds it waits
+ * for each query before sending the next.
+ */
+export interface SqlSession {
+  /** Runs one statement (or several; the last one's rows come back). Aborting cancels it. */
+  query(sql: string, signal?: AbortSignal): Promise<Table>;
+  close(): Promise<void>;
+}
+
 /** What the engine needs from a DuckDB: the browser build in production, the Node build in tests. */
 export interface SqlRunner {
   /** Runs one statement and returns its rows as Arrow. Aborting cancels the statement. */
@@ -10,6 +21,11 @@ export interface SqlRunner {
   exec(sql: string): Promise<void>;
   /** Creates table `name` from an Arrow table. */
   insertArrow(name: string, table: Table): Promise<void>;
+  /**
+   * Opens a connection and runs `setup` on it once. Optional so that test
+   * doubles which never serve the explorer need not implement it.
+   */
+  openSession?(setup: string[]): Promise<SqlSession>;
 }
 
 export interface ColumnInfo {
@@ -47,3 +63,6 @@ export interface DatasetState {
   /** The dashboard visit it was loaded in (DatasetRegistry.visitOf). */
   visit?: number;
 }
+
+/** What the registry announces: a dataset's new version became current, or another dashboard came to the front. */
+export type RegistryEvent = { kind: 'adopted'; dashboard: string; name: string } | { kind: 'activated'; dashboard: string };

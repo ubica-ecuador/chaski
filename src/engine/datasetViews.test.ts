@@ -1,0 +1,114 @@
+/** @jest-environment node */
+import { DatasetViews, viewOf } from './datasetViews';
+import { createNodeRunner } from './testing/nodeRunner';
+import type { DatasetState, SqlRunner } from './types';
+
+const stateOf = (name: string, table: string): DatasetState => ({
+  dashboard: 'd',
+  name,
+  table,
+  version: 1,
+  loadedAt: 0,
+  rows: 0,
+});
+const views = async (runner: SqlRunner) =>
+  (await runner.query("SELECT view_name FROM duckdb_views() WHERE schema_name = 'datasets' ORDER BY 1"))
+    .toArray()
+    .map((row) => String(row.view_name));
+const countThrough = async (runner: SqlRunner, name: string) =>
+  Number((await runner.query(`SELECT count(*)::DOUBLE AS n FROM ${viewOf(name)}`)).get(0)?.n);
+
+let runner: SqlRunner;
+beforeEach(async () => {
+  runner = await createNodeRunner();
+  await runner.exec('CREATE TABLE t1 AS SELECT range AS n FROM range(1)');
+  await runner.exec('CREATE TABLE t2 AS SELECT range AS n FROM range(2)');
+  await runner.exec('CREATE TABLE t3 AS SELECT range AS n FROM range(3)');
+});
+
+describe('DatasetViews', () => {
+  it('reads each dataset through a view named after it', async () => {
+    await new DatasetViews(runner).sync([stateOf('a', 't1'), stateOf('b', 't2')]);
+    expect(await views(runner)).toEqual(['a', 'b']);
+    expect(await countThrough(runner, 'a')).toBe(1);
+    expect(await countThrough(runner, 'b')).toBe(2);
+  });
+
+  it('re-points a view at a new version and drops views of datasets that are gone', async () => {
+    const sut = new DatasetViews(runner);
+    await sut.sync([stateOf('a', 't1'), stateOf('b', 't2')]);
+    await sut.sync([stateOf('a', 't3')]);
+    expect(await views(runner)).toEqual(['a']);
+    expect(await countThrough(runner, 'a')).toBe(3);
+  });
+
+  it('quotes names that need it', async () => {
+    const odd = 'My "odd" Name';
+    await new DatasetViews(runner).sync([stateOf(odd, 't2')]);
+    expect(viewOf(odd)).toBe('datasets."My ""odd"" Name"');
+    expect(await countThrough(runner, odd)).toBe(2);
+  });
+
+  it('applies syncs in call order', async () => {
+    const sut = new DatasetViews(runner);
+    const first = sut.sync([stateOf('a', 't1')]);
+    const second = sut.sync([stateOf('a', 't3')]);
+    await Promise.all([first, second]);
+    expect(await countThrough(runner, 'a')).toBe(3);
+  });
+
+  it('reports a view it cannot create, still creates the others, and never throws', async () => {
+    const errors: unknown[] = [];
+    await new DatasetViews(runner, (error) => errors.push(error)).sync([
+      stateOf('broken', 'no_such_table'),
+      stateOf('ok', 't1'),
+    ]);
+    expect(errors).toHaveLength(1);
+    expect(await views(runner)).toEqual(['ok']);
+  });
+
+  it('keeps syncing even if the error handler throws', async () => {
+    const throwingHandler = () => {
+      throw new Error('Handler explosion');
+    };
+    const sut = new DatasetViews(runner, throwingHandler);
+    // First sync with broken view and throwing handler should still resolve
+    await sut.sync([stateOf('broken', 'no_such_table'), stateOf('ok', 't1')]);
+    expect(await views(runner)).toEqual(['ok']);
+    // Later sync should work normally and not be stuck
+    await sut.sync([stateOf('next', 't2')]);
+    expect(await views(runner)).toEqual(['next']);
+  });
+
+  it('points one view at a table, and re-points it', async () => {
+    const sut = new DatasetViews(runner);
+    expect(await sut.point('a', 't1')).toBe(true);
+    expect(await countThrough(runner, 'a')).toBe(1);
+    expect(await sut.point('a', 't3')).toBe(true);
+    expect(await views(runner)).toEqual(['a']);
+    expect(await countThrough(runner, 'a')).toBe(3);
+  });
+
+  it('resolves false and reports the error when a point names a missing table', async () => {
+    const errors: unknown[] = [];
+    const sut = new DatasetViews(runner, (error) => errors.push(error));
+    expect(await sut.point('broken', 'no_such_table')).toBe(false);
+    expect(errors).toHaveLength(1);
+    expect(await views(runner)).toEqual([]);
+  });
+
+  it('runs points and syncs on one queue, in call order', async () => {
+    const sut = new DatasetViews(runner);
+    const results = await Promise.all([
+      sut.sync([stateOf('a', 't1')]),
+      sut.point('a', 't3'),
+      sut.point('b', 't2'),
+      sut.sync([stateOf('a', 't2')]),
+      sut.point('a', 't1'),
+    ]);
+    expect(results.slice(1)).toEqual([true, true, undefined, true]);
+    // The last sync dropped b; the last point re-pointed a after it.
+    expect(await views(runner)).toEqual(['a']);
+    expect(await countThrough(runner, 'a')).toBe(1);
+  });
+});

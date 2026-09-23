@@ -19,3 +19,6 @@ Initial release.
 - Files on servers without CORS, or behind credentials, load through Grafana's data proxy with
   `$__proxy('path')`. Credentials (basic auth, headers, an API key in the URL) stay encrypted on the
   server. The plugin now declares data proxy routes, so Grafana must be restarted after upgrading.
+- Other plugins can run on the datasource's engine through `window.__chaski` (API version 1):
+  Arrow IPC results, a `datasets` schema with a view per dataset, and an `explore` scratch schema
+  that empties on every dashboard change. See "API for other plugins" in the README.

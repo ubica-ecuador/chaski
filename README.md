@@ -45,6 +45,60 @@ keeps working: native, catalog and the kepler map.
 `window.__duckdbwasm.stats` records every load, reuse, panel answer, shared request and activity
 transition on the page. The e2e suite and the bench read it, and it is handy when debugging a dashboard.
 
+## API for other plugins
+
+Other plugins on the page can use Chaski's engine instead of starting their own DuckDB. The SQLRooms
+explorer and the kepler map do. They find it at runtime; nothing imports Chaski's code.
+
+```ts
+const chaski = (window as any).__chaski; // undefined when Chaski is not installed
+const api = await chaski?.engine(); // undefined until a Chaski query has started the engine
+```
+
+`engine()` never starts the engine itself. While a Chaski query is starting it, `engine()` returns a
+pending promise; if that start fails, the promise rejects and `engine()` is `undefined` again.
+
+`apiVersion` is `1`. Additive changes keep it; a breaking change adds `window.__chaski.v2` beside it
+for at least one release.
+
+- **`queryIPC(sql, { signal, consumer })`** runs one statement and returns an Arrow IPC stream
+  (`Uint8Array`). Decode it with your own apache-arrow: `Table` objects cannot cross bundles, and the
+  IPC format is stable across apache-arrow versions.
+- **`exec(sql, opts)`** runs statements whose result nobody reads.
+- **`consumer`:**
+  - `'explorer'` (the default) runs on the explorer's own connections and does not count toward
+    `ubica-duckdbwasm-activity`;
+  - `'panel'` runs on the panels' path and counts, which is what a panel reading data should use.
+    It has no explorer `search_path`: qualify every name (`datasets.sample`, `explore.hot`). An
+    unqualified `CREATE TABLE` there would land in `main`, beside the panels' tables. Don't.
+- **Extensions:** a statement that needs a shipped extension not loaded yet fails, loads it, and is
+  then retried in full. Don't let a multi-statement `exec` script depend on the effects of the
+  statements before the one that failed; they run again.
+- **`duckdbVersion`** is the engine's DuckDB version, e.g. `v1.4.3`.
+- **`datasets()`** lists the dashboard's datasets: name, view, current table, rows, `loadedAt` (when
+  that version was loaded, in epoch milliseconds), and `stale` when the latest reload failed.
+- **`onChange(listener)`** reports `{kind: 'dataset'}` once a dataset's view reads a new version, and
+  `{kind: 'dashboard'}` once another dashboard is on screen. Events arrive in the order the engine
+  produced them, so `dashboard` comes before the datasets of that dashboard. A `dataset` event is
+  sent only once its view was created; if that fails, the dataset is still readable by its table.
+- **`releaseScratch()`** empties `explore`.
+- **Leaving for a page without Chaski** (Home, or a dashboard on another datasource) fires no
+  `dashboard` event. `datasets()` keeps listing the last Chaski dashboard's datasets, and `explore` is
+  kept until another Chaski dashboard comes on screen or `releaseScratch()` is called.
+
+Two schemas go with it:
+
+- **`datasets`:** one view per dataset of the dashboard on screen, e.g. `datasets."sample"`, always on
+  the current version. Panel SQL says `$sample` where explorer SQL says `datasets.sample`.
+- **`explore`:** scratch space. On explorer connections, unqualified writes land here, and `FROM
+sample` finds the dataset. It is emptied when the explorer calls `releaseScratch()` (it should on
+  open and on close) and whenever another dashboard comes on screen. Never rely on a table in it
+  staying around.
+
+Nothing stops an explicit write to `main`, where the panels' tables live: DuckDB has no
+per-connection permissions. Don't. A dropped dataset table breaks its panels until the next refresh.
+Scratch tables also share the datasource's memory limit with the datasets.
+
 ## Requirements
 
 - **Grafana 12.0.0 or later** (`grafanaDependency` in `src/plugin.json`). It is tested on 12.0.10
@@ -134,6 +188,7 @@ npm run e2e        # Playwright against the dev Grafana (npm run server first)
   - range reuse, including a dataset loaded through another datasource;
   - reading files through the data proxy behind a token, basic auth and a key in the URL, plus the
     messages a rejected credential and a direct read without CORS produce;
+  - the engine API: a dataset read by name, a scratch table, and explore emptied on a dashboard change;
   - Save & test.
 
 ## Bench
