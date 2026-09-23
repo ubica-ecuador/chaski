@@ -10,8 +10,8 @@ import { dataFramesToArrow } from './frameToArrow';
 /**
  * Rows for a dataset, from another datasource. The query goes through that
  * datasource's own `query()` (its interpolation, its secrets, its caching,
- * /api/ds/query), with the dashboard's time range and variables. Ad hoc
- * filters are not passed on: they apply to panels, locally.
+ * its own request to the server), with the dashboard's time range and
+ * variables. Ad hoc filters are not passed on: they apply to panels, locally.
  */
 export async function loadFromDatasource(
   source: DatasourceSource,
