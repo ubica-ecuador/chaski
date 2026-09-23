@@ -38,6 +38,26 @@ async function runOnConnection(conn: duckdb.AsyncDuckDBConnection, sql: string, 
 }
 
 /**
+ * A Worker only runs a script from the page's own origin. Grafana Cloud serves
+ * plugin files from a CDN on another origin (and answers /public/plugins/ with
+ * a redirect there), so from a CDN the worker starts from a blob: that imports
+ * the script. Same-origin installs keep the plain worker, and with it
+ * worker-src 'self'.
+ */
+function startWorker(url: string): Worker {
+  if (new URL(url).origin === window.location.origin) {
+    return new Worker(url);
+  }
+  const blob = URL.createObjectURL(new Blob([`importScripts(${JSON.stringify(url)});`], { type: 'text/javascript' }));
+  try {
+    return new Worker(blob);
+  } finally {
+    // The constructor has already resolved the blob, so it can go.
+    URL.revokeObjectURL(blob);
+  }
+}
+
+/**
  * DuckDB-WASM in a Worker, so Grafana's UI never waits on a query. It uses the
  * single-threaded `eh` build: Grafana sends no COOP/COEP headers, so the
  * threaded build could not start.
@@ -47,7 +67,7 @@ async function runOnConnection(conn: duckdb.AsyncDuckDBConnection, sql: string, 
  */
 export async function createBrowserRunner(options: BrowserRunnerOptions): Promise<SqlRunner & { version: string }> {
   const started = performance.now();
-  const worker = new Worker(new URL('duckdb-browser-eh.worker.js', options.assetBase).href);
+  const worker = startWorker(new URL('duckdb-browser-eh.worker.js', options.assetBase).href);
   const db = new duckdb.AsyncDuckDB(new duckdb.VoidLogger(), worker);
   await db.instantiate(new URL('duckdb-eh.wasm', options.assetBase).href, null);
   await db.open({ query: { castBigIntToDouble: true } });

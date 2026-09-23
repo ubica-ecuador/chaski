@@ -41,7 +41,8 @@ export function explainError(error: unknown, memoryLimitMB?: number): ExplainedE
       message:
         `DuckDB could not start in the browser: ${raw}. If Grafana sends a Content Security Policy, ` +
         `it must allow WebAssembly ('wasm-unsafe-eval' or 'unsafe-eval' in script-src) ` +
-        `and workers from the plugin's own path (worker-src 'self').`,
+        `and workers from the plugin's own path (worker-src 'self'), or from blob: URLs ` +
+        `where Grafana serves plugins from a CDN, as Grafana Cloud does.`,
     };
   }
   const missing = MISSING.exec(raw);

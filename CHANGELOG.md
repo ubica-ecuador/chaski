@@ -22,3 +22,6 @@ Initial release.
 - Other plugins can run on the datasource's engine through `window.__chaski` (API version 1):
   Arrow IPC results, a `datasets` schema with a view per dataset, and an `explore` scratch schema
   that empties on every dashboard change. See "API for other plugins" in the README.
+- The engine starts where Grafana serves plugin files from a CDN on another origin, as Grafana Cloud
+  does. A browser won't run a worker script from another origin, so there the worker starts from a
+  `blob:` that imports it. Self-hosted installs keep the plain worker.

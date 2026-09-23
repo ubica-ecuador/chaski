@@ -33,6 +33,8 @@ describe('explainError', () => {
     const e = explainError(new EngineStartError(new Error('Failed to construct Worker')));
     expect(e.kind).toBe('engine');
     expect(e.message).toContain("worker-src 'self'");
+    // Where Grafana serves plugins from a CDN, as Grafana Cloud does.
+    expect(e.message).toContain('blob:');
   });
 
   it('passes other SQL errors through', () => {
