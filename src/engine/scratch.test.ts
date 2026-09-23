@@ -121,6 +121,31 @@ describe('ScratchPool connections', () => {
     expect(opened()).toBe(1);
   });
 
+  it('rejects a waiter that aborts while its connection is opening, and keeps that connection', async () => {
+    const opens: Array<{ resolve(session: SqlSession): void; reject(error: unknown): void }> = [];
+    const runner: SqlRunner = {
+      query: async () => new Table(),
+      exec: async () => undefined,
+      insertArrow: async () => undefined,
+      openSession: () => new Promise<SqlSession>((resolve, reject) => opens.push({ resolve, reject })),
+    };
+    const session: SqlSession = { query: async () => new Table(), close: async () => undefined };
+    const pool = new ScratchPool(runner, 1);
+    const first = pool.query('a');
+    const controller = new AbortController();
+    const queued = pool.query('b', controller.signal);
+    // The first open fails, so the pool pulls the waiter off the queue and opens a connection for it.
+    opens[0].reject(new Error('boom'));
+    await expect(first).rejects.toThrow('boom');
+    expect(opens).toHaveLength(2);
+    controller.abort();
+    await expect(queued).rejects.toMatchObject({ name: 'AbortError' });
+    opens[1].resolve(session);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await expect(pool.query('c')).resolves.toBeInstanceOf(Table);
+    expect(opens).toHaveLength(2);
+  });
+
   it('says clearly when the runner cannot open connections', async () => {
     const runner: SqlRunner = { query: async () => new Table(), exec: async () => undefined, insertArrow: async () => undefined };
     await expect(new ScratchPool(runner).query('SELECT 1')).rejects.toThrow('cannot open explorer connections');
