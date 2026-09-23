@@ -1,3 +1,5 @@
+<img src="src/img/logo.svg" alt="Chaski logo: a chakana with a chaski runner" width="120" align="right">
+
 # Chaski
 
 A Grafana datasource that loads a dashboard's data **once** into DuckDB running in the browser, and
