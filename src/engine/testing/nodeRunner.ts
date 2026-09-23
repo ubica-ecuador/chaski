@@ -1,7 +1,7 @@
 import path from 'path';
 import type { Table } from 'apache-arrow';
 
-import type { SqlRunner } from '../types';
+import type { SqlRunner, SqlSession } from '../types';
 
 // The Node build of the very same DuckDB-WASM the browser runs, blocking and
 // in-process, so engine tests exercise real SQL. Tests only: nothing in the
@@ -28,6 +28,20 @@ export async function createNodeRunner(): Promise<SqlRunner> {
     },
     async insertArrow(name: string, table: Table): Promise<void> {
       conn.insertArrowTable(table, { name, create: true });
+    },
+    async openSession(setup: string[]): Promise<SqlSession> {
+      const session = db.connect();
+      for (const sql of setup) {
+        session.query(sql);
+      }
+      return {
+        async query(sql: string): Promise<Table> {
+          return session.query(sql);
+        },
+        async close(): Promise<void> {
+          session.close();
+        },
+      };
     },
   };
 }

@@ -5,7 +5,7 @@ import { tableFromBatches } from './arrowTable';
 import { missingExtension } from './extensions';
 import { quoteLiteral } from './sql';
 import { stats } from './stats';
-import type { SqlRunner } from './types';
+import type { SqlRunner, SqlSession } from './types';
 
 export interface BrowserRunnerOptions {
   /** Absolute URL of the plugin's public folder, ending in '/'. */
@@ -128,6 +128,39 @@ export async function createBrowserRunner(options: BrowserRunnerOptions): Promis
       } finally {
         await conn.close();
       }
+    },
+    async openSession(setup: string[]): Promise<SqlSession> {
+      const conn = await db.connect();
+      try {
+        for (const sql of setup) {
+          await conn.query(sql);
+        }
+      } catch (error) {
+        await conn.close();
+        throw error;
+      }
+      return {
+        query(sql: string, signal?: AbortSignal): Promise<Table> {
+          return withExtensionRetry(async () => {
+            if (signal?.aborted) {
+              throw new DOMException('The query was cancelled', 'AbortError');
+            }
+            const cancel = () => {
+              void conn.cancelSent();
+            };
+            signal?.addEventListener('abort', cancel);
+            try {
+              // Same reason as query() above: only the pending-query API honours cancelSent().
+              const reader = await conn.send(sql);
+              const batches = await reader.readAll();
+              return tableFromBatches(reader.schema, batches);
+            } finally {
+              signal?.removeEventListener('abort', cancel);
+            }
+          });
+        },
+        close: () => conn.close(),
+      };
     },
   };
 }
