@@ -50,7 +50,9 @@ describe('ScratchPool on DuckDB', () => {
     const pool = new ScratchPool(halfFailing);
     await pool.query('CREATE TABLE hot AS SELECT 1 AS n');
     await expect(pool.releaseScratch()).rejects.toThrow('create failed');
-    const schemas = await runner.query("SELECT count(*)::DOUBLE AS c FROM duckdb_schemas() WHERE schema_name = 'explore'");
+    const schemas = await runner.query(
+      "SELECT count(*)::DOUBLE AS c FROM duckdb_schemas() WHERE schema_name = 'explore'"
+    );
     expect(schemas.get(0)?.c).toBe(1);
     await pool.query('CREATE TABLE again AS SELECT 2 AS n');
     expect(await tablesIn(runner, 'explore')).toEqual(['again']);

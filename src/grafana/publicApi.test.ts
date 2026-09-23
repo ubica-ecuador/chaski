@@ -179,7 +179,9 @@ describe('the engine API', () => {
   it('delivers events in the order the registry produced them, across a switch', async () => {
     // A slow release makes the dashboard step finish after the load for b adopts.
     const { runner: slow } = recording(runner, (sql) =>
-      sql.startsWith('DROP SCHEMA IF EXISTS explore') ? new Promise((resolve) => setTimeout(resolve, 50)) : Promise.resolve()
+      sql.startsWith('DROP SCHEMA IF EXISTS explore')
+        ? new Promise((resolve) => setTimeout(resolve, 50))
+        : Promise.resolve()
     );
     const reg = new DatasetRegistry(runner);
     const sut = apiOn(slow, reg);
