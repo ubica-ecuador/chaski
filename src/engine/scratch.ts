@@ -23,6 +23,12 @@ const POOL_SIZE = 4;
 
 const aborted = () => new DOMException('The query was cancelled', 'AbortError');
 
+/** A queued caller: settled exactly once, either with a session or with an error. */
+interface Waiter {
+  resolve(session: SqlSession): void;
+  reject(error: unknown): void;
+}
+
 /**
  * The explorer's connections, and the scratch schema they write to. Each
  * connection serves one query at a time; queries beyond the pool's size wait
@@ -31,7 +37,7 @@ const aborted = () => new DOMException('The query was cancelled', 'AbortError');
  */
 export class ScratchPool {
   private readonly idle: SqlSession[] = [];
-  private readonly waiting: Array<(session: SqlSession) => void> = [];
+  private readonly waiting: Waiter[] = [];
   private opened = 0;
 
   constructor(
@@ -62,38 +68,88 @@ export class ScratchPool {
       return idle;
     }
     if (this.opened < this.size) {
-      if (!this.runner.openSession) {
-        throw new Error('This engine cannot open explorer connections');
-      }
-      this.opened++;
       try {
-        return await this.runner.openSession(SESSION_SETUP);
+        return await this.open();
       } catch (error) {
-        this.opened--;
+        // The slot `open` just freed up again; a queued caller can try it next.
+        this.serveNextWaiter();
         throw error;
       }
     }
     return new Promise<SqlSession>((resolve, reject) => {
+      let settled = false;
       const onAbort = () => {
-        const index = this.waiting.indexOf(take);
+        const index = this.waiting.indexOf(waiter);
         if (index !== -1) {
           this.waiting.splice(index, 1);
         }
+        settled = true;
         reject(aborted());
       };
-      const take = (session: SqlSession) => {
-        signal?.removeEventListener('abort', onAbort);
-        resolve(session);
+      const waiter: Waiter = {
+        resolve: (session) => {
+          if (settled) {
+            // Aborted after being pulled off the queue to open a connection for it: don't strand it.
+            this.giveBack(session);
+            return;
+          }
+          settled = true;
+          signal?.removeEventListener('abort', onAbort);
+          resolve(session);
+        },
+        reject: (error) => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          signal?.removeEventListener('abort', onAbort);
+          reject(error);
+        },
       };
       signal?.addEventListener('abort', onAbort, { once: true });
-      this.waiting.push(take);
+      this.waiting.push(waiter);
     });
+  }
+
+  /** Opens one connection, counted against `size`. On failure the slot is freed again. */
+  private async open(): Promise<SqlSession> {
+    if (!this.runner.openSession) {
+      throw new Error('This engine cannot open explorer connections');
+    }
+    this.opened++;
+    try {
+      return await this.runner.openSession(SESSION_SETUP);
+    } catch (error) {
+      this.opened--;
+      throw error;
+    }
+  }
+
+  /**
+   * A slot just freed up (a session came back, or an open attempt failed).
+   * Hand it to the next queued caller by opening a fresh connection for it -
+   * and if that open fails too, try the caller behind it, and so on, so a run
+   * of failures rejects every waiter instead of stranding the ones behind the
+   * first.
+   */
+  private serveNextWaiter(): void {
+    const waiter = this.waiting.shift();
+    if (!waiter) {
+      return;
+    }
+    void this.open().then(
+      (session) => waiter.resolve(session),
+      (error) => {
+        waiter.reject(error);
+        this.serveNextWaiter();
+      }
+    );
   }
 
   private giveBack(session: SqlSession): void {
     const next = this.waiting.shift();
     if (next) {
-      next(session);
+      next.resolve(session);
     } else {
       this.idle.push(session);
     }

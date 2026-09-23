@@ -105,4 +105,76 @@ describe('ScratchPool connections', () => {
     const runner: SqlRunner = { query: async () => new Table(), exec: async () => undefined, insertArrow: async () => undefined };
     await expect(new ScratchPool(runner).query('SELECT 1')).rejects.toThrow('cannot open explorer connections');
   });
+
+  /** A runner whose openSession fails on its first `failCount` calls, then succeeds. Counts every call. */
+  function flakyRunner(failCount: number) {
+    let opens = 0;
+    let failuresLeft = failCount;
+    const runner: SqlRunner = {
+      query: async () => new Table(),
+      exec: async () => undefined,
+      insertArrow: async () => undefined,
+      openSession: async (): Promise<SqlSession> => {
+        opens++;
+        if (failuresLeft > 0) {
+          failuresLeft--;
+          throw new Error('boom');
+        }
+        return { query: async () => new Table(), close: async () => undefined };
+      },
+    };
+    return { runner, opens: () => opens };
+  }
+
+  it('opens a fresh connection for a queued query after an earlier open fails', async () => {
+    const { runner, opens } = flakyRunner(1);
+    const pool = new ScratchPool(runner, 1);
+    const first = pool.query('a');
+    const second = pool.query('b');
+    await expect(first).rejects.toThrow('boom');
+    await expect(second).resolves.toBeInstanceOf(Table);
+    expect(opens()).toBe(2);
+  });
+
+  it('rejects every queued query when opening keeps failing, and recovers afterward', async () => {
+    const { runner, opens } = flakyRunner(3);
+    const pool = new ScratchPool(runner, 1);
+    const first = pool.query('a');
+    const second = pool.query('b');
+    const third = pool.query('c');
+    await expect(first).rejects.toThrow('boom');
+    await expect(second).rejects.toThrow('boom');
+    await expect(third).rejects.toThrow('boom');
+    expect(opens()).toBe(3);
+
+    // The pool's internal bookkeeping is not corrupted by the run of failures:
+    // one more query, now that opening succeeds, triggers exactly one more openSession call.
+    await pool.query('d');
+    expect(opens()).toBe(4);
+  });
+
+  it('returns a session to the pool after its query throws, and reuses it', async () => {
+    let opens = 0;
+    const runner: SqlRunner = {
+      query: async () => new Table(),
+      exec: async () => undefined,
+      insertArrow: async () => undefined,
+      openSession: async (): Promise<SqlSession> => {
+        opens++;
+        return {
+          query: async (sql: string) => {
+            if (sql === 'bad') {
+              throw new Error('syntax error');
+            }
+            return new Table();
+          },
+          close: async () => undefined,
+        };
+      },
+    };
+    const pool = new ScratchPool(runner, 1);
+    await expect(pool.query('bad')).rejects.toThrow('syntax error');
+    await pool.query('good');
+    expect(opens).toBe(1);
+  });
 });
