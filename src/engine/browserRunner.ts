@@ -14,6 +14,30 @@ export interface BrowserRunnerOptions {
 }
 
 /**
+ * Runs one statement on an already-open connection and returns its rows as
+ * Arrow. Shared by the runner's own per-call connection and by sessions'
+ * long-lived one.
+ */
+async function runOnConnection(conn: duckdb.AsyncDuckDBConnection, sql: string, signal?: AbortSignal): Promise<Table> {
+  if (signal?.aborted) {
+    throw new DOMException('The query was cancelled', 'AbortError');
+  }
+  const cancel = () => {
+    void conn.cancelSent();
+  };
+  signal?.addEventListener('abort', cancel);
+  try {
+    // Cancellation only works through the pending-query API: conn.query()
+    // ignores cancelSent(), so a query run that way could never be stopped.
+    const reader = await conn.send(sql);
+    const batches = await reader.readAll();
+    return tableFromBatches(reader.schema, batches);
+  } finally {
+    signal?.removeEventListener('abort', cancel);
+  }
+}
+
+/**
  * DuckDB-WASM in a Worker, so Grafana's UI never waits on a query. It uses the
  * single-threaded `eh` build: Grafana sends no COOP/COEP headers, so the
  * threaded build could not start.
@@ -91,22 +115,10 @@ export async function createBrowserRunner(options: BrowserRunnerOptions): Promis
     version,
     query(sql: string, signal?: AbortSignal): Promise<Table> {
       return withExtensionRetry(async () => {
-        if (signal?.aborted) {
-          throw new DOMException('The query was cancelled', 'AbortError');
-        }
         const conn = await db.connect();
-        const cancel = () => {
-          void conn.cancelSent();
-        };
-        signal?.addEventListener('abort', cancel);
         try {
-          // Cancellation only works through the pending-query API: conn.query()
-          // ignores cancelSent(), so a query run that way could never be stopped.
-          const reader = await conn.send(sql);
-          const batches = await reader.readAll();
-          return tableFromBatches(reader.schema, batches);
+          return await runOnConnection(conn, sql, signal);
         } finally {
-          signal?.removeEventListener('abort', cancel);
           await conn.close();
         }
       });
@@ -141,23 +153,7 @@ export async function createBrowserRunner(options: BrowserRunnerOptions): Promis
       }
       return {
         query(sql: string, signal?: AbortSignal): Promise<Table> {
-          return withExtensionRetry(async () => {
-            if (signal?.aborted) {
-              throw new DOMException('The query was cancelled', 'AbortError');
-            }
-            const cancel = () => {
-              void conn.cancelSent();
-            };
-            signal?.addEventListener('abort', cancel);
-            try {
-              // Same reason as query() above: only the pending-query API honours cancelSent().
-              const reader = await conn.send(sql);
-              const batches = await reader.readAll();
-              return tableFromBatches(reader.schema, batches);
-            } finally {
-              signal?.removeEventListener('abort', cancel);
-            }
-          });
+          return withExtensionRetry(() => runOnConnection(conn, sql, signal));
         },
         close: () => conn.close(),
       };
