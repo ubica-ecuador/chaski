@@ -101,4 +101,11 @@ request, and the file comes back as the server sent it. The secrets stay encrypt
 
 - Memory: each viewer's browser holds the datasets. The limit is set on the datasource (1 GB by default).
 - No alerting and no server-side rendering of queries: everything runs in the browser.
-- Content Security Policy: works with Grafana's stock policy (measured on Grafana 12.0.10); nothing extra to allow.
+- Content Security Policy: works with Grafana's stock policy (measured on Grafana 12.0.10) and with
+  Grafana Cloud's; nothing extra to allow. A custom policy that sets `worker-src` must allow `blob:`
+  where plugin files come from a CDN, as on Grafana Cloud.
+
+## Trademarks
+
+Chaski is an independent project, not affiliated with or endorsed by the DuckDB Foundation. DuckDB is a
+trademark of the DuckDB Foundation.
