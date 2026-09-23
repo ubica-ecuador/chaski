@@ -1,6 +1,6 @@
 import type { LoadedWindow, LoadWindow } from './rangeReuse';
 import { quoteIdent, sanitizeName, shortHash, stripTrailingSemicolons } from './sql';
-import type { DatasetLoader, DatasetState, SqlRunner } from './types';
+import type { DatasetLoader, DatasetState, RegistryEvent, SqlRunner } from './types';
 
 /** Versions of a dataset kept in memory: the current one, and the one before for queries still in flight. */
 const KEEP_VERSIONS = 2;
@@ -43,6 +43,7 @@ export class DatasetRegistry {
   private readonly visits = new Map<string, number>();
   /** Set when the user left lru[0] for a page this datasource doesn't serve (see leave). */
   private frontLeft = false;
+  private readonly listeners = new Set<(event: RegistryEvent) => void>();
 
   constructor(
     private readonly runner: SqlRunner,
@@ -81,6 +82,7 @@ export class DatasetRegistry {
         }
       }
     }
+    this.emit({ kind: 'activated', dashboard });
   }
 
   /**
@@ -93,6 +95,19 @@ export class DatasetRegistry {
    */
   leave(): void {
     this.frontLeft = true;
+  }
+
+  /** Calls `listener` on every event; the returned function stops it. */
+  subscribe(listener: (event: RegistryEvent) => void): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  /** The dashboard on screen: the one activated most recently, if any. */
+  activeDashboard(): string | undefined {
+    return this.lru[0];
   }
 
   load(
@@ -214,6 +229,7 @@ export class DatasetRegistry {
     while (entry.kept.length > KEEP_VERSIONS) {
       await this.drop(entry.kept.shift()!);
     }
+    this.emit({ kind: 'adopted', dashboard: fresh.dashboard, name: fresh.name });
     return fresh;
   }
 
@@ -238,5 +254,15 @@ export class DatasetRegistry {
 
   private async drop(table: string): Promise<void> {
     await this.runner.exec(`DROP TABLE IF EXISTS ${quoteIdent(table)}`).catch(() => undefined);
+  }
+
+  private emit(event: RegistryEvent): void {
+    for (const listener of this.listeners) {
+      try {
+        listener(event);
+      } catch {
+        // A listener's failure must never reach a load.
+      }
+    }
   }
 }

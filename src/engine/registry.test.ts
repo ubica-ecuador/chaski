@@ -4,7 +4,7 @@ import { Float64, Table, vectorFromArray } from 'apache-arrow';
 import { DatasetRegistry } from './registry';
 import { shortHash } from './sql';
 import { createNodeRunner } from './testing/nodeRunner';
-import type { SqlRunner } from './types';
+import type { RegistryEvent, SqlRunner } from './types';
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -279,5 +279,47 @@ describe('DatasetRegistry', () => {
     gate.resolve(arrowOf([1]));
     await pending;
     expect(registry.isLoading('dash', 'v')).toBe(false);
+  });
+});
+
+describe('DatasetRegistry events', () => {
+  it('announces an adopted version and a change of active dashboard, and nothing else', async () => {
+    const events: RegistryEvent[] = [];
+    registry.subscribe((event) => events.push(event));
+    await registry.activate('a');
+    await registry.activate('a');
+    await registry.load('a', 'v', sqlLoader(1), 's1');
+    registry.leave();
+    await registry.activate('a');
+    await registry.activate('b');
+    expect(events).toEqual([
+      { kind: 'activated', dashboard: 'a' },
+      { kind: 'adopted', dashboard: 'a', name: 'v' },
+      { kind: 'activated', dashboard: 'b' },
+    ]);
+    expect(registry.activeDashboard()).toBe('b');
+  });
+
+  it('announces no adoption for a failed load', async () => {
+    const events: RegistryEvent[] = [];
+    await registry.activate('a');
+    await registry.load('a', 'v', sqlLoader(1), 's1');
+    registry.subscribe((event) => events.push(event));
+    await registry.load('a', 'v', { kind: 'sql', sql: 'SELECT * FROM missing_table' }, 's2');
+    await expect(registry.load('a', 'w', { kind: 'sql', sql: 'SELECT * FROM missing_table' }, 's3')).rejects.toThrow();
+    expect(events).toEqual([]);
+  });
+
+  it('keeps loading when a listener throws, and stops calling one that unsubscribed', async () => {
+    const heard: RegistryEvent[] = [];
+    registry.subscribe(() => {
+      throw new Error('listener bug');
+    });
+    const unsubscribe = registry.subscribe((event) => heard.push(event));
+    await registry.activate('a');
+    unsubscribe();
+    const state = await registry.load('a', 'v', sqlLoader(2), 's1');
+    expect(state.rows).toBe(2);
+    expect(heard).toEqual([{ kind: 'activated', dashboard: 'a' }]);
   });
 });

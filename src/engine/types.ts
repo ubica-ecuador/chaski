@@ -63,3 +63,6 @@ export interface DatasetState {
   /** The dashboard visit it was loaded in (DatasetRegistry.visitOf). */
   visit?: number;
 }
+
+/** What the registry announces: a dataset's new version became current, or another dashboard came to the front. */
+export type RegistryEvent = { kind: 'adopted'; dashboard: string; name: string } | { kind: 'activated'; dashboard: string };
