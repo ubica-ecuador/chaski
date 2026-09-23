@@ -220,3 +220,5 @@ trust the numbers.
 
 - Changes: [CHANGELOG.md](CHANGELOG.md).
 - License: Apache-2.0 ([LICENSE](LICENSE)).
+- Trademarks: Chaski is an independent project, not affiliated with or endorsed by the DuckDB
+  Foundation. DuckDB is a trademark of the DuckDB Foundation.

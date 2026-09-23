@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/grafana/grafana/main/docs/sources/developers/plugins/plugin.schema.json",
   "type": "datasource",
-  "name": "Chaski",
+  "name": "Chaski – powered by DuckDB",
   "id": "ubica-chaski-datasource",
   "metrics": true,
   "routes": [
@@ -21,7 +21,7 @@
     }
   ],
   "info": {
-    "description": "Chaski loads a dashboard's data once into DuckDB running in the browser, and answers every panel query locally.",
+    "description": "In-browser interactivity for Grafana dashboards: data loads once into DuckDB in the browser, and every filter answers locally.",
     "author": { "name": "UBICA" },
     "keywords": ["duckdb", "wasm", "sql", "parquet", "geospatial", "bi"],
     "logos": { "small": "img/logo.svg", "large": "img/logo.svg" },
@@ -29,7 +29,17 @@
       { "name": "Source code", "url": "https://github.com/ubica-ecuador/chaski" },
       { "name": "Tutorial", "url": "https://github.com/ubica-ecuador/chaski/blob/main/docs/tutorial-earthquakes.md" }
     ],
-    "screenshots": [],
+    "screenshots": [
+      {
+        "name": "One dataset loaded once, answering a stat, a table, a time series and a map in the browser",
+        "path": "img/screenshots/dashboard.png"
+      },
+      {
+        "name": "Panel SQL in the query editor, reading the dataset by name",
+        "path": "img/screenshots/query-editor.png"
+      },
+      { "name": "Save & test starts DuckDB in the browser", "path": "img/screenshots/save-and-test.png" }
+    ],
     "version": "%VERSION%",
     "updated": "%TODAY%"
   },
