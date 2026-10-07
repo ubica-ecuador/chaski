@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.0 (2026-10-07)
 
 - **Grafana Assistant.** On a Grafana with the Assistant, a Chaski dashboard tells it which datasets
   are loaded in the browser: their `$name`, rows, freshness, columns with DuckDB types, and the time
