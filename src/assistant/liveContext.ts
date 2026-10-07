@@ -8,8 +8,12 @@ export interface LiveContextDeps {
   /** The datasets of the dashboard on screen. */
   datasets(): DatasetInfo[];
   onChange(listener: (event: ChangeEvent) => void): () => void;
-  /** The columns of a dataset's view. */
-  describe(view: string): Promise<DigestColumn[]>;
+  /**
+   * The columns of one loaded version, by its physical table. Not the view:
+   * the registry reports a new table before the view is re-pointed at it, and
+   * the columns are cached under the table's name.
+   */
+  describe(table: string): Promise<DigestColumn[]>;
   activeDashboard(): string | undefined;
   timeRange(): { from: string; to: string } | undefined;
   /** Called on every URL change, so a new time range reaches the digest. */
@@ -49,7 +53,7 @@ export function startAssistantContext(deps: LiveContextDeps) {
     const list = dashboard && dashboard !== 'no-dashboard' ? deps.datasets() : [];
     for (const dataset of list) {
       if (!columns.has(dataset.table)) {
-        const described = await deps.describe(dataset.view).catch(() => undefined);
+        const described = await deps.describe(dataset.table).catch(() => undefined);
         if (described) {
           columns.set(dataset.table, described);
         }

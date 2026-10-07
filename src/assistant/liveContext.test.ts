@@ -15,7 +15,7 @@ function setup(initial: DatasetInfo[] = [], initialDashboard: string | undefined
   const available = new BehaviorSubject(true);
   const registered: AssistantDigest[] = [];
   const unregister = jest.fn();
-  const describe = jest.fn(async (view: string) => [{ name: `${view}_col`, type: 'INTEGER' }]);
+  const describe = jest.fn(async (table: string) => [{ name: `${table}_col`, type: 'INTEGER' }]);
   const reads = jest.fn();
   const deps: LiveContextDeps = {
     datasets: () => (reads(), datasets),
@@ -63,7 +63,13 @@ it('registers what is already loaded as soon as the Assistant is there', async (
   const t = setup([ds('a')]);
   await t.stop.settled();
   expect(t.registered).toHaveLength(1);
-  expect(t.registered[0].datasets[0].columns).toEqual([{ name: 'datasets."a"_col', type: 'INTEGER' }]);
+  expect(t.registered[0].datasets[0].columns).toEqual([{ name: 't_a_1_col', type: 'INTEGER' }]);
+});
+
+it('describes the version it caches, not the view, which may still read the previous one', async () => {
+  const t = setup([ds('a', 't_a_7')]);
+  await t.stop.settled();
+  expect(t.describe).toHaveBeenCalledWith('t_a_7');
 });
 
 it('registers nothing while the Assistant is unavailable, and unregisters when it goes', async () => {

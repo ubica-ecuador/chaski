@@ -5,6 +5,7 @@ import { tableFromIPC } from 'apache-arrow';
 
 import type { DigestColumn } from '../assistant/digest';
 import { startAssistantContext } from '../assistant/liveContext';
+import { quoteIdent } from '../engine/sql';
 import type { ChaskiEngineApi } from './publicApi';
 
 /** One end of the URL's range as an ISO instant: epoch milliseconds, or date math like `now-6h`. */
@@ -34,6 +35,15 @@ export function columnsOf(ipc: Uint8Array): DigestColumn[] {
 }
 
 /**
+ * The columns of one loaded version of a dataset. Dataset tables live in
+ * `main`, which an explorer connection reads qualified; the query runs there,
+ * so it never counts toward the activity event.
+ */
+export async function describeTable(api: ChaskiEngineApi, table: string): Promise<DigestColumn[]> {
+  return columnsOf(await api.queryIPC(`DESCRIBE main.${quoteIdent(table)}`));
+}
+
+/**
  * Tells the Grafana Assistant about the datasets on screen, through the same
  * API other plugins use. DESCRIBE runs on explorer connections, so it never
  * counts toward the activity event.
@@ -45,7 +55,7 @@ export function startAssistantForEngine(
   return startAssistantContext({
     datasets: () => api.datasets(),
     onChange: (listener) => api.onChange(listener),
-    describe: async (view) => columnsOf(await api.queryIPC(`DESCRIBE ${view}`)),
+    describe: (table) => describeTable(api, table),
     activeDashboard: () => registry.activeDashboard(),
     timeRange: () => urlTimeRange(locationService.getSearchObject()),
     onLocation: (listener) => locationService.getHistory().listen(() => listener()),
