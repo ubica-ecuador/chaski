@@ -6,7 +6,7 @@ export interface DashboardKey {
 }
 
 /** The uid in a dashboard's path (`/d/<uid>/…`); undefined on any other page. */
-const uidIn = (pathname: string): string | undefined => /\/d\/([^/]+)/.exec(pathname)?.[1];
+export const uidIn = (pathname: string): string | undefined => /\/d\/([^/]+)/.exec(pathname)?.[1];
 
 /**
  * Which dashboard a request belongs to. Panel requests carry `dashboardUID`;

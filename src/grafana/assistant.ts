@@ -6,6 +6,7 @@ import { tableFromIPC } from 'apache-arrow';
 import type { DigestColumn, DigestTimeRange } from '../assistant/digest';
 import { startAssistantContext } from '../assistant/liveContext';
 import { quoteIdent } from '../engine/sql';
+import { uidIn } from './dashboardKey';
 import type { ChaskiEngineApi } from './publicApi';
 
 /** One end of the URL's range as an ISO instant: epoch milliseconds, or date math like `now-6h`. */
@@ -35,6 +36,22 @@ export function columnsOf(ipc: Uint8Array): DigestColumn[] {
 }
 
 /**
+ * Calls `listener` on URL changes that stay on the dashboard whose datasets
+ * are loaded: a new time range there. Elsewhere (a dashboard on another
+ * datasource, Explore) there is nothing to rebuild. Returns the unlisten fn.
+ */
+export function onDashboardLocation(
+  registry: { activeDashboard(): string | undefined },
+  listener: () => void
+): () => void {
+  return locationService.getHistory().listen((location: { pathname: string }) => {
+    if (uidIn(location.pathname) === registry.activeDashboard()) {
+      listener();
+    }
+  });
+}
+
+/**
  * The columns of one loaded version of a dataset. Dataset tables live in
  * `main`, which an explorer connection reads qualified; the query runs there,
  * so it never counts toward the activity event.
@@ -58,7 +75,7 @@ export function startAssistantForEngine(
     describe: (table) => describeTable(api, table),
     activeDashboard: () => registry.activeDashboard(),
     timeRange: () => urlTimeRange(locationService.getSearchObject()),
-    onLocation: (listener) => locationService.getHistory().listen(() => listener()),
+    onLocation: (listener) => onDashboardLocation(registry, listener),
     available: isAssistantAvailable(),
   });
 }

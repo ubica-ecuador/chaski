@@ -1,8 +1,10 @@
 import { tableFromArrays, tableToIPC } from 'apache-arrow';
 
-import { columnsOf, urlTimeRange } from './assistant';
+import { locationService } from '@grafana/runtime';
 
-jest.mock('@grafana/runtime', () => ({ locationService: {} }));
+import { columnsOf, onDashboardLocation, urlTimeRange } from './assistant';
+
+jest.mock('@grafana/runtime', () => ({ locationService: { getHistory: jest.fn() } }));
 jest.mock('@grafana/assistant', () => ({ isAssistantAvailable: jest.fn() }));
 
 describe('urlTimeRange', () => {
@@ -36,4 +38,24 @@ it('reads DESCRIBE rows', () => {
     { name: 'route', type: 'VARCHAR' },
     { name: 't', type: 'TIMESTAMP' },
   ]);
+});
+
+describe('onDashboardLocation', () => {
+  it("hears URL changes on the active dashboard only, not on a page Chaski doesn't serve", () => {
+    let navigate: (location: { pathname: string }) => void = () => undefined;
+    (locationService.getHistory as jest.Mock).mockReturnValue({
+      listen: (listener: typeof navigate) => {
+        navigate = listener;
+        return () => undefined;
+      },
+    });
+    const listener = jest.fn();
+    onDashboardLocation({ activeDashboard: () => 'abc' }, listener);
+
+    navigate({ pathname: '/d/abc/sales' });
+    expect(listener).toHaveBeenCalledTimes(1);
+    navigate({ pathname: '/d/xyz/other' });
+    navigate({ pathname: '/explore' });
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
 });

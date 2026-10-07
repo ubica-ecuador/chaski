@@ -16,7 +16,7 @@ export interface LiveContextDeps {
   describe(table: string): Promise<DigestColumn[]>;
   activeDashboard(): string | undefined;
   timeRange(): DigestTimeRange | undefined;
-  /** Called on every URL change, so a new time range reaches the digest. */
+  /** Called on URL changes that stay on the active dashboard, so a new time range reaches the digest. */
   onLocation(listener: () => void): () => void;
   available: Observable<boolean>;
   /** Registers a digest with the Assistant; returns the unregister fn. */
