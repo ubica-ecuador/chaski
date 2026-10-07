@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- **Grafana Assistant.** On a Grafana with the Assistant, a Chaski dashboard tells it which datasets
+  are loaded in the browser: their `$name`, rows, freshness, columns with DuckDB types, and the time
+  range, plus two starter questions. Nothing is registered without the Assistant. Two skill texts,
+  `chaskiAssistantSkill` and `dashboardAuthoringSkill`, teach it Chaski's SQL and dataset variables;
+  see docs/grafana-assistant.md.
+
 ## 1.0.0 (2026-09-23)
 
 Initial release.

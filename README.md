@@ -101,6 +101,14 @@ Nothing stops an explicit write to `main`, where the panels' tables live: DuckDB
 per-connection permissions. Don't. A dropped dataset table breaks its panels until the next refresh.
 Scratch tables also share the datasource's memory limit with the datasets.
 
+## Grafana Assistant
+
+On a Grafana with the Grafana Assistant, a Chaski dashboard tells the Assistant which datasets are
+loaded in the browser: their `$name`, rows, freshness, columns with DuckDB types, and the time range,
+plus two starter questions. Without the Assistant nothing is registered. The Assistant cannot run
+Chaski queries (they never reach the server); it writes the SQL for panels. Two skill texts teach it
+Chaski's SQL and dataset variables. Both are in [docs/grafana-assistant.md](docs/grafana-assistant.md).
+
 ## Requirements
 
 - **Grafana 12.0.0 or later** (`grafanaDependency` in `src/plugin.json`). It is tested on 12.0.10
@@ -170,6 +178,7 @@ npm run server     # dev Grafana on :3005, the CDN Grafana on :3007, the fixture
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `src/engine/`       | The engine. It has no Grafana imports (`@grafana/*` is forbidden there by ESLint). It holds the DuckDB runner, the dataset registry and its visits, the range-reuse rule (`rangeReuse.ts`), panel execution with the schema cache (`executor.ts`, `schemaCache.ts`), `singleFlight.ts`, `activity.ts`, macros and quoting, and `stats.ts`. |
 | `src/grafana/`      | The Grafana side: the engine singleton, interpolation, Arrow ⇄ DataFrame conversion, loading from other datasources, dashboard keys and navigation, the data proxy (`proxy.ts`: base URL, routes, error explanations), the activity event, and notices.                                                                                    |
+| `src/assistant/`    | The Grafana Assistant support: the datasets digest, its page-context registration scoped to the dashboard, the live controller fed by the engine API, and the exported skill texts.                                                                                                                                                        |
 | `src/datasource.ts` | `DataSourceApi`: panel queries, dataset and values variables, ad hoc filter options.                                                                                                                                                                                                                                                       |
 | `src/components/`   | The config, query and variable editors.                                                                                                                                                                                                                                                                                                    |
 | `tests/`            | End-to-end tests (`@grafana/plugin-e2e`).                                                                                                                                                                                                                                                                                                  |

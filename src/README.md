@@ -97,6 +97,13 @@ request, and the file comes back as the server sent it. The secrets stay encrypt
   starting point, not a sandbox, and it can be climbed out of with `%2e%2e%2f`. Anyone who may query
   this datasource can read anywhere on that server.
 
+## Grafana Assistant
+
+On a Grafana with the Grafana Assistant, the Assistant is told which datasets this dashboard loaded,
+with their columns and types, so it can write panel SQL over them. It cannot run Chaski queries
+itself. Skill texts to paste into its instructions are in
+[docs/grafana-assistant.md](https://github.com/ubica-ecuador/chaski/blob/main/docs/grafana-assistant.md).
+
 ## Limits
 
 - Memory: each viewer's browser holds the datasets. The limit is set on the datasource (1 GB by default).

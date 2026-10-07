@@ -23,7 +23,7 @@
   "info": {
     "description": "In-browser interactivity for Grafana dashboards: data loads once into DuckDB in the browser, and every filter answers locally.",
     "author": { "name": "UBICA" },
-    "keywords": ["duckdb", "wasm", "sql", "parquet", "geospatial", "bi"],
+    "keywords": ["duckdb", "wasm", "sql", "parquet", "geospatial", "bi", "grafana assistant"],
     "logos": { "small": "img/logo.svg", "large": "img/logo.svg" },
     "links": [
       { "name": "Source code", "url": "https://github.com/ubica-ecuador/chaski" },
