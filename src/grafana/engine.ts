@@ -4,6 +4,7 @@ import { DatasetRegistry } from '../engine/registry';
 import { stats } from '../engine/stats';
 import type { SqlRunner } from '../engine/types';
 import { activity } from './activity';
+import { startAssistantForEngine } from './assistant';
 import { leaveDashboardOnNavigation } from './dashboardKey';
 import { type ChaskiEngineApi, createEngineApi, publishEngineApi } from './publicApi';
 
@@ -46,6 +47,13 @@ export function getEngine(memoryLimitMB: number): Promise<Engine> {
           version: runner.version,
           track: (work) => activity.track(work),
         });
+        // The Grafana Assistant hears about the datasets through the same API
+        // other plugins use. It is an extra: it must never stop the engine.
+        try {
+          startAssistantForEngine(api, engine.registry);
+        } catch (error) {
+          console.warn('Chaski: Grafana Assistant', error);
+        }
         return engine;
       })
       .catch((error: unknown) => {
