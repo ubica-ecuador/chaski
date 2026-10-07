@@ -5,6 +5,13 @@ export interface DigestColumn {
   type: string;
 }
 
+export interface DigestTimeRange {
+  from: string;
+  to: string;
+  /** As the URL says it, e.g. `now-6h`: `from`/`to` are only its resolution at the last rebuild. */
+  raw?: { from: string; to: string };
+}
+
 export interface DigestDataset {
   name: string;
   /** How panel SQL reads it: `$vehicles`. */
@@ -22,7 +29,7 @@ export interface DigestDataset {
 export interface AssistantDigest {
   dashboard: string;
   datasets: DigestDataset[];
-  timeRange?: { from: string; to: string };
+  timeRange?: DigestTimeRange;
 }
 
 export interface DigestInput {
@@ -30,7 +37,7 @@ export interface DigestInput {
   datasets: DatasetInfo[];
   /** Columns per physical table, so an unchanged version is described once. */
   columns: ReadonlyMap<string, DigestColumn[]>;
-  timeRange?: { from: string; to: string };
+  timeRange?: DigestTimeRange;
 }
 
 /** What the Grafana Assistant is told about the datasets on screen: enough to write panel SQL over them. */

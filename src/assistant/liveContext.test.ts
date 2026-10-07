@@ -10,6 +10,7 @@ jest.mock('./pageContext', () => ({ registerAssistant: jest.fn() }));
 function setup(initial: DatasetInfo[] = [], initialDashboard: string | undefined = 'abc') {
   let datasets = initial;
   let dashboard = initialDashboard;
+  let range: ReturnType<LiveContextDeps['timeRange']>;
   let changeListener: (event: ChangeEvent) => void = () => undefined;
   let locationListener: () => void = () => undefined;
   const available = new BehaviorSubject(true);
@@ -25,7 +26,7 @@ function setup(initial: DatasetInfo[] = [], initialDashboard: string | undefined
     },
     describe,
     activeDashboard: () => dashboard,
-    timeRange: () => undefined,
+    timeRange: () => range,
     onLocation: (listener) => {
       locationListener = listener;
       return () => undefined;
@@ -46,6 +47,7 @@ function setup(initial: DatasetInfo[] = [], initialDashboard: string | undefined
     reads,
     setDatasets: (next: DatasetInfo[]) => (datasets = next),
     setDashboard: (next: string) => (dashboard = next),
+    setRange: (next: ReturnType<LiveContextDeps['timeRange']>) => (range = next),
     change: (event: ChangeEvent) => changeListener(event),
     navigate: () => locationListener(),
   };
@@ -129,6 +131,27 @@ it('does not re-register an unchanged digest', async () => {
   await t.stop.settled();
   expect(t.registered).toHaveLength(1);
   expect(t.unregister).not.toHaveBeenCalled();
+});
+
+it('does not re-register when a relative range only resolves to a later now', async () => {
+  const t = setup([ds('a')]);
+  t.setRange({ from: '2026-10-07T06:00:00.000Z', to: '2026-10-07T12:00:00.000Z', raw: { from: 'now-6h', to: 'now' } });
+  await t.stop.settled();
+  t.setRange({ from: '2026-10-07T06:00:05.000Z', to: '2026-10-07T12:00:05.000Z', raw: { from: 'now-6h', to: 'now' } });
+  t.navigate();
+  await t.stop.settled();
+  expect(t.registered).toHaveLength(1);
+  expect(t.registered[0].timeRange?.raw).toEqual({ from: 'now-6h', to: 'now' });
+});
+
+it('re-registers when the range itself changes', async () => {
+  const t = setup([ds('a')]);
+  t.setRange({ from: '2026-10-07T06:00:00.000Z', to: '2026-10-07T12:00:00.000Z', raw: { from: 'now-6h', to: 'now' } });
+  await t.stop.settled();
+  t.setRange({ from: '2026-10-07T11:00:00.000Z', to: '2026-10-07T12:00:00.000Z', raw: { from: 'now-1h', to: 'now' } });
+  t.navigate();
+  await t.stop.settled();
+  expect(t.registered).toHaveLength(2);
 });
 
 it('keeps a dataset whose DESCRIBE fails, without columns', async () => {

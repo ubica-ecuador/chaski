@@ -3,7 +3,7 @@ import { dateMath, dateTime } from '@grafana/data';
 import { locationService } from '@grafana/runtime';
 import { tableFromIPC } from 'apache-arrow';
 
-import type { DigestColumn } from '../assistant/digest';
+import type { DigestColumn, DigestTimeRange } from '../assistant/digest';
 import { startAssistantContext } from '../assistant/liveContext';
 import { quoteIdent } from '../engine/sql';
 import type { ChaskiEngineApi } from './publicApi';
@@ -21,10 +21,10 @@ const instant = (value: unknown, roundUp: boolean): string | undefined => {
 };
 
 /** The dashboard's range from the URL; undefined when either end is missing or unreadable. */
-export function urlTimeRange(search: { from?: unknown; to?: unknown }): { from: string; to: string } | undefined {
+export function urlTimeRange(search: { from?: unknown; to?: unknown }): DigestTimeRange | undefined {
   const from = instant(search.from, false);
   const to = instant(search.to, true);
-  return from && to ? { from, to } : undefined;
+  return from && to ? { from, to, raw: { from: String(search.from), to: String(search.to) } } : undefined;
 }
 
 /** The rows of a `DESCRIBE`, as column names and DuckDB types. */

@@ -1,7 +1,7 @@
 import type { Observable } from 'rxjs';
 
 import type { ChangeEvent, DatasetInfo } from '../grafana/publicApi';
-import { buildAssistantDigest, type AssistantDigest, type DigestColumn } from './digest';
+import { buildAssistantDigest, type AssistantDigest, type DigestColumn, type DigestTimeRange } from './digest';
 import { registerAssistant } from './pageContext';
 
 export interface LiveContextDeps {
@@ -15,7 +15,7 @@ export interface LiveContextDeps {
    */
   describe(table: string): Promise<DigestColumn[]>;
   activeDashboard(): string | undefined;
-  timeRange(): { from: string; to: string } | undefined;
+  timeRange(): DigestTimeRange | undefined;
   /** Called on every URL change, so a new time range reaches the digest. */
   onLocation(listener: () => void): () => void;
   available: Observable<boolean>;
@@ -74,7 +74,9 @@ export function startAssistantContext(deps: LiveContextDeps) {
       return;
     }
     const digest = buildAssistantDigest({ dashboard, datasets: list, columns, timeRange: deps.timeRange() });
-    const key = JSON.stringify(digest);
+    // A relative range resolves to a later `now` on every rebuild; only a change
+    // of the range as written counts, or every rebuild would re-register.
+    const key = JSON.stringify({ ...digest, timeRange: digest.timeRange?.raw ?? digest.timeRange });
     if (current?.key === key) {
       return;
     }
