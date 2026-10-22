@@ -1,0 +1,261 @@
+{
+  "uid": "duckdbwasm-e2e-crossfilter",
+  "title": "Chaski · e2e cross-filters",
+  "schemaVersion": 39,
+  "editable": true,
+  "time": {
+    "from": "2026-01-01T00:00:00.000Z",
+    "to": "2026-03-01T00:00:00.000Z"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "sample",
+        "type": "query",
+        "hide": 2,
+        "skipUrlSync": true,
+        "refresh": 1,
+        "datasource": {
+          "type": "ubica-chaski-datasource",
+          "uid": "duckdbwasm"
+        },
+        "query": {
+          "refId": "sample",
+          "kind": "dataset",
+          "name": "sample",
+          "source": {
+            "type": "sql",
+            "sql": "SELECT * FROM read_parquet('http://localhost:8095/sample.parquet')"
+          }
+        },
+        "current": {},
+        "options": []
+      },
+      {
+        "name": "city",
+        "label": "City",
+        "type": "custom",
+        "multi": true,
+        "includeAll": true,
+        "query": "Cuenca,Guayaquil,Loja,Manta,Quito",
+        "current": {
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "options": []
+      },
+      {
+        "name": "v_lo",
+        "label": "Value from",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "options": []
+      },
+      {
+        "name": "v_hi",
+        "label": "Value to",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "options": []
+      },
+      {
+        "name": "t0",
+        "label": "From",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "options": []
+      },
+      {
+        "name": "t1",
+        "label": "To",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "options": []
+      },
+      {
+        "name": "q",
+        "label": "Search",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "options": []
+      },
+      {
+        "name": "sampleFilters",
+        "type": "query",
+        "hide": 2,
+        "skipUrlSync": true,
+        "refresh": 1,
+        "datasource": {
+          "type": "ubica-chaski-datasource",
+          "uid": "duckdbwasm"
+        },
+        "query": {
+          "refId": "sampleFilters",
+          "kind": "filters",
+          "dataset": "$sample",
+          "filters": [
+            {
+              "name": "city",
+              "type": "in",
+              "column": "city",
+              "variable": "$city",
+              "label": "City"
+            },
+            {
+              "name": "v",
+              "type": "range",
+              "column": "v",
+              "from": "$v_lo",
+              "to": "$v_hi",
+              "label": "Value"
+            },
+            {
+              "name": "t",
+              "type": "range",
+              "column": "t",
+              "as": "time",
+              "from": "$t0",
+              "to": "$t1",
+              "label": "Time"
+            },
+            {
+              "name": "q",
+              "type": "search",
+              "column": "city",
+              "variable": "$q",
+              "label": "Search"
+            }
+          ]
+        },
+        "current": {},
+        "options": []
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "Rows",
+      "datasource": {
+        "type": "ubica-chaski-datasource",
+        "uid": "duckdbwasm"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "ubica-chaski-datasource",
+            "uid": "duckdbwasm"
+          },
+          "rawSql": "SELECT count(*)::DOUBLE AS n FROM $sample WHERE $__crossfilter($sampleFilters)"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "table",
+      "title": "Rows, written by hand",
+      "datasource": {
+        "type": "ubica-chaski-datasource",
+        "uid": "duckdbwasm"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "ubica-chaski-datasource",
+            "uid": "duckdbwasm"
+          },
+          "rawSql": "SELECT count(*)::DOUBLE AS n FROM $sample WHERE city IN ($city) AND v >= coalesce(try_cast($v_lo AS DOUBLE), '-infinity'::DOUBLE) AND v < coalesce(try_cast($v_hi AS DOUBLE), 'infinity'::DOUBLE) AND t >= coalesce(try_cast($t0 AS TIMESTAMP), '-infinity'::TIMESTAMP) AND t < coalesce(try_cast($t1 AS TIMESTAMP), 'infinity'::TIMESTAMP) AND contains(lower(city), lower($q))"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "table",
+      "title": "By city, all but its own filter",
+      "datasource": {
+        "type": "ubica-chaski-datasource",
+        "uid": "duckdbwasm"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "ubica-chaski-datasource",
+            "uid": "duckdbwasm"
+          },
+          "rawSql": "SELECT city, count(*)::DOUBLE AS n FROM $sample WHERE $__crossfilter($sampleFilters, -city) GROUP BY 1 ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "table",
+      "title": "Filters",
+      "datasource": {
+        "type": "ubica-chaski-datasource",
+        "uid": "duckdbwasm"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "ubica-chaski-datasource",
+            "uid": "duckdbwasm"
+          },
+          "rawSql": "SELECT label, active, value FROM $__filters($sampleFilters)"
+        }
+      ]
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 import { dateTime } from '@grafana/data';
 
-import { interpolateSql, sqlStringFormat } from './interpolate';
+import { interpolateSql, rawValue, sqlStringFormat } from './interpolate';
 import { fakeTemplateSrv } from './testing/fakes';
 
 const range = { from: dateTime(Date.UTC(2026, 8, 18)), to: dateTime(Date.UTC(2026, 8, 19)), raw: { from: 'now-1d', to: 'now' } };
@@ -46,5 +46,34 @@ describe('interpolateSql', () => {
     expect(interpolateSql("read_parquet($__proxy('zonas/' || $file))", { ...options, proxyBase })).toBe(
       "read_parquet(('https://g.example/api/datasources/proxy/uid/u/_plain/' || ('zonas/' || 'a.parquet')))"
     );
+  });
+
+  it('reads $__crossfilter values raw and quotes them itself, so a value cannot become SQL', () => {
+    const templateSrv = fakeTemplateSrv({ quakeFilters: 'quakes#00c0ffee', place: "x' OR 1=1 --" });
+    const crossfilter = {
+      dataset: (name: string) =>
+        name === 'quakes'
+          ? {
+              name,
+              table: 'd1_quakes_v1',
+              filters: [{ name: 'place', type: 'equals' as const, column: 'place', variable: 'place' }],
+            }
+          : undefined,
+      value: (name: string) => rawValue(templateSrv, name),
+    };
+    expect(
+      interpolateSql('SELECT * WHERE $__crossfilter($quakeFilters)', { templateSrv, range, isDatasetTable, crossfilter })
+    ).toBe(`SELECT * WHERE (TRUE AND "place" = 'x'' OR 1=1 --')`);
+  });
+});
+
+describe('rawValue', () => {
+  const templateSrv = fakeTemplateSrv({ one: 'a', many: ['a', 'b'], empty: '' });
+
+  it('gives the value before quoting, a list for a multi-value variable, undefined for a missing one', () => {
+    expect(rawValue(templateSrv, 'one')).toBe('a');
+    expect(rawValue(templateSrv, 'many')).toEqual(['a', 'b']);
+    expect(rawValue(templateSrv, 'empty')).toBe('');
+    expect(rawValue(templateSrv, 'missing')).toBeUndefined();
   });
 });

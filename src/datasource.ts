@@ -9,12 +9,14 @@ import {
   type DataSourceInstanceSettings,
   FieldType,
   type MetricFindValue,
+  type ScopedVars,
   type TestDataSourceResponse,
 } from '@grafana/data';
 import { getTemplateSrv } from '@grafana/runtime';
 import type { DataQuery } from '@grafana/schema';
 import { Observable } from 'rxjs';
 
+import { type CrossfilterSource, type FilterDeclaration, filtersValue, normalizeFilters } from './engine/crossfilter';
 import { explainError } from './engine/errors';
 import { describe as describeColumns, runPanelQuery } from './engine/executor';
 import { decideDatasetLoad, type LoadWindow } from './engine/rangeReuse';
@@ -28,7 +30,7 @@ import { dashboardKey } from './grafana/dashboardKey';
 import { rangeOf, scopedTimeOf, windowOf } from './grafana/datasetWindow';
 import { type Engine, getEngine } from './grafana/engine';
 import { loadFromDatasource } from './grafana/externalSource';
-import { interpolateSql } from './grafana/interpolate';
+import { interpolateSql, rawValue } from './grafana/interpolate';
 import { staleNotices } from './grafana/notices';
 import { explainProxyError, KEY_ROUTE, PLAIN_ROUTE, proxyBaseUrl } from './grafana/proxy';
 import { DuckVariableSupport } from './grafana/variableSupport';
@@ -55,6 +57,11 @@ export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
   /** Where `$__proxy` points: this instance's data proxy plus the route its settings call for. */
   readonly proxyBase: string | undefined;
   private readonly panelsInFlight = new SingleFlight<DataQueryResponse>();
+  /**
+   * The filters declared for each dataset, by dashboard and dataset name, for $__crossfilter and $__filters.
+   * Recorded every time a filters variable runs.
+   */
+  private readonly declarations = new Map<string, FilterDeclaration[]>();
 
   constructor(instanceSettings: DataSourceInstanceSettings<DuckOptions>) {
     super(instanceSettings);
@@ -133,7 +140,7 @@ export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
         filters: (request.filters ?? []) as AdHocFilter[],
         targets: targets.map((target) => {
           try {
-            return { refId: target.refId, sql: this.interpolate(engine, target.rawSql, request) };
+            return { refId: target.refId, sql: this.interpolate(engine, key, target.rawSql, request) };
           } catch (error) {
             return { refId: target.refId, failed: explainError(error, this.memoryLimitMB).message };
           }
@@ -208,7 +215,7 @@ export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
       // the same text mean only the range moved (see decideDatasetLoad).
       const signatureAt = (at: LoadWindow): string =>
         datasetSource.type === 'sql'
-          ? this.interpolate(engine, datasetSource.sql, { ...request, range: rangeOf(at) })
+          ? this.interpolate(engine, key, datasetSource.sql, { ...request, range: rangeOf(at) })
           : JSON.stringify([
               getTemplateSrv().replace(JSON.stringify(datasetSource), { ...request.scopedVars, ...scopedTimeOf(at) }),
               at.from,
@@ -254,9 +261,30 @@ export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
       }
     }
 
+    if (query?.kind === 'filters') {
+      try {
+        const source = this.crossfilterSource(engine, key, request.scopedVars);
+        const variable = /^\$(?:\{(\w+)\}|(\w+))$/.exec((query.dataset ?? '').trim());
+        if (!variable) {
+          throw new Error('A filters variable names its dataset as $name, so it waits for the dataset to load');
+        }
+        const table = source.value(variable[1] ?? variable[2]);
+        const state = typeof table === 'string' ? engine.registry.byTable(table) : undefined;
+        if (!state) {
+          throw new Error(`No dataset ${query.dataset} is loaded on this dashboard`);
+        }
+        const filters = normalizeFilters(state.name, query.filters, source.value);
+        this.declarations.set(declarationKey(key, state.name), filters);
+        const value = filtersValue({ name: state.name, table: state.table, filters }, source);
+        return { data: [textValueFrame([value], [value])] };
+      } catch (error) {
+        throw new Error(await this.errorMessage(error));
+      }
+    }
+
     if (query?.kind === 'values') {
       try {
-        const result = await runPanelQuery(engine.runner, this.interpolate(engine, query.sql ?? '', request));
+        const result = await runPanelQuery(engine.runner, this.interpolate(engine, key, query.sql ?? '', request));
         const frame = arrowToDataFrame(result.table, 'values');
         const valueField = frame.fields[0];
         const textField = frame.fields[1] ?? valueField;
@@ -266,7 +294,7 @@ export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
       }
     }
 
-    throw new Error('Unknown variable query: expected kind "dataset" or "values"');
+    throw new Error('Unknown variable query: expected kind "dataset", "values" or "filters"');
   }
 
   async testDatasource(): Promise<TestDataSourceResponse> {
@@ -316,14 +344,27 @@ export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
     }
   }
 
-  private interpolate(engine: Engine, sql: string, request: DataQueryRequest<DataQuery>): string {
+  private interpolate(engine: Engine, dashboard: string, sql: string, request: DataQueryRequest<DataQuery>): string {
     return interpolateSql(sql, {
       templateSrv: getTemplateSrv(),
       scopedVars: request.scopedVars,
       range: request.range,
       isDatasetTable: (name) => engine.registry.byTable(name) !== undefined,
       proxyBase: this.proxyBase,
+      crossfilter: this.crossfilterSource(engine, dashboard, request.scopedVars),
     });
+  }
+
+  /** The dashboard's declared datasets and its variables' raw values, for the cross-filter macros. */
+  private crossfilterSource(engine: Engine, dashboard: string, scopedVars?: ScopedVars): CrossfilterSource {
+    return {
+      dataset: (name) => {
+        const state = engine.registry.get(dashboard, name);
+        const filters = this.declarations.get(declarationKey(dashboard, name));
+        return state && filters ? { name, table: state.table, filters } : undefined;
+      },
+      value: (name) => rawValue(getTemplateSrv(), name, scopedVars),
+    };
   }
 
   /** Turns any error into the same actionable message `runPanelQueries` and `testDatasource` give. */
@@ -407,3 +448,5 @@ function abortable<T>(run: (signal: AbortSignal) => Promise<T>): Observable<T> {
     return () => controller.abort();
   });
 }
+
+const declarationKey = (dashboard: string, name: string): string => `${dashboard}\u0000${name}`;

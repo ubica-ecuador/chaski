@@ -35,7 +35,18 @@ export interface ValuesVariableQuery extends DataQuery {
   sql: string;
 }
 
-export type DuckVariableQuery = DatasetVariableQuery | ValuesVariableQuery;
+/**
+ * The cross-filters of a dataset, as `$__crossfilter($thisVariable, -own)` applies them; see
+ * src/engine/crossfilter.ts. `dataset` and every variable a filter reads are written `$name`, so Grafana refreshes
+ * this variable when one changes, and with it the panels that name it.
+ */
+export interface FiltersVariableQuery extends DataQuery {
+  kind: 'filters';
+  dataset: string;
+  filters: Array<Record<string, unknown>>;
+}
+
+export type DuckVariableQuery = DatasetVariableQuery | ValuesVariableQuery | FiltersVariableQuery;
 
 export interface DuckOptions extends DataSourceJsonData {
   memoryLimitMB?: number;

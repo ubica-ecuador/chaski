@@ -12,6 +12,7 @@ import {
   type DuckOptions,
   type DuckQuery,
   type DuckVariableQuery,
+  type FiltersVariableQuery,
 } from '../types';
 import { SqlEditor } from './SqlEditor';
 
@@ -20,6 +21,11 @@ type Props = QueryEditorProps<DataSource, DuckQuery, DuckOptions, DuckVariableQu
 const KINDS = [
   { label: 'Dataset', value: 'dataset' as const, description: 'Loads rows once; panels read them with FROM $name.' },
   { label: 'Values', value: 'values' as const, description: 'An ordinary dropdown, from SQL in the browser.' },
+  {
+    label: 'Filters',
+    value: 'filters' as const,
+    description: "A dataset's cross-filters; panels apply them with $__crossfilter($name, -own).",
+  },
 ];
 
 const SOURCES = [
@@ -37,12 +43,20 @@ export function VariableQueryEditor({ query, onChange }: Props) {
           options={KINDS}
           value={current.kind}
           onChange={(kind) =>
-            onChange(kind === 'dataset' ? { ...DEFAULT_VARIABLE_QUERY, refId } : { refId, kind: 'values', sql: '' })
+            onChange(
+              kind === 'dataset'
+                ? { ...DEFAULT_VARIABLE_QUERY, refId }
+                : kind === 'filters'
+                  ? { refId, kind: 'filters', dataset: '', filters: [] }
+                  : { refId, kind: 'values', sql: '' }
+            )
           }
         />
       </Field>
       {current.kind === 'dataset' ? (
         <DatasetFields query={current} onChange={onChange} />
+      ) : current.kind === 'filters' ? (
+        <FiltersFields query={current} onChange={onChange} />
       ) : (
         <Field label="SQL" description="First column is the value; a second column, if any, is the text shown.">
           <SqlEditor label="Values SQL" value={current.sql ?? ''} onChange={(sql) => onChange({ ...current, sql })} />
@@ -169,5 +183,43 @@ function JsonQuery({ value, onChange }: { value: DataQuery; onChange: (q: DataQu
         }}
       />
     </Field>
+  );
+}
+
+/** A dataset's cross-filters, edited as the JSON list the dashboard holds; see the plugin README. */
+function FiltersFields({ query, onChange }: { query: FiltersVariableQuery; onChange: (q: DuckVariableQuery) => void }) {
+  const [text, setText] = useState(() => JSON.stringify(query.filters ?? [], null, 2));
+  const [error, setError] = useState<string>();
+  const apply = () => {
+    try {
+      const filters = JSON.parse(text);
+      if (!Array.isArray(filters)) {
+        throw new Error('Expected a list of filters');
+      }
+      setError(undefined);
+      onChange({ ...query, filters });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+  return (
+    <>
+      <Field label="Dataset" description="The dataset variable, written $name.">
+        <Input
+          aria-label="Dataset"
+          value={query.dataset}
+          placeholder="$quakes"
+          onChange={(e) => onChange({ ...query, dataset: e.currentTarget.value })}
+        />
+      </Field>
+      <Field
+        label="Filters"
+        description='A JSON list, such as [{"name": "mag", "type": "range", "column": "mag", "from": "$mag_lo", "to": "$mag_hi"}]. Variables are written $name.'
+        invalid={error !== undefined}
+        error={error}
+      >
+        <TextArea aria-label="Filters" rows={10} value={text} onChange={(e) => setText(e.currentTarget.value)} onBlur={apply} />
+      </Field>
+    </>
   );
 }

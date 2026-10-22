@@ -58,6 +58,64 @@ the same call needs a `::VARCHAR` cast.
 
 `$__proxy('path')` reads a file through Grafana's data proxy (below).
 
+## Cross-filters
+
+Panels that filter each other (a brush, a map's drawn area, a picked value) write dashboard
+variables, and every other panel reads them. Instead of repeating those conditions in each query, a
+**filters variable** declares them once for a dataset, and a panel asks for them with
+`$__crossfilter($quakeFilters, -own)`: the `AND` of the active filters, leaving out the panel's own,
+the one whose variables it writes. A panel that read its own filter could never widen again.
+
+The filters variable is a hidden query variable of this datasource, of kind `filters`. It names its
+dataset and every variable it reads as `$name`: that is how Grafana knows to refresh it when one of
+them changes. Its value then changes too, and Grafana runs again every panel that names it.
+
+```json
+{
+  "name": "quakeFilters", "type": "query", "hide": 2, "skipUrlSync": true, "refresh": 1,
+  "datasource": { "type": "ubica-chaski-datasource", "uid": "<chaski uid>" },
+  "query": {
+    "refId": "quakeFilters", "kind": "filters", "dataset": "$quakes",
+    "filters": [
+      { "name": "time", "type": "range", "column": "time", "as": "time", "from": "$t0", "to": "$t1" },
+      { "name": "mag", "type": "range", "column": "mag", "from": "$mag_lo", "to": "$mag_hi", "label": "Magnitude" },
+      { "name": "area", "type": "area", "variable": "$area", "lat": "latitude", "lng": "longitude" },
+      { "name": "alert", "type": "in", "column": "alert", "variable": "$alerts" }
+    ]
+  }
+}
+```
+
+```sql
+SELECT floor(mag / 0.5) * 0.5 AS bin, count(*) AS n
+FROM $quakes
+WHERE $__timeFilter(time) AND $__crossfilter($quakeFilters, -mag)
+GROUP BY 1 ORDER BY 1
+```
+
+| Type | Keys | Condition | Off while |
+| --- | --- | --- | --- |
+| `range` | `column`, `from`, `to`; `as`: `number` (default) or `time`; `upper`: `open` (default) or `closed` | `column >= from AND column < to` | both variables are empty; one empty leaves that side open |
+| `in` | `column`, `variable` (multi-value) | `column IN (…)` | empty, or All |
+| `equals` | `column`, `variable` | `column = value` | empty |
+| `search` | `column`, `variable` | case-insensitive substring | empty |
+| `area` | `variable` (WKT polygon, as kepler writes it), `lat`, `lng` | point in polygon, behind a bounding box; no `spatial` needed | empty |
+| `link` | `column`, `filters` (another dataset's filters variable), `to` | `column IN (SELECT to FROM that dataset WHERE its active filters)` | the other dataset has none active |
+
+- `$__crossfilter($quakeFilters AS q)` prefixes the columns with `q.`. Columns are names, not
+  expressions: compute a derived column in the dataset.
+- The result is always a parenthesised condition, `(TRUE)` when nothing is active.
+- Values never reach the SQL as text: numbers and times are parsed and printed back, strings are
+  quoted. A value that doesn't parse turns its filter, or that end of a range, off. Times are
+  compared as UTC ISO strings, which DuckDB casts to the column's type; a time with no zone is UTC.
+- The macros take the filters variable, never the dataset: a query that named only `$quakes` would
+  not run again when a filter changes. An unknown filter name or variable fails the panel with a
+  message saying which.
+- `SELECT * FROM $__filters($quakeFilters)` lists the declared filters, one row each: `name`,
+  `label`, `active`, `value` (as a reader would write it, such as `4.5 – 6`) and `variables` (the
+  ones to empty to clear it, comma-separated). It feeds a filter bar.
+- These macros are Chaski's own: the server DuckDB datasource doesn't have them.
+
 Identical requests for a panel that are in flight at once share one execution. A query reading the
 clock (`now()`), random numbers or a URL may therefore get the answer of an identical request that
 started moments earlier.

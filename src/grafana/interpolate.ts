@@ -1,6 +1,7 @@
 import type { ScopedVars, TimeRange } from '@grafana/data';
 import type { TemplateSrv } from '@grafana/runtime';
 
+import type { CrossfilterSource } from '../engine/crossfilter';
 import { expandMacros } from '../engine/macros';
 import { quoteIdent, quoteLiteral } from '../engine/sql';
 
@@ -23,6 +24,25 @@ export interface InterpolateOptions {
   isDatasetTable: (name: string) => boolean;
   /** This instance's data proxy base for `$__proxy` (see proxyBaseUrl). */
   proxyBase?: string;
+  /** The declared datasets and the variables' raw values, for `$__crossfilter` and `$__filters`. */
+  crossfilter?: CrossfilterSource;
+}
+
+/**
+ * A variable's value as Grafana holds it, before any quoting: a list for a
+ * multi-value variable, undefined when the dashboard has no such variable.
+ */
+export function rawValue(
+  templateSrv: TemplateSrv,
+  name: string,
+  scopedVars?: ScopedVars
+): string | string[] | undefined {
+  let found: string | string[] | undefined;
+  templateSrv.replace(`\${${name}}`, scopedVars, (value: unknown) => {
+    found = Array.isArray(value) ? value.map(String) : value === null || value === undefined ? '' : String(value);
+    return '';
+  });
+  return found;
 }
 
 /**
@@ -39,5 +59,6 @@ export function interpolateSql(sql: string, options: InterpolateOptions): string
     from: options.range.from.valueOf(),
     to: options.range.to.valueOf(),
     proxyBase: options.proxyBase,
+    crossfilter: options.crossfilter,
   });
 }

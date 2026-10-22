@@ -102,6 +102,46 @@ describe('DataSource', () => {
     expect(response.data[0].meta.executedQueryString).toContain(`FROM "${table}" WHERE city IN ('Quito')`);
   });
 
+  it('applies the filters a filters variable declares, but the panel\'s own, with $__crossfilter', async () => {
+    const table = await loadDataset('cities', CITIES);
+    mockTemplateSrv.current = fakeTemplateSrv({ cities: table, city: ['Quito'], n_lo: '2', n_hi: '' });
+    const filters = [
+      { name: 'city', type: 'in', column: 'city', variable: '$city' },
+      { name: 'n', type: 'range', column: 'n', from: '$n_lo', to: '$n_hi' },
+    ];
+    const answer = await ds.runVariableQuery(
+      makeRequest<DuckVariableQuery>([{ refId: 'f', kind: 'filters', dataset: '$cities', filters }])
+    );
+    const value = answer.data[0].fields.find((f: { name: string }) => f.name === 'value').values[0] as string;
+    expect(value).toMatch(/^cities#[0-9a-f]{8}$/);
+
+    mockTemplateSrv.current = fakeTemplateSrv({ cities: table, cityFilters: value, city: ['Quito'], n_lo: '2', n_hi: '' });
+    const response = await ds.runPanelQueries(
+      makeRequest<DuckQuery>([
+        { refId: 'all', rawSql: 'SELECT count(*)::DOUBLE AS n FROM $cities WHERE $__crossfilter($cityFilters)' },
+        { refId: 'own', rawSql: 'SELECT count(*)::DOUBLE AS n FROM $cities WHERE $__crossfilter($cityFilters, -n)' },
+        { refId: 'bar', rawSql: 'SELECT name, value FROM $__filters($cityFilters) WHERE active ORDER BY name' },
+      ])
+    );
+    expect(response.errors).toBeUndefined();
+    expect(response.data[0].fields[0].values).toEqual([1]);
+    expect(response.data[1].fields[0].values).toEqual([2]);
+    expect(response.data[2].fields[1].values).toEqual(['Quito', '≥ 2']);
+
+    mockTemplateSrv.current = fakeTemplateSrv({ cities: table, city: ['Cuenca'], n_lo: '2', n_hi: '' });
+    const after = await ds.runVariableQuery(
+      makeRequest<DuckVariableQuery>([{ refId: 'f', kind: 'filters', dataset: '$cities', filters }])
+    );
+    expect(after.data[0].fields.find((f: { name: string }) => f.name === 'value').values[0]).not.toBe(value);
+  });
+
+  it('explains a filters variable over a dataset that is not loaded', async () => {
+    mockTemplateSrv.current = fakeTemplateSrv({ ships: '' });
+    await expect(
+      ds.runVariableQuery(makeRequest<DuckVariableQuery>([{ refId: 'f', kind: 'filters', dataset: '$ships', filters: [] }]))
+    ).rejects.toThrow('No dataset $ships is loaded on this dashboard');
+  });
+
   it('applies ad hoc filters locally', async () => {
     const table = await loadDataset('cities', CITIES);
     mockTemplateSrv.current = fakeTemplateSrv({ cities: table });

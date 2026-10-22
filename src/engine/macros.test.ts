@@ -77,6 +77,40 @@ describe('expandMacros', () => {
     });
   });
 
+  describe('$__crossfilter and $__filters', () => {
+    const crossfilter = {
+      dataset: (name: string) =>
+        name === 'quakes'
+          ? {
+              name,
+              table: 't',
+              filters: [{ name: 'mag', type: 'range' as const, column: 'mag', from: 'lo', to: 'hi' }],
+            }
+          : undefined,
+      value: (name: string) => ({ lo: '5', hi: '' })[name],
+    };
+    const withFilters = { ...ctx, crossfilter };
+
+    it('expand over the filters variable they are given', () => {
+      expect(
+        expandMacros("WHERE $__crossfilter('quakes#00c0ffee') AND $__crossfilter('quakes#00c0ffee', -mag)", withFilters)
+      ).toBe('WHERE (TRUE AND "mag" >= 5) AND (TRUE)');
+      expect(expandMacros("SELECT name FROM $__filters('quakes#00c0ffee')", withFilters)).toContain(
+        "('mag', 'mag', TRUE, '≥ 5', 'lo,hi')"
+      );
+    });
+
+    it('are left alone inside a quoted literal', () => {
+      expect(expandMacros("SELECT '$__crossfilter(x)'", withFilters)).toBe("SELECT '$__crossfilter(x)'");
+    });
+
+    it('fail clearly outside a datasource query', () => {
+      expect(() => expandMacros("WHERE $__crossfilter('quakes#00c0ffee')", ctx)).toThrow(
+        '$__crossfilter is only available in a Chaski datasource query'
+      );
+    });
+  });
+
   describe('$__proxy', () => {
     const withProxy = { ...ctx, proxyBase: 'https://g.example/api/datasources/proxy/uid/abc/_plain' };
 

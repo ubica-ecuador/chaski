@@ -1,3 +1,4 @@
+import { type CrossfilterSource, crossfilterSql, filtersSql } from './crossfilter';
 import { quotedSpans, quoteLiteral } from './sql';
 
 /**
@@ -12,7 +13,10 @@ import { quotedSpans, quoteLiteral } from './sql';
  * Grafana's template service resolves them first, as on the server.
  *
  * $__proxy(path) is this plugin's own: the URL of a file read through the
- * datasource's Grafana data proxy (see src/grafana/proxy.ts).
+ * datasource's Grafana data proxy (see src/grafana/proxy.ts). So are
+ * $__crossfilter(dataset, -own) and $__filters(dataset), over the filters a
+ * dataset variable declares (see src/engine/crossfilter.ts); the server
+ * DuckDB datasource has no such macros.
  */
 export interface MacroContext {
   /** Start of the time range, epoch ms. */
@@ -24,6 +28,8 @@ export interface MacroContext {
    * …/_key), with no trailing slash. Unset outside a datasource query.
    */
   proxyBase?: string;
+  /** The dashboard's datasets and variables, for $__crossfilter and $__filters. Unset outside a datasource query. */
+  crossfilter?: CrossfilterSource;
 }
 
 /** Go's time.RFC3339 in UTC: the milliseconds are truncated away. */
@@ -52,6 +58,12 @@ function toDuckInterval(raw: string): string {
 }
 
 function expand(name: string, args: string[], ctx: MacroContext): string {
+  if (name === 'crossfilter' || name === 'filters') {
+    if (!ctx.crossfilter) {
+      throw new Error(`$__${name} is only available in a Chaski datasource query`);
+    }
+    return name === 'crossfilter' ? crossfilterSql(args, ctx.crossfilter) : filtersSql(args, ctx.crossfilter);
+  }
   const expected = ARITY[name];
   if (args.length !== expected) {
     throw new Error(
@@ -144,7 +156,7 @@ function outsideQuotes(sql: string): boolean[] {
  */
 export function expandMacros(sql: string, ctx: MacroContext): string {
   const outside = outsideQuotes(sql);
-  const pattern = /\$__(timeFilter|timeFrom|timeTo|timeGroup|proxy)\b/g;
+  const pattern = /\$__(timeFilter|timeFrom|timeTo|timeGroup|proxy|crossfilter|filters)\b/g;
   let out = '';
   let last = 0;
   let match: RegExpExecArray | null;

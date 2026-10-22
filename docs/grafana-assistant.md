@@ -49,6 +49,10 @@ $name, e.g. SELECT route, count(*) FROM $vehicles GROUP BY 1. Other dashboard va
 like the server DuckDB datasource: $x → 'value', multi-value → 'a','b', ${x:raw} verbatim.
 Macros: $__timeFilter(col), $__timeFrom(), $__timeTo(), $__timeGroup(col, 1h) (a time_bucket),
 $__proxy('path') (a file read through Grafana's data proxy with the datasource's credentials).
+Cross-filters: a hidden variable of kind 'filters' declares a dataset's filters (range, in, equals,
+search, area, link), each a column and the dashboard variables that narrow it, all written $name.
+$__crossfilter($quakeFilters, -own) is the AND of the active ones except the panel's own (the one
+whose variables that panel writes); $__filters($quakeFilters) is a table of them for a filter bar.
 A dataset that reloads on time-range change keeps its table when the new range fits inside the
 loaded one, so its source must return plain rows for the range (no ORDER BY … LIMIT, no totals),
 and panels reading it must filter by time themselves with $__timeFilter.

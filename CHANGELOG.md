@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- **Cross-filters.** A filters variable (kind `filters`) declares a dataset's filters: range, in,
+  equals, search, a drawn area, or a link to another dataset's filters. Panels apply them with
+  `$__crossfilter($quakeFilters, -own)`, every active filter but the panel's own, and run again
+  whenever one changes; `$__filters($quakeFilters)` lists them for a filter bar. Values are parsed
+  and quoted by the plugin, never pasted into the SQL. See the plugin's README.
+
 ## 1.1.0 (2026-10-07)
 
 - **Grafana Assistant.** On a Grafana with the Assistant, a Chaski dashboard tells it which datasets

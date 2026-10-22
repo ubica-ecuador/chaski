@@ -11,8 +11,15 @@ const calls: Record<string, string> = {
   timeTo: '$__timeTo()',
   timeGroup: '$__timeGroup(t, 1h)',
   proxy: "$__proxy('a.parquet')",
+  crossfilter: "$__crossfilter('quakes#00c0ffee')",
+  filters: "$__filters('quakes#00c0ffee')",
 };
-const ctx = { from: 0, to: 3600_000, proxyBase: 'http://g/api/datasources/proxy/uid/x/_plain' };
+const ctx = {
+  from: 0,
+  to: 3600_000,
+  proxyBase: 'http://g/api/datasources/proxy/uid/x/_plain',
+  crossfilter: { dataset: () => ({ name: 'quakes', table: 't', filters: [] }), value: () => '' },
+};
 
 describe.each([
   ['chaskiAssistantSkill', chaskiAssistantSkill],
