@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.1.0 (2026-10-23)
+
+- **Grafana Assistant skills.** Now that Chaski is an app, it registers its skills with the Grafana
+  Assistant instead of leaving them to be pasted: panel SQL, dashboard JSON, and a new one for the
+  Mosaic panel (its options, specs over datasets, writing and reading variables, kepler maps). Two
+  starters on a fresh chat. See docs/grafana-assistant.md.
+
 ## 2.0.0 (2026-10-23)
 
 - **Chaski is an app.** The plugin is now `ubica-chaski-app`, which brings the datasource under its

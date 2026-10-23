@@ -33,10 +33,27 @@ The Assistant **cannot run Chaski queries**. They run in the viewer's browser an
 Grafana's server, so the Assistant's own query tools do not see them. It can write the SQL, edit a
 panel or build a dashboard; the dashboard runs the queries.
 
-## Teaching it Chaski
+## Skills
 
-The Assistant knows a lot about SQL and Grafana, but not Chaski's conventions. Where your Grafana
-lets you give the Assistant standing instructions or custom skills, paste this:
+The Chaski app registers three skills with the Assistant. The Assistant keeps one catalog line for each
+in its prompt and loads the body when a conversation needs it or the user attaches it:
+
+| Skill                                       | What it teaches                                                                    |
+| ------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `plugin:ubica-chaski-app:chaski-sql`        | Panel SQL on Chaski: datasets as `$name`, the macros, cross-filters                |
+| `plugin:ubica-chaski-app:chaski-dashboards` | The exact JSON of a dataset variable and a panel target                            |
+| `plugin:ubica-chaski-app:chaski-mosaic`     | Mosaic panels: options, specs over datasets, writing and reading variables, kepler |
+
+It also offers two starters on a fresh chat: a dashboard from a Parquet file, and Mosaic linked
+views. The Assistant loads the app's module only to read them, and on a Grafana without the
+Assistant nothing loads.
+
+The skills appear on the Assistant's Skills settings page, attributed to Chaski. Whether their bodies
+reach the model depends on the Assistant's version: plugin skills arrive with its agent-skills
+runtime. Where they don't yet, or on a Grafana that lets you give the Assistant standing instructions
+instead, paste the texts below.
+
+### Chaski panel SQL
 
 ```text
 # Chaski (DuckDB in the browser)
@@ -59,10 +76,10 @@ and panels reading it must filter by time themselves with $__timeFilter.
 Geometry columns reach panels as WKB hex; for a map with many rows select ST_AsGeoJSON(geom).
 ```
 
-## Authoring whole dashboards
+### Building a dashboard on Chaski
 
 Asked to build a dashboard on Chaski, an assistant needs the exact JSON of a dataset variable and of
-a panel target. Paste this beside the text above:
+a panel target:
 
 ```text
 # Authoring dashboards on Chaski
@@ -79,10 +96,64 @@ Put datasets before the variables and panels that read them. Values variables (d
 kind 'values' with sql whose first column is the value.
 ```
 
+### Mosaic panels
+
+```text
+# Mosaic panels on Chaski
+The Chaski Mosaic panel (type 'ubica-chaski-mosaic-panel') draws a Mosaic (vgplot) spec over the
+dashboard's Chaski datasets: brush one chart and every Mosaic panel on the same selection filters in
+the browser. It has no queries (targets stay empty); the dashboard needs at least one Chaski dataset.
+Its options, all strings of YAML (or JSON) except the last:
+- spec: a Mosaic spec (idl.uw.edu/mosaic/spec). Tables are datasets by bare name: data: { from:
+  quakes, filterBy: $brush }. Never $quakes and never a qualified name such as explore.t.
+- variables: writes. Each entry: param (a selection or param of the spec), column (the clause's
+  column), then from/to for an interval, or variable for points (a multi-value variable), text, a
+  param's value, or a 2-D brush over [longitude, latitude] (a WKT polygon). Any other 2-D brush
+  writes one range per axis: column [x, y], from [x_lo, y_lo], to [x_hi, y_hi].
+- reads: variables written elsewhere (a kepler map's viewportVariables or areaVariable, a picker)
+  become clauses of a selection. Each entry: param, column, then from/to for a range, area for a WKT
+  polygon over [longitude, latitude], or values for a multi-value variable. A panel cannot read a
+  variable it writes; declare each read in one panel only.
+- preaggregate: true (the default) builds small tables when a brush starts; keep it on.
+Example panel:
+{"type":"ubica-chaski-mosaic-panel","title":"Magnitude","gridPos":{"x":0,"y":0,"w":8,"h":8},"options":{"spec":"params:\n  brush: { select: crossfilter }\nplot:\n  - mark: rectY\n    data: { from: quakes, filterBy: $brush }\n    x: { bin: mag }\n    y: { count: }\n  - select: intervalX\n    as: $brush\nxDomain: Fixed\n","variables":"- param: brush\n  column: mag\n  from: mag_lo\n  to: mag_hi\n","reads":"","preaggregate":true}}
+On a v2 dashboard the same options go in the element's vizConfig: { kind: 'VizConfig', group:
+'ubica-chaski-mosaic-panel', spec: { options: {…}, fieldConfig: { defaults: {}, overrides: [] } } },
+with data.spec.queries empty.
+Linking with the rest of the dashboard:
+- Params and selections are shared by name between all Mosaic panels of a dashboard; the first panel
+  to define one sets its kind, so declare it the same way (params: brush: { select: crossfilter }) in
+  every panel that uses it, and use one selection name per dataset.
+- Written variables are hidden textbox variables (one per from, to or variable), never custom
+  dropdowns: a custom variable defaults to its first option and would filter at load.
+- Chaski SQL panels follow the brushes through a filters variable built on those same variables:
+  a range filter per interval (from '$x_lo', to '$x_hi'), an area filter per WKT variable (only
+  longitude and latitude: it wraps x at ±180), an in filter per points variable. Then SELECT count(*)
+  FROM $quakes WHERE $__crossfilter($quakeFilters).
+- A dataset's own SQL must not read a variable a Mosaic panel writes: each write would reload the
+  dataset, and a reload clears every brush.
+- To have a kepler map drive Mosaic, give the kepler panel viewportVariables {west, south, east,
+  north} and areaVariable, and put reads in one Mosaic panel; the kepler query then leaves out the
+  filters built on its own variables: $__crossfilter($f, -drawn, -view_lng, -view_lat).
+Writing specs that work:
+- Sizes: a single plot fills the panel; plots in a top-level vconcat or hconcat share it unless
+  sized. Put a legend in its own vconcat item with for: <plot name>, or it spills out of the panel.
+- Rasters, contours and heatmaps: use dark-ended schemes (magma, viridis, inferno) on a dark theme;
+  blues and oranges start at white.
+- Do not add a highlight interactor to aggregated marks (bins, counts) whose selection also filters
+  other columns: their query fails with a DuckDB Binder Error.
+- Names that are SQL keywords (lambda, order, group) must be renamed in the dataset's SQL.
+- Inputs: menu, search, slider and table; geo marks take a projection but draw no base map (that is
+  kepler's job).
+- Mosaic's marks that compute in DuckDB (density, contours, heatmap, raster, hexbin, regression)
+  scale to millions of rows; plain dot marks over millions of rows do not.
+```
+
 ## Source of truth
 
-Both texts are exported from the plugin's code, `chaskiAssistantSkill` and `dashboardAuthoringSkill`
-in `src/assistant/skills.ts`; this page quotes them. Tests hold them to the plugin: every macro
-they name is one Chaski expands, and the example variable has the shape of the dataset variables in
-the provisioned dashboards. The plugin is a datasource, and Grafana lets only app plugins register
-skills with the Assistant, so the texts are pasted by hand.
+The texts are exported from the plugin's code, `chaskiAssistantSkill`, `dashboardAuthoringSkill` and
+`mosaicAuthoringSkill` in `src/assistant/skills.ts`, and registered by `src/assistant/manifest.ts`;
+this page quotes them. Tests hold them to the plugin: every macro they name is one Chaski expands,
+the example variable has the shape of the dataset variables in the provisioned dashboards, the example
+Mosaic panel parses as the panel parses it, and the manifest keeps within the Assistant's bounds and is
+declared in `plugin.json`.

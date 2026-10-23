@@ -64,3 +64,80 @@ A panel target on Chaski has only refId, datasource and rawSql:
 ${JSON.stringify(examplePanelTarget)}
 Put datasets before the variables and panels that read them. Values variables (dropdowns) use
 kind 'values' with sql whose first column is the value.`;
+
+/** A Mosaic panel as a dashboard's panels list holds it. A test parses its options as the panel does. */
+export const exampleMosaicPanel = {
+  type: 'ubica-chaski-mosaic-panel',
+  title: 'Magnitude',
+  gridPos: { x: 0, y: 0, w: 8, h: 8 },
+  options: {
+    spec: `params:
+  brush: { select: crossfilter }
+plot:
+  - mark: rectY
+    data: { from: quakes, filterBy: $brush }
+    x: { bin: mag }
+    y: { count: }
+  - select: intervalX
+    as: $brush
+xDomain: Fixed
+`,
+    variables: `- param: brush
+  column: mag
+  from: mag_lo
+  to: mag_hi
+`,
+    reads: '',
+    preaggregate: true,
+  },
+};
+
+/** What an assistant adding Mosaic panels to a Chaski dashboard needs, and what it gets wrong without it. */
+export const mosaicAuthoringSkill = `# Mosaic panels on Chaski
+The Chaski Mosaic panel (type 'ubica-chaski-mosaic-panel') draws a Mosaic (vgplot) spec over the
+dashboard's Chaski datasets: brush one chart and every Mosaic panel on the same selection filters in
+the browser. It has no queries (targets stay empty); the dashboard needs at least one Chaski dataset.
+Its options, all strings of YAML (or JSON) except the last:
+- spec: a Mosaic spec (idl.uw.edu/mosaic/spec). Tables are datasets by bare name: data: { from:
+  quakes, filterBy: $brush }. Never $quakes and never a qualified name such as explore.t.
+- variables: writes. Each entry: param (a selection or param of the spec), column (the clause's
+  column), then from/to for an interval, or variable for points (a multi-value variable), text, a
+  param's value, or a 2-D brush over [longitude, latitude] (a WKT polygon). Any other 2-D brush
+  writes one range per axis: column [x, y], from [x_lo, y_lo], to [x_hi, y_hi].
+- reads: variables written elsewhere (a kepler map's viewportVariables or areaVariable, a picker)
+  become clauses of a selection. Each entry: param, column, then from/to for a range, area for a WKT
+  polygon over [longitude, latitude], or values for a multi-value variable. A panel cannot read a
+  variable it writes; declare each read in one panel only.
+- preaggregate: true (the default) builds small tables when a brush starts; keep it on.
+Example panel:
+${JSON.stringify(exampleMosaicPanel)}
+On a v2 dashboard the same options go in the element's vizConfig: { kind: 'VizConfig', group:
+'ubica-chaski-mosaic-panel', spec: { options: {…}, fieldConfig: { defaults: {}, overrides: [] } } },
+with data.spec.queries empty.
+Linking with the rest of the dashboard:
+- Params and selections are shared by name between all Mosaic panels of a dashboard; the first panel
+  to define one sets its kind, so declare it the same way (params: brush: { select: crossfilter }) in
+  every panel that uses it, and use one selection name per dataset.
+- Written variables are hidden textbox variables (one per from, to or variable), never custom
+  dropdowns: a custom variable defaults to its first option and would filter at load.
+- Chaski SQL panels follow the brushes through a filters variable built on those same variables:
+  a range filter per interval (from '$x_lo', to '$x_hi'), an area filter per WKT variable (only
+  longitude and latitude: it wraps x at ±180), an in filter per points variable. Then SELECT count(*)
+  FROM $quakes WHERE $__crossfilter($quakeFilters).
+- A dataset's own SQL must not read a variable a Mosaic panel writes: each write would reload the
+  dataset, and a reload clears every brush.
+- To have a kepler map drive Mosaic, give the kepler panel viewportVariables {west, south, east,
+  north} and areaVariable, and put reads in one Mosaic panel; the kepler query then leaves out the
+  filters built on its own variables: $__crossfilter($f, -drawn, -view_lng, -view_lat).
+Writing specs that work:
+- Sizes: a single plot fills the panel; plots in a top-level vconcat or hconcat share it unless
+  sized. Put a legend in its own vconcat item with for: <plot name>, or it spills out of the panel.
+- Rasters, contours and heatmaps: use dark-ended schemes (magma, viridis, inferno) on a dark theme;
+  blues and oranges start at white.
+- Do not add a highlight interactor to aggregated marks (bins, counts) whose selection also filters
+  other columns: their query fails with a DuckDB Binder Error.
+- Names that are SQL keywords (lambda, order, group) must be renamed in the dataset's SQL.
+- Inputs: menu, search, slider and table; geo marks take a projection but draw no base map (that is
+  kepler's job).
+- Mosaic's marks that compute in DuckDB (density, contours, heatmap, raster, hexbin, regression)
+  scale to millions of rows; plain dot marks over millions of rows do not.`;

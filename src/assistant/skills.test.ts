@@ -2,7 +2,13 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 
 import { expandMacros } from '../engine/macros';
-import { chaskiAssistantSkill, dashboardAuthoringSkill, exampleDatasetVariable, examplePanelTarget } from './skills';
+import {
+  chaskiAssistantSkill,
+  dashboardAuthoringSkill,
+  exampleDatasetVariable,
+  examplePanelTarget,
+  mosaicAuthoringSkill,
+} from './skills';
 
 /** A call of each macro Chaski expands; the skills may name only these. */
 const calls: Record<string, string> = {
@@ -24,6 +30,7 @@ const ctx = {
 describe.each([
   ['chaskiAssistantSkill', chaskiAssistantSkill],
   ['dashboardAuthoringSkill', dashboardAuthoringSkill],
+  ['mosaicAuthoringSkill', mosaicAuthoringSkill],
 ])('%s', (_, skill) => {
   it('names only macros Chaski expands', () => {
     const named = new Set([...skill.matchAll(/\$__(\w+)/g)].map((m) => m[1]));

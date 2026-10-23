@@ -111,8 +111,9 @@ Scratch tables also share the datasource's memory limit with the datasets.
 On a Grafana with the Grafana Assistant, a Chaski dashboard tells the Assistant which datasets are
 loaded in the browser: their `$name`, rows, freshness, columns with DuckDB types, and the time range,
 plus two starter questions. Without the Assistant nothing is registered. The Assistant cannot run
-Chaski queries (they never reach the server); it writes the SQL for panels. Two skill texts teach it
-Chaski's SQL and dataset variables. Both are in [docs/grafana-assistant.md](docs/grafana-assistant.md).
+Chaski queries (they never reach the server); it writes the SQL for panels. The app registers three
+skills with it, for Chaski's SQL, its dataset variables and the Mosaic panel; their texts are in
+[docs/grafana-assistant.md](docs/grafana-assistant.md).
 
 ## Requirements
 

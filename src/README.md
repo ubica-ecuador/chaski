@@ -165,7 +165,8 @@ request, and the file comes back as the server sent it. The secrets stay encrypt
 
 On a Grafana with the Grafana Assistant, the Assistant is told which datasets this dashboard loaded,
 with their columns and types, so it can write panel SQL over them. It cannot run Chaski queries
-itself. Skill texts to paste into its instructions are in
+itself. The app registers skills that teach it Chaski's SQL, its dataset variables and the Mosaic
+panel; their texts are in
 [docs/grafana-assistant.md](https://github.com/ubica-ecuador/chaski/blob/main/docs/grafana-assistant.md).
 
 ## Mosaic panel
