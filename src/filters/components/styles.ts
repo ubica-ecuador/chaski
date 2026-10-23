@@ -7,6 +7,8 @@ const mosaicRules = (theme: GrafanaTheme2) => ({
     '--plot-background': theme.colors.background.primary,
   },
   svg: { overflow: 'visible', display: 'block', fontSize: 11, cursor: 'crosshair' },
+  // A button's icon is no plot: it keeps the button's pointer.
+  'button svg': { cursor: 'inherit' },
   'svg text': { fill: theme.colors.text.secondary },
   // A list's values read as labels, not as an axis.
   '[aria-label="y-axis tick label"] text': {

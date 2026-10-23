@@ -240,6 +240,8 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
 
   const layout = layoutFor(options.layout, height);
   const controlWidth = useDebounced(layout === 'pills' ? POPOVER_WIDTH - 16 : Math.max(120, width - 20), 150);
+  // In the timeline layout only the timeline spans the panel: the other filters open in popovers.
+  const popoverWidth = layout === 'timeline' ? POPOVER_WIDTH - 16 : controlWidth;
   // The timeline's histogram takes the panel's height under its bar; the other layouts keep theirs.
   const timelineHeight = useDebounced(layout === 'timeline' ? height - TIMELINE_BAR_HEIGHT - TIMELINE_GAP : 0, 150);
   const { filters: variableName, selection: selectionName, timeColumn, maxValues, bins } = options;
@@ -416,14 +418,15 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
       if (!page.params.has(allOf(selection))) {
         page.params.set(allOf(selection), Selection.intersect());
       }
-      const lookOf = (index: number, axis: 'x' | 'y') => {
+      const widthOf = (filter: unknown) => (filter === timeline ? controlWidth : popoverWidth);
+      const lookOf = (index: number, axis: 'x' | 'y', width: number) => {
         const colour = colourKey.split(',')[index % HUES.length];
         return {
           colour,
           paint: `url(#${gradientId(gradients, index, axis)})`,
           muted,
           text: textColour,
-          width: controlWidth,
+          width,
         };
       };
       const controls = new Map<string, Control>();
@@ -432,7 +435,7 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
       const searches = new Map<string, { source: object; text: string }>();
       for (const [index, filter] of dataset.filters.entries()) {
         if (filter.type === 'range') {
-          const look = lookOf(index, 'y');
+          const look = lookOf(index, 'y', widthOf(filter));
           const { element, interactors } = await draw(
             filter === timeline
               ? timelineSpec(dataset.name, filter, selection, bins, look, timelineHeight)
@@ -490,8 +493,8 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
             filter as ValueFilter,
             selection,
             labels,
-            labelWidth(labels, controlWidth),
-            lookOf(index, 'x')
+            labelWidth(labels, widthOf(filter)),
+            lookOf(index, 'x', widthOf(filter))
           );
           const { element, interactors } = await draw(spec);
           toggles.set(
@@ -675,6 +678,7 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
     maxValues,
     bins,
     controlWidth,
+    popoverWidth,
     timelineName,
     timelineHeight,
     muted,
