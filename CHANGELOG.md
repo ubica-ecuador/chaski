@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.2.0 (2026-10-23)
 
 - **Cross-filters.** A filters variable (kind `filters`) declares a dataset's filters: range, in,
   equals, search, a drawn area, or a link to another dataset's filters. Panels apply them with
