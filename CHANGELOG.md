@@ -13,6 +13,10 @@
   column are linked across panels: each shows the range of the one moved last. A new time range moves
   the counts without drawing the controls again.
   Unsigned builds must also allow `ubica-chaski-filters-panel`. See docs/filters.md.
+- **Timeline.** The filters panel's Timeline layout draws one range filter, usually time, the width of
+  the panel, with the other filters as pills, and plays its brush a bar at a time: a window that
+  slides, or one that grows. Each step filters every control and Mosaic panel live and writes its
+  variables, so maps reading them follow; it waits for the Chaski queries it set off before the next.
 
 ## 2.1.0 (2026-10-23)
 

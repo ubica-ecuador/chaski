@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { GrafanaTheme2, PanelProps } from '@grafana/data';
-import { getTemplateSrv, locationService } from '@grafana/runtime';
+import { getAppEvents, getTemplateSrv, locationService } from '@grafana/runtime';
 import { IconButton, Toggletip, useStyles2, useTheme2 } from '@grafana/ui';
 import type { Logger } from '@uwdata/mosaic-core';
 import { tableFromIPC } from 'apache-arrow';
 
 import { type Clause, type DeclaredDataset, type FilterDeclaration, filterStates } from '../../engine/crossfilter';
 import { quoteIdent } from '../../engine/sql';
+import { DuckdbWasmActivityEvent } from '../../grafana/activity';
 import { rawValue } from '../../grafana/interpolate';
 import type { ChaskiEngineApi } from '../../grafana/publicApi';
 import type { VariableLink } from '../../mosaic/bridge';
@@ -17,11 +18,26 @@ import { countSql, timeCondition } from '../queries';
 import { allOf, controlLinks, labelWidth, rangeSpec, type ValueFilter, valuesSpec } from '../specs';
 import type { IntervalInteractor, ToggleInteractor } from '../sync';
 import { loadMosaic } from '../runtime';
+import {
+  type ActivityState,
+  nextWindow,
+  play,
+  type Player,
+  type PlayMode,
+  previousWindow,
+  startWindow,
+  stepOf,
+  timelineFilter,
+  timelineSpec,
+  type Window,
+  formatWindow,
+} from '../timeline';
 import { DEFAULT_OPTIONS, type FiltersOptions } from '../types';
 import { pickedValues, rangeOf } from '../values';
 import { clearing, writeVariables } from '../writes';
 import { formatBin, formatCount, roundToAxis, SearchControl } from './controls';
 import { getStyles, type Styles } from './styles';
+import { Transport } from './Transport';
 
 /** The dashboard's filters as they stand: the dataset, its filters' states, the variables' values. */
 type Resolved =
@@ -29,15 +45,17 @@ type Resolved =
   | { kind: 'error'; text: string }
   | { kind: 'resolved'; variable: string; dataset: DeclaredDataset; states: Clause[]; value: ValueOf };
 
-/** A control drawn by Mosaic, or the search box the panel draws itself. */
+/** A control drawn by Mosaic, with play when it is the timeline; or the search box the panel draws itself. */
 type Control =
-  { kind: 'mosaic'; element: HTMLElement } | { kind: 'search'; set: (text: string) => void } | { kind: 'none' };
+  | { kind: 'mosaic'; element: HTMLElement; player?: Player }
+  | { kind: 'search'; set: (text: string) => void }
+  | { kind: 'none' };
 
 type Build =
   | { kind: 'starting' }
   | { kind: 'message'; text: string }
   | { kind: 'error'; text: string }
-  | { kind: 'ready'; dataset: DeclaredDataset; controls: Map<string, Control> };
+  | { kind: 'ready'; dataset: DeclaredDataset; controls: Map<string, Control>; timeline?: string };
 
 const messageOf = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 const isCancel = (message: string) => /abort|cancel|^\s*cleared\b/i.test(message);
@@ -82,6 +100,79 @@ export const layoutFor = (layout: FiltersOptions['layout'], height: number) =>
   layout === 'auto' ? (height < 160 ? 'pills' : 'sidebar') : layout;
 
 const POPOVER_WIDTH = 300;
+/**
+ * The timeline's bar of buttons and pills, above its histogram: one row, whose pills scroll sideways rather
+ * than wrap, so the histogram never has to be drawn again as the bar's content changes.
+ */
+const TIMELINE_BAR_HEIGHT = 32;
+/** Between the bar and the histogram. */
+const TIMELINE_GAP = 4;
+/** A step of play outlasts the bridge's rest, or the URL it writes would pull the brush back a step. */
+const MIN_STEP_MS = 400;
+
+/** Chaski's busy and settled, from Grafana's event bus. */
+const listenActivity = (listener: (state: ActivityState) => void) => {
+  const subscription = getAppEvents().subscribe(DuckdbWasmActivityEvent, (event) => listener(event.payload.state));
+  return () => subscription.unsubscribe();
+};
+
+/** Play, pause and a step either way, on the timeline's brush; each step draws the panel again. */
+function usePlayback(player: Player | undefined, mode: PlayMode, ms: number) {
+  const [playing, setPlaying] = useState(false);
+  const [, setMoves] = useState(0);
+  const abort = useRef<AbortController | undefined>(undefined);
+  const pause = useCallback(() => {
+    abort.current?.abort();
+    abort.current = undefined;
+    setPlaying(false);
+  }, []);
+  // A brush drawn again is another brush: play stops with the old one.
+  useEffect(() => pause, [player, pause]);
+  const moving = useCallback(
+    (window: Window | undefined) => {
+      if (player && window) {
+        player.set(window);
+        setMoves((n) => n + 1);
+      }
+    },
+    [player]
+  );
+  const toggle = useCallback(() => {
+    if (abort.current) {
+      pause();
+      return;
+    }
+    if (!player) {
+      return;
+    }
+    const controller = new AbortController();
+    abort.current = controller;
+    setPlaying(true);
+    play({ ...player, set: moving }, mode, Math.max(MIN_STEP_MS, ms), listenActivity, controller.signal)
+      .catch((error: unknown) => console.warn('Chaski filters: play stopped', error))
+      .finally(() => {
+        if (abort.current === controller) {
+          abort.current = undefined;
+          setPlaying(false);
+        }
+      });
+  }, [player, mode, ms, moving, pause]);
+  const forward = useCallback(() => {
+    if (!player) {
+      return;
+    }
+    const held = player.held();
+    const [domain, step] = [player.domain(), player.step()];
+    moving(held ? nextWindow(domain, held, step, mode) : startWindow(domain, step, mode));
+  }, [player, mode, moving]);
+  const back = useCallback(() => {
+    const held = player?.held();
+    if (player && held) {
+      moving(previousWindow(player.domain(), held, player.step(), mode));
+    }
+  }, [player, mode, moving]);
+  return { playing, toggle, pause, forward, back };
+}
 
 function useDebounced<T>(value: T, ms: number): T {
   const [settled, setSettled] = useState(value);
@@ -149,7 +240,10 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
 
   const layout = layoutFor(options.layout, height);
   const controlWidth = useDebounced(layout === 'pills' ? POPOVER_WIDTH - 16 : Math.max(120, width - 20), 150);
+  // The timeline's histogram takes the panel's height under its bar; the other layouts keep theirs.
+  const timelineHeight = useDebounced(layout === 'timeline' ? height - TIMELINE_BAR_HEIGHT - TIMELINE_GAP : 0, 150);
   const { filters: variableName, selection: selectionName, timeColumn, maxValues, bins } = options;
+  const timelineName = layout === 'timeline' ? options.timeline : undefined;
   const from = timeRange.from.valueOf();
   const to = timeRange.to.valueOf();
   // The time range reaches the built controls as a clause, not as a rebuild.
@@ -280,6 +374,16 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
         setBuild({ kind: 'message', text: `Waiting for the dataset ${dataset.name} to load…` });
         return;
       }
+      const timeline = timelineName === undefined ? undefined : timelineFilter(dataset.filters, timelineName);
+      if (timelineName !== undefined && !timeline) {
+        setBuild({
+          kind: 'message',
+          text: timelineName.trim()
+            ? `The timeline draws a range filter: ${dataset.name} has none named ${timelineName.trim()}.`
+            : `The timeline draws a range filter over times: ${dataset.name} has none. Name a range filter in Timeline filter.`,
+        });
+        return;
+      }
       const selection = selectionName.trim() || state.variable;
 
       const coordinator = new Coordinator(new ChaskiConnector(engine, {}), {
@@ -328,13 +432,34 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
       const searches = new Map<string, { source: object; text: string }>();
       for (const [index, filter] of dataset.filters.entries()) {
         if (filter.type === 'range') {
+          const look = lookOf(index, 'y');
           const { element, interactors } = await draw(
-            rangeSpec(dataset.name, filter, selection, bins, lookOf(index, 'y'))
+            filter === timeline
+              ? timelineSpec(dataset.name, filter, selection, bins, look, timelineHeight)
+              : rangeSpec(dataset.name, filter, selection, bins, look)
           );
           const interval = interactors.find((i) => isObject(i) && 'brush' in i) as IntervalInteractor | undefined;
+          let player: Player | undefined;
           if (interval) {
             intervals.set(filter.name, interval);
             const asTime = filter.as === 'time';
+            if (filter === timeline) {
+              const ends = (values: unknown[] | undefined): Window | undefined => {
+                const [a, b] = (values ?? []).map((v) => (v instanceof Date ? v.getTime() : Number(v)));
+                return Number.isFinite(a) && Number.isFinite(b) ? [Math.min(a, b), Math.max(a, b)] : undefined;
+              };
+              const domain = () => ends(interval.scale?.domain) ?? [0, 0];
+              player = {
+                domain,
+                step: () => stepOf(interval.mark, domain(), bins),
+                held: () => ends(interval.value),
+                // As a drag: the clause goes to the Selection, linked brushes follow, the bridge writes it.
+                set: (window) => void applyRange(interval, window),
+                settled: async () => {
+                  await Promise.all([...coordinator.clients].map((c) => c.pending));
+                },
+              };
+            }
             const read = (event: PointerEvent) => {
               const svg = element.querySelector('svg');
               const at = svg && interval.scale?.invert?.(event.clientX - svg.getBoundingClientRect().left);
@@ -353,7 +478,7 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
               element.removeEventListener('pointerleave', leave);
             });
           }
-          controls.set(filter.name, { kind: 'mosaic', element });
+          controls.set(filter.name, { kind: 'mosaic', element, player });
         } else if (filter.type === 'in' || filter.type === 'equals') {
           const top = await query(
             `SELECT CAST(${quoteIdent(filter.column)} AS VARCHAR) AS v FROM ${view} ` +
@@ -529,7 +654,7 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
       defer(locationService.getHistory().listen(sync));
 
       drawn = true;
-      setBuild({ kind: 'ready', dataset, controls });
+      setBuild({ kind: 'ready', dataset, controls, timeline: timeline?.name });
     };
 
     run().catch((error: unknown) => {
@@ -550,6 +675,8 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
     maxValues,
     bins,
     controlWidth,
+    timelineName,
+    timelineHeight,
     muted,
     textColour,
     gradients,
@@ -582,6 +709,7 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
     styles,
     colours,
     hover,
+    timeline: build.timeline,
   };
   return (
     <>
@@ -606,7 +734,13 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
           {problem}
         </div>
       )}
-      {layout === 'pills' ? <Pills {...view} /> : <Sidebar {...view} />}
+      {view.timeline !== undefined ? (
+        <Timeline {...view} />
+      ) : layout === 'pills' ? (
+        <Pills {...view} />
+      ) : (
+        <Sidebar {...view} />
+      )}
     </>
   );
 }
@@ -625,6 +759,8 @@ interface ViewProps {
   colours: string[];
   /** The bin under the pointer, by filter. */
   hover?: { name: string; text: string };
+  /** The filter drawn as the timeline, in that layout. */
+  timeline?: string;
 }
 
 /** A filter is shown as set when it is, and leaving it out would show more rows. */
@@ -818,53 +954,119 @@ function Sidebar(view: ViewProps) {
   );
 }
 
-function Pills(view: ViewProps) {
+/** A pill per filter, but the one left out, each opening its control. */
+function PillList({ view, except, strip }: { view: ViewProps; except?: string; strip?: boolean }) {
   const { dataset, states, styles } = view;
   return (
-    <div className={styles.pillsRoot} data-testid="filters-panel">
-      <div className={styles.pills}>
-        {dataset.filters.map((filter, index) => {
-          const state = states.find((s) => s.name === filter.name);
-          const set = state !== undefined && narrows(view, state);
-          const label = filter.label ?? filter.name;
-          const colour = view.colours[index % view.colours.length];
-          return (
-            <span
-              key={filter.name}
-              className={styles.pill}
-              style={
-                set ? { borderColor: colour, background: `color-mix(in srgb, ${colour} 16%, transparent)` } : undefined
+    <div className={strip ? styles.pillsStrip : styles.pills}>
+      {dataset.filters.map((filter, index) => {
+        if (filter.name === except) {
+          return null;
+        }
+        const state = states.find((s) => s.name === filter.name);
+        const set = state !== undefined && narrows(view, state);
+        const label = filter.label ?? filter.name;
+        const colour = view.colours[index % view.colours.length];
+        return (
+          <span
+            key={filter.name}
+            className={styles.pill}
+            style={
+              set ? { borderColor: colour, background: `color-mix(in srgb, ${colour} 16%, transparent)` } : undefined
+            }
+          >
+            <Toggletip
+              placement="bottom-start"
+              closeButton={false}
+              content={
+                <div className={styles.popover}>
+                  <ControlView filter={filter} view={view} />
+                  {filter.type === 'range' && (
+                    <div className={styles.readout}>
+                      {view.hover?.name === filter.name ? view.hover.text : set ? state.text : ''}
+                    </div>
+                  )}
+                </div>
               }
             >
-              <Toggletip
-                placement="bottom-start"
-                closeButton={false}
-                content={
-                  <div className={styles.popover}>
-                    <ControlView filter={filter} view={view} />
-                    {filter.type === 'range' && (
-                      <div className={styles.readout}>
-                        {view.hover?.name === filter.name ? view.hover.text : set ? state.text : ''}
-                      </div>
-                    )}
-                  </div>
-                }
-              >
-                <button type="button" className={styles.pillButton}>
-                  <span className={styles.dot} style={{ background: colour }} />
-                  <span>{set ? `${label}: ${state.text}` : label}</span>
-                  {!set && <span>▾</span>}
-                </button>
-              </Toggletip>
-              {set && state.variables.length > 0 && <ClearOne state={state} />}
-            </span>
-          );
-        })}
-      </div>
+              <button type="button" className={styles.pillButton}>
+                <span className={styles.dot} style={{ background: colour }} />
+                <span>{set ? `${label}: ${state.text}` : label}</span>
+                {!set && <span>▾</span>}
+              </button>
+            </Toggletip>
+            {set && state.variables.length > 0 && <ClearOne state={state} />}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+function Pills(view: ViewProps) {
+  const { styles } = view;
+  return (
+    <div className={styles.pillsRoot} data-testid="filters-panel">
+      <PillList view={view} />
       {/* At the end, at a width that holds the largest count: the pills never move as it changes. */}
       <div className={styles.pillsEnd}>
         <Count {...view} />
         <ClearAll {...view} />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * One range filter the width of the panel, with play; the other filters as
+ * pills beside its buttons. A drag on it pauses play.
+ */
+function Timeline(view: ViewProps) {
+  const { dataset, states, styles, options } = view;
+  const index = dataset.filters.findIndex((f) => f.name === view.timeline);
+  const filter = dataset.filters[index];
+  const control = view.controls.get(filter.name);
+  const player = control?.kind === 'mosaic' ? control.player : undefined;
+  const { playing, toggle, pause, forward, back } = usePlayback(player, options.playMode, options.stepMs);
+  const state = states.find((s) => s.name === filter.name);
+  const held = player?.held();
+  const domain = player?.domain();
+  const step = player?.step() ?? 0;
+  const asTime = filter.type === 'range' && filter.as === 'time';
+  const readout =
+    view.hover?.name === filter.name
+      ? view.hover.text
+      : held
+        ? formatWindow(held, asTime)
+        : state && narrows(view, state)
+          ? state.text
+          : '';
+  return (
+    <div className={styles.timelineRoot} data-testid="filters-panel">
+      <div className={styles.timelineBar} style={{ height: TIMELINE_BAR_HEIGHT }}>
+        <span className={styles.timelineLabel}>
+          <span className={styles.dot} style={{ background: view.colours[index % view.colours.length] }} />
+          {filter.label ?? filter.name}
+        </span>
+        <Transport
+          playing={playing}
+          canBack={Boolean(domain && held && previousWindow(domain, held, step, options.playMode))}
+          canForward={Boolean(domain && (!held || nextWindow(domain, held, step, options.playMode)))}
+          onToggle={toggle}
+          onBack={back}
+          onForward={forward}
+          readout={readout}
+          colour={view.colours[index % view.colours.length]}
+        />
+        {state && narrows(view, state) && state.variables.length > 0 && <ClearOne state={state} />}
+        <PillList view={view} except={filter.name} strip />
+        <div className={styles.pillsEnd}>
+          <Count {...view} />
+          <ClearAll {...view} />
+        </div>
+      </div>
+      <div onPointerDownCapture={pause}>
+        <ControlView filter={filter} view={view} />
       </div>
     </div>
   );

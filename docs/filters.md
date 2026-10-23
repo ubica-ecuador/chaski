@@ -36,14 +36,17 @@ selection name follows it live, and drives it live.
 
 ## Options
 
-| Option           | Default | What it does                                                                                                             |
-| ---------------- | ------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Filters variable | empty   | The filters variable to show. Empty takes the dashboard's only one.                                                      |
-| Layout           | Auto    | Auto: a sidebar of sections when the panel is 160 px tall or more, a row of pills (each opening its control) when lower. |
-| Time column      | empty   | When set, every count keeps to the dashboard's time range over that column.                                              |
-| Rows are         | rows    | The noun in "N of M rows".                                                                                               |
-| Values shown     | 8       | How many values a list shows before "more"; longer lists get a box to find one.                                          |
-| Histogram bars   | 40      | Bars in a range's histogram.                                                                                             |
+| Option           | Default | What it does                                                                                                                                                       |
+| ---------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Filters variable | empty   | The filters variable to show. Empty takes the dashboard's only one.                                                                                                |
+| Layout           | Auto    | Auto: a sidebar of sections when the panel is 160 px tall or more, a row of pills (each opening its control) when lower. Timeline: see below; Auto never picks it. |
+| Timeline filter  | empty   | With the Timeline layout, the range filter it draws. Empty takes the first range filter over times.                                                                |
+| Play             | Slide   | Slide: a window of fixed width moves along. Grow: the start stays and the end moves.                                                                               |
+| Step duration    | 800     | The least time a step of play lasts, in ms (at least 400); longer while the panels the step set off still run.                                                     |
+| Time column      | empty   | When set, every count keeps to the dashboard's time range over that column.                                                                                        |
+| Rows are         | rows    | The noun in "N of M rows".                                                                                                                                         |
+| Values shown     | 8       | How many values a list shows before "more"; longer lists get a box to find one.                                                                                    |
+| Histogram bars   | 40      | Bars in a range's histogram.                                                                                                                                       |
 
 A panel as JSON:
 
@@ -55,6 +58,33 @@ A panel as JSON:
   "options": { "filters": "quakeFilters", "layout": "auto", "timeColumn": "time", "noun": "quakes" }
 }
 ```
+
+## The timeline
+
+With the **Timeline** layout the panel draws one range filter, usually time, the width of the panel
+and the height it is given, with the other filters as pills beside its buttons. The buttons step
+back, play or pause, and step forward, one bar of the histogram at a time (Mosaic rounds the bars to
+a nice size: an hour, half a day, a day). Beside them, the window the brush holds.
+
+Play starts from the window held, or, with none, from the axis's start: a tenth of the axis wide when
+it slides, one bar wide when it grows. Each step is a brush like one drawn by hand: the other controls,
+the count and Mosaic panels on the selection follow it live, and its variables are written once it
+rests, so a kepler map reading them as its time window follows too. A step lasts at least the Step
+duration, and longer while the Chaski queries it set off still run (up to 5 s more): the panel listens
+to the same `ubica-duckdbwasm-activity` event kepler paces its playback on. Play stops at the axis's
+end, and a drag on the histogram pauses it.
+
+```json
+{
+  "type": "ubica-chaski-filters-panel",
+  "title": "Timeline",
+  "gridPos": { "x": 0, "y": 0, "w": 24, "h": 7 },
+  "options": { "filters": "quakeFilters", "layout": "timeline", "playMode": "slide", "stepMs": 800, "bins": 60 }
+}
+```
+
+For a dashboard whose data is not in Chaski, or to play the dashboard's own time range, Kepler Plus's
+Time Brush panel does the same over any query.
 
 ## How it works
 
