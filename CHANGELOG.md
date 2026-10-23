@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.0.0 (2026-10-23)
 
 - **Chaski is an app.** The plugin is now `ubica-chaski-app`, which brings the datasource under its
   same id, `ubica-chaski-datasource`, so dashboards and provisioned datasources keep working. Install
