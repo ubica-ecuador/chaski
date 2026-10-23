@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { PanelProps } from '@grafana/data';
 import { useStyles2 } from '@grafana/ui';
-import { Coordinator, type Logger } from '@uwdata/mosaic-core';
+import { Coordinator, isSelection, type Logger } from '@uwdata/mosaic-core';
 import { astToDOM, parseSpec } from '@uwdata/mosaic-spec';
 import { createAPIContext } from '@uwdata/vgplot';
 
+import { brushColumn, type IntervalInteractor, linkBrush } from '../../filters/sync';
 import { linkVariables, parseLinks } from '../bridge';
 import { linkReads, parseReads } from '../inbound';
 import { ChaskiConnector, unreadable, waitForEngine } from '../connector';
@@ -144,7 +145,9 @@ export function MosaicPanel({ options, width, height }: PanelProps<MosaicOptions
 
       const coordinator = new Coordinator(new ChaskiConnector(engine, { onAnswer }), {
         logger: panelLogger(reportError),
-        preagg: { schema: PREAGG_SCHEMA, enabled: preaggregate },
+        // Off until the marks have read their columns: a brush in another panel would otherwise pre-aggregate
+        // them before a binned time column is known as a time, and bin it as a number.
+        preagg: { schema: PREAGG_SCHEMA, enabled: false },
       });
       const api = createAPIContext({ coordinator, namedPlots: page.namedPlots as never });
       page.namedPlots ??= api.context.namedPlots;
@@ -161,13 +164,37 @@ export function MosaicPanel({ options, width, height }: PanelProps<MosaicOptions
         return;
       }
       page.read(names, infos);
+      // Brushes on one column, here and in other panels (the filters panel's histograms), move together.
+      for (const client of coordinator.clients) {
+        for (const interactor of (client as { plot?: { interactors?: unknown[] } }).plot?.interactors ?? []) {
+          const brush = interactor as IntervalInteractor;
+          const column = 'brush' in (interactor as object) ? brushColumn(brush) : undefined;
+          if (column && isSelection(brush.selection)) {
+            defer(linkBrush(brush.selection, brush, column));
+          }
+        }
+      }
       host.current?.replaceChildren(element);
       defer(() => host.current?.replaceChildren());
       defer(linkReads(reads, page.params));
-      const unlink = linkVariables(links, page.params);
+      // This panel writes what its own interactors did; a clause from another panel is that panel's to write.
+      const mine = new Set<unknown>(
+        [...coordinator.clients].flatMap((c) => (c as { plot?: { interactors?: unknown[] } }).plot?.interactors ?? [])
+      );
+      const unlink = linkVariables(
+        links,
+        page.params,
+        (clause) => mine.has(clause.source) || !isInteractorClause(clause)
+      );
       defer(() => unlink(dashboardKey() === page.key));
       drawn = true;
       setStatus({ kind: 'ready' });
+      if (preaggregate) {
+        await Promise.all([...coordinator.clients].map((c) => c.pending)).catch(() => {});
+        if (alive()) {
+          coordinator.preaggregator.enabled = true;
+        }
+      }
     };
 
     build().catch((error: unknown) => {
@@ -195,6 +222,13 @@ export function MosaicPanel({ options, width, height }: PanelProps<MosaicOptions
     </div>
   );
 }
+
+/** A clause an interactor made (a brush, a toggle), not one read from a variable or written by code. */
+const isInteractorClause = (clause: { source?: unknown; meta?: unknown }) =>
+  ['interval', 'point', 'match'].includes((clause.meta as { type?: string } | undefined)?.type ?? '') &&
+  typeof clause.source === 'object' &&
+  clause.source !== null &&
+  'selection' in clause.source;
 
 function Message({ status, className, errorClass }: { status: Status; className: string; errorClass: string }) {
   const list = (names: string[]) => (names.length > 0 ? names.map((n) => `\`${n}\``).join(', ') : 'none yet');

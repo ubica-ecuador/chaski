@@ -15,7 +15,15 @@ import { clauseColumns } from '../mosaic/bridge';
 /** What the panel needs of Mosaic's Interval1D interactor. */
 export interface IntervalInteractor {
   value?: unknown[];
-  scale?: { type?: string; domain?: unknown[]; range?: number[]; apply(value: unknown): number };
+  /** The mark the brush sits on: the grey layer of a histogram. */
+  mark?: unknown;
+  scale?: {
+    type?: string;
+    domain?: unknown[];
+    range?: number[];
+    apply(value: unknown): number;
+    invert?(pixel: number): unknown;
+  };
   g?: { call(fn: unknown, extent: unknown): unknown };
   brush: { moveSilent: unknown };
   selection: Selection;
@@ -66,7 +74,11 @@ export function applyRange(interactor: IntervalInteractor, range: [number | unde
     return false;
   }
   const pixel = pixelOf(interactor);
-  if (held && held.length === 2 && held.every((v, i) => Math.abs(v - ends[i]) <= pixel)) {
+  if (
+    held &&
+    held.length === 2 &&
+    held.every((v, i) => Math.abs(v - ends[i]) <= Math.max(pixel, toleranceOf(0, ends[i])))
+  ) {
     return false;
   }
   const value = isTimeScale(interactor.scale) ? ends.map((v) => new Date(v)) : ends;
@@ -146,14 +158,21 @@ export function heldElsewhere(
   });
 }
 
+/**
+ * How far apart two ends may be and still be one: a hundredth of the axis, or,
+ * for a brush that has not drawn its axis yet, what 12 significant digits (the
+ * URL's) leave out.
+ */
+const toleranceOf = (span: number, value: number) =>
+  Math.max(Math.abs(span) / 100, Math.abs(value) * 1e-9, Number.EPSILON);
+
 /** An interval clause's value against a range from the URL, within a hundredth of the axis: open ends match anything. */
 export function rangeMatches(value: unknown, range: [number | undefined, number | undefined], span: number): boolean {
   if (!Array.isArray(value) || value.length !== 2) {
     return false;
   }
   const held = value.map(asNumber);
-  const tolerance = Math.abs(span) / 100;
-  return range.every((end, i) => end === undefined || Math.abs(held[i] - end) <= tolerance);
+  return range.every((end, i) => end === undefined || Math.abs(held[i] - end) <= toleranceOf(span, end));
 }
 
 /** A points clause's value against the URL's values, in any order. */
@@ -178,12 +197,12 @@ export function spanOf(interactor: IntervalInteractor): number {
  */
 export function mirrorClauses(source: Selection, mirror: Selection): () => void {
   const copy = () => {
-    const wanted = new Set(source.clauses);
-    const gone = mirror.clauses.filter((clause) => !source.clauses.some((c) => c.source === clause.source));
-    if (gone.length > 0) {
-      mirror.reset(gone);
+    const sources = new Set(source.clauses.map((c) => c.source));
+    // Taken out with an empty clause, not mirror.reset: that would also reset the brushes they came from.
+    for (const clause of mirror.clauses.filter((c) => !sources.has(c.source))) {
+      mirror.update({ ...clause, value: null, predicate: null } as SelectionClause);
     }
-    for (const clause of wanted) {
+    for (const clause of source.clauses) {
       if (!mirror.clauses.includes(clause)) {
         mirror.update(clause);
       }
@@ -192,4 +211,192 @@ export function mirrorClauses(source: Selection, mirror: Selection): () => void 
   copy();
   source.addEventListener('value', copy);
   return () => source.removeEventListener('value', copy);
+}
+
+/** What the panel needs of a Mosaic mark: its channels and the columns of its last result. */
+export interface BinnedMark {
+  channels: Array<{ channel: string; as?: string }>;
+  data?: { numRows?: number; columns?: Record<string, ArrayLike<unknown>> };
+}
+
+/**
+ * The bin of a histogram's mark under a value of its axis: its ends and its
+ * count, read from the result the mark last drew, so a hover queries nothing.
+ */
+export function binAt(mark: BinnedMark, value: number): { lo: number; hi: number; count: number } | undefined {
+  const columns = mark.data?.columns;
+  if (!columns) {
+    return undefined;
+  }
+  const column = (...channels: string[]) => {
+    for (const name of channels) {
+      const as = mark.channels.find((c) => c.channel === name)?.as ?? name;
+      if (columns[as]) {
+        return columns[as];
+      }
+    }
+    return undefined;
+  };
+  const x1 = column('x1');
+  const x2 = column('x2');
+  const y = column('y', 'y2');
+  if (!x1 || !x2 || !y) {
+    return undefined;
+  }
+  for (let i = 0; i < (mark.data?.numRows ?? x1.length); i++) {
+    const lo = asNumber(x1[i]);
+    const hi = asNumber(x2[i]);
+    if (value >= Math.min(lo, hi) && value < Math.max(lo, hi)) {
+      return { lo: Math.min(lo, hi), hi: Math.max(lo, hi), count: Number(y[i]) };
+    }
+  }
+  return undefined;
+}
+
+/*
+ * Linked brushes. A dashboard can brush one column in several places: a
+ * histogram in the filters panel, another in a Mosaic panel. Each registers
+ * its brush under the column it brushes, on the Selection it writes. Then an
+ * interval clause on that column, whoever made it, leaves out every
+ * registered histogram, so each keeps drawing the whole column under the
+ * other filters; the last brush moved is the one that counts, and the others
+ * move to show it.
+ */
+
+type BrushRegistry = Map<string, Set<IntervalInteractor>>;
+const brushes = new WeakMap<Selection, BrushRegistry>();
+
+const intervalColumn = (clause: SelectionClause): string | undefined => {
+  const meta = clause.meta as { type?: string } | undefined;
+  const columns = meta?.type === 'interval' ? clauseColumns(clause) : [];
+  return columns.length === 1 ? columns[0] : undefined;
+};
+
+const marksOf = (interactor: IntervalInteractor): unknown[] => {
+  const plot = (interactor.mark as { plot?: { markSet?: Set<unknown> } } | undefined)?.plot;
+  return plot?.markSet ? [...plot.markSet] : [];
+};
+
+/** The coordinators of the panels whose brushes are in a set: each keeps pre-aggregates of its own. */
+function coordinatorsOf(set: Set<IntervalInteractor>): Set<{ preaggregator?: { clear(): void } }> {
+  const found = new Set<{ preaggregator?: { clear(): void } }>();
+  for (const interactor of set) {
+    const coordinator = (interactor.mark as { coordinator?: { preaggregator?: { clear(): void } } } | undefined)
+      ?.coordinator;
+    if (coordinator) {
+      found.add(coordinator);
+    }
+  }
+  return found;
+}
+
+/** Shows a range on a brush without making a clause of it. */
+function showRange(interactor: IntervalInteractor, value: unknown[]) {
+  interactor.value = value;
+  if (interactor.g && interactor.scale) {
+    const extent = value.map((v) => interactor.scale!.apply(v)).sort((a, b) => a - b);
+    interactor.g.call(interactor.brush.moveSilent, extent);
+  }
+}
+
+function registryOf(selection: Selection): BrushRegistry {
+  let registry = brushes.get(selection);
+  if (registry) {
+    return registry;
+  }
+  const made: BrushRegistry = new Map();
+  registry = made;
+  brushes.set(selection, made);
+  // Before the coordinators hear of a clause: widen whom it leaves out to every brush on its column. Both on
+  // an update and on the activation a brush announces as the pointer enters it, which is when Mosaic plans
+  // its pre-aggregates, and which skip the clients a clause leaves out.
+  const widen = (clause: SelectionClause) => {
+    const column = clause && intervalColumn(clause);
+    const peers = column ? made.get(column) : undefined;
+    if (peers && peers.size > 0) {
+      clause.clients = new Set([...(clause.clients ?? []), ...[...peers].flatMap(marksOf)]) as never;
+    }
+    return clause;
+  };
+  const update = selection.update.bind(selection);
+  selection.update = (clause: SelectionClause) => {
+    // A brush taking its column from another brush: that one's clause goes first, so no client, pre-aggregate
+    // or mirror ever sees the two together.
+    const column = clause && clause.value != null ? intervalColumn(clause) : undefined;
+    const set = column ? made.get(column) : undefined;
+    if (column && set?.has(clause.source as IntervalInteractor)) {
+      const stale = selection.clauses.filter(
+        (c) => c.source !== clause.source && intervalColumn(c) === column && set.has(c.source as IntervalInteractor)
+      );
+      if (stale.length > 0) {
+        // Mosaic pre-aggregated for this brush as the pointer entered it, with the stale clause still in:
+        // drop those tables, so they are planned again without it.
+        for (const coordinator of coordinatorsOf(set)) {
+          coordinator.preaggregator?.clear();
+        }
+        selection.reset(stale);
+      }
+    }
+    return update(widen(clause));
+  };
+  const activate = selection.activate.bind(selection);
+  selection.activate = (clause: SelectionClause) => activate(widen(clause));
+  // After: the other brushes on a column show the range of its clause, and a stale clause left there (one
+  // updated before this registry knew its brush) goes.
+  selection.addEventListener('value', () => {
+    for (const [column, set] of made) {
+      const onColumn = selection.clauses.filter((c) => intervalColumn(c) === column);
+      const latest = onColumn[onColumn.length - 1];
+      const stale = onColumn.filter((c) => c !== latest && set.has(c.source as IntervalInteractor));
+      if (stale.length > 0) {
+        // Mosaic pre-aggregated for the winning brush with the stale clauses in, and keeps those tables while
+        // that brush stays active: drop them first, so the update the reset makes plans them again.
+        for (const coordinator of coordinatorsOf(set)) {
+          coordinator.preaggregator?.clear();
+        }
+        selection.reset(stale);
+      }
+      for (const interactor of set) {
+        if (latest && latest.source !== interactor) {
+          if (Array.isArray(latest.value)) {
+            showRange(interactor, latest.value);
+          }
+        } else if (!latest && interactor.value) {
+          interactor.reset();
+        }
+      }
+    }
+  });
+  return made;
+}
+
+/** Registers a brush on its column; returns the function that takes it out. */
+export function linkBrush(selection: Selection, interactor: IntervalInteractor, column: string): () => void {
+  const registry = registryOf(selection);
+  let set = registry.get(column);
+  if (!set) {
+    set = new Set();
+    registry.set(column, set);
+  }
+  set.add(interactor);
+  return () => {
+    registry.get(column)?.delete(interactor);
+  };
+}
+
+/** Takes every brush's clause on a column out of the Selection: a chip's × clears them wherever they were drawn. */
+export function clearColumn(selection: Selection, column: string): void {
+  const onColumn = selection.clauses.filter((c) => intervalColumn(c) === column);
+  if (onColumn.length > 0) {
+    selection.reset(onColumn);
+  }
+}
+
+/** The column an interval brush filters, when it filters one. */
+export function brushColumn(interactor: IntervalInteractor): string | undefined {
+  try {
+    return intervalColumn(interactor.clause([0, 1]));
+  } catch {
+    return undefined;
+  }
 }

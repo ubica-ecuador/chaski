@@ -23,6 +23,21 @@ export function roundToAxis(value: number, span: number, pixels: number, asTime:
   return Number(value.toFixed(decimals));
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** A bin's ends for the hover readout: dates, a time within a day, or numbers to 3 significant digits. */
+export function formatBin(lo: number, hi: number, asTime: boolean): string {
+  if (asTime) {
+    const iso = (ms: number) => new Date(ms).toISOString();
+    if (hi - lo < DAY_MS) {
+      return `${iso(lo).slice(0, 10)} ${iso(lo).slice(11, 16)}–${iso(hi).slice(11, 16)}`;
+    }
+    return `${iso(lo).slice(0, 10)} – ${iso(hi).slice(0, 10)}`;
+  }
+  const short = (v: number) => String(Number(v.toPrecision(3)));
+  return `${short(lo)}–${short(hi)}`;
+}
+
 interface SearchProps {
   label: string;
   value: string;

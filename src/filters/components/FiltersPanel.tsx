@@ -20,7 +20,7 @@ import { loadMosaic } from '../runtime';
 import { DEFAULT_OPTIONS, type FiltersOptions } from '../types';
 import { pickedValues, rangeOf } from '../values';
 import { clearing, writeVariables } from '../writes';
-import { formatCount, roundToAxis, SearchControl } from './controls';
+import { formatBin, formatCount, roundToAxis, SearchControl } from './controls';
 import { getStyles, type Styles } from './styles';
 
 /** The dashboard's filters as they stand: the dataset, its filters' states, the variables' values. */
@@ -72,6 +72,10 @@ export function resolveFilters(engine: ChaskiEngineApi, variableName: string): R
     return { kind: 'error', text: messageOf(error) };
   }
 }
+
+/** The variables a filter reads, which the panel writes for it. */
+const variablesOf = (filter: FilterDeclaration): string[] =>
+  filter.type === 'range' ? [filter.from, filter.to] : filter.type === 'link' ? [] : [filter.variable];
 
 /** Sidebar when the panel is tall enough for sections, pills when it is a strip. */
 export const layoutFor = (layout: FiltersOptions['layout'], height: number) =>
@@ -139,6 +143,8 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
   // Per active filter, the rows with it left out: one that takes none away is not shown as set.
   const [without, setWithout] = useState<Record<string, number>>({});
   const [problem, setProblem] = useState<string>();
+  // The bin under the pointer in a histogram: shown where the filter's value goes, not over the bars.
+  const [hover, setHover] = useState<{ name: string; text: string }>();
   const [rebuild, setRebuild] = useState(0);
 
   const layout = layoutFor(options.layout, height);
@@ -146,6 +152,13 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
   const { filters: variableName, selection: selectionName, timeColumn, maxValues, bins } = options;
   const from = timeRange.from.valueOf();
   const to = timeRange.to.valueOf();
+  // The time range reaches the built controls as a clause, not as a rebuild.
+  const timeNow = useRef({ from, to });
+  const setTime = useRef<(range: { from: number; to: number }) => void>(undefined);
+  useEffect(() => {
+    timeNow.current = { from, to };
+    setTime.current?.({ from, to });
+  }, [from, to]);
   const muted = mutedOf(theme);
   const textColour = theme.colors.text.secondary;
   const gradients = useId();
@@ -243,7 +256,7 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
       } = mosaic;
       const { applyRange, applyValues, heldElsewhere, mirrorClauses, pixelOf, rangeMatches, searchClause } =
         mosaic.sync;
-      const { spanOf, timeClause, valuesMatch } = mosaic.sync;
+      const { spanOf, timeClause, valuesMatch, binAt, linkBrush, clearColumn } = mosaic.sync;
       const page = pageFor(dashboardKey(), engine);
       defer(page.subscribe(() => setRebuild((n) => n + 1)));
       let waiting = false;
@@ -271,7 +284,9 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
 
       const coordinator = new Coordinator(new ChaskiConnector(engine, {}), {
         logger: quietLogger(reportError),
-        preagg: { schema: PREAGG_SCHEMA, enabled: true },
+        // Off until the controls have read their columns: a brush elsewhere would otherwise pre-aggregate them
+        // before a histogram knows its column is a time, and bin it as a number.
+        preagg: { schema: PREAGG_SCHEMA, enabled: false },
       });
       const api = createAPIContext({ coordinator, namedPlots: page.namedPlots as never });
       page.namedPlots ??= api.context.namedPlots;
@@ -316,9 +331,27 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
           const { element, interactors } = await draw(
             rangeSpec(dataset.name, filter, selection, bins, lookOf(index, 'y'))
           );
-          const interval = interactors.find((i) => isObject(i) && 'brush' in i);
+          const interval = interactors.find((i) => isObject(i) && 'brush' in i) as IntervalInteractor | undefined;
           if (interval) {
-            intervals.set(filter.name, interval as IntervalInteractor);
+            intervals.set(filter.name, interval);
+            const asTime = filter.as === 'time';
+            const read = (event: PointerEvent) => {
+              const svg = element.querySelector('svg');
+              const at = svg && interval.scale?.invert?.(event.clientX - svg.getBoundingClientRect().left);
+              const bin = at === undefined || at === null ? undefined : binAt(interval.mark as never, Number(at));
+              setHover(
+                bin
+                  ? { name: filter.name, text: `${formatBin(bin.lo, bin.hi, asTime)} · ${formatCount(bin.count)}` }
+                  : undefined
+              );
+            };
+            const leave = () => setHover(undefined);
+            element.addEventListener('pointermove', read);
+            element.addEventListener('pointerleave', leave);
+            defer(() => {
+              element.removeEventListener('pointermove', read);
+              element.removeEventListener('pointerleave', leave);
+            });
           }
           controls.set(filter.name, { kind: 'mosaic', element });
         } else if (filter.type === 'in' || filter.type === 'equals') {
@@ -368,12 +401,12 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
         throw new Error(`The filters panel's selection ${selection} is a param elsewhere on this dashboard`);
       }
       defer(mirrorClauses(shared, all));
-
-      // The dashboard's time range, as a clause no control owns.
-      if (timeColumn.trim()) {
-        const clause = timeClause({ time: true }, timeColumn.trim(), from, to);
-        shared.update(clause);
-        defer(() => shared.reset([clause]));
+      // Brushes on the same column elsewhere (a Mosaic panel's histogram) and these move together.
+      for (const filter of dataset.filters) {
+        const interval = filter.type === 'range' ? intervals.get(filter.name) : undefined;
+        if (interval && filter.type === 'range') {
+          defer(linkBrush(shared, interval, filter.column));
+        }
       }
 
       // The rows left, live: a client of the Selection like the controls, but owning no clause.
@@ -403,9 +436,17 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
         ...[...toggles.values()].flat(),
         ...[...searches.values()].map((s) => s.source),
       ]);
+      // Only a filter whose own variables changed in the URL is applied: another variable changing must not
+      // undo a brush or a search still within its rest, not yet written.
+      const seen = new Map<string, string>();
       const sync = () => {
         const value = currentValues();
         for (const filter of dataset.filters) {
+          const key = JSON.stringify(variablesOf(filter).map((name) => value(name) ?? ''));
+          if (seen.get(filter.name) === key) {
+            continue;
+          }
+          seen.set(filter.name, key);
           if (filter.type === 'range') {
             const interval = intervals.get(filter.name);
             if (!interval) {
@@ -414,10 +455,14 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
             const range = rangeOf(filter, value);
             const set = range[0] !== undefined || range[1] !== undefined;
             if (set && heldElsewhere(shared, own, filter.column, (v) => rangeMatches(v, range, spanOf(interval)))) {
-              applyRange(interval, [undefined, undefined]);
-            } else {
-              applyRange(interval, range);
+              // Another brush on this column holds it: the linked brushes show it here.
+              continue;
             }
+            if (!set) {
+              // Cleared in the URL: wherever its brush was drawn.
+              clearColumn(shared, filter.column);
+            }
+            applyRange(interval, range);
           } else if (filter.type === 'in' || filter.type === 'equals') {
             const values = pickedValues(value, filter.variable);
             const elsewhere =
@@ -442,6 +487,22 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
       if (!alive()) {
         return;
       }
+      coordinator.preaggregator.enabled = true;
+
+      // The dashboard's time range, as a clause no control owns: set once the controls have their axes, and
+      // replaced in place when the range changes, without drawing the controls again.
+      if (timeColumn.trim()) {
+        const source = { time: true };
+        const set = (range: { from: number; to: number }) => {
+          shared.update(timeClause(source, timeColumn.trim(), range.from, range.to));
+        };
+        set(timeNow.current);
+        setTime.current = set;
+        defer(() => {
+          setTime.current = undefined;
+          shared.reset(shared.clauses.filter((clause) => clause.source === source));
+        });
+      }
       sync();
 
       // From the controls to the variables, once they rest; a range's ends rounded to a pixel of its axis.
@@ -462,7 +523,8 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
           },
         };
       });
-      const unlink = linkVariables(links, page.params);
+      // This panel writes what its own controls did; a brush drawn in another panel is that panel's to write.
+      const unlink = linkVariables(links, page.params, (clause) => own.has(clause.source));
       defer(() => unlink(false));
       defer(locationService.getHistory().listen(sync));
 
@@ -485,8 +547,6 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
     variableName,
     selectionName,
     timeColumn,
-    from,
-    to,
     maxValues,
     bins,
     controlWidth,
@@ -521,6 +581,7 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
     options,
     styles,
     colours,
+    hover,
   };
   return (
     <>
@@ -562,6 +623,8 @@ interface ViewProps {
   styles: Styles;
   /** One per filter, in declaration order. */
   colours: string[];
+  /** The bin under the pointer, by filter. */
+  hover?: { name: string; text: string };
 }
 
 /** A filter is shown as set when it is, and leaving it out would show more rows. */
@@ -600,7 +663,7 @@ function Count({ shown, total, options, styles, wide }: ViewProps & { wide?: boo
   const widest = `${formatCount(total ?? 0)} of ${formatCount(total ?? 0)} ${options.noun} 100%`.length;
   const eased = useEased(shown);
   const show = (n?: number) => (n === undefined ? '…' : formatCount(Math.round(n)));
-  const share = shown !== undefined && total ? Math.min(1, shown / total) : undefined;
+  const share = shown === undefined || total === undefined ? undefined : total > 0 ? Math.min(1, shown / total) : 0;
   const percent =
     share === undefined
       ? ''
@@ -736,7 +799,11 @@ function Sidebar(view: ViewProps) {
                 <span>{open ? '▾' : '▸'}</span>
                 <span className={styles.dot} style={{ background: colour }} />
                 <span>{filter.label ?? filter.name}</span>
-                {set && <span className={styles.sectionValue}>{state.text}</span>}
+                {view.hover?.name === filter.name ? (
+                  <span className={`${styles.sectionValue} ${styles.hover}`}>{view.hover.text}</span>
+                ) : (
+                  set && <span className={styles.sectionValue}>{state.text}</span>
+                )}
               </button>
               {set && state.variables.length > 0 && <ClearOne state={state} />}
             </div>
@@ -775,6 +842,11 @@ function Pills(view: ViewProps) {
                 content={
                   <div className={styles.popover}>
                     <ControlView filter={filter} view={view} />
+                    {filter.type === 'range' && (
+                      <div className={styles.readout}>
+                        {view.hover?.name === filter.name ? view.hover.text : set ? state.text : ''}
+                      </div>
+                    )}
                   </div>
                 }
               >

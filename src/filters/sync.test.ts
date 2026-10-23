@@ -3,6 +3,10 @@ import { column } from '@uwdata/mosaic-sql';
 
 import {
   applyRange,
+  binAt,
+  brushColumn,
+  clearColumn,
+  linkBrush,
   applyValues,
   heldElsewhere,
   type IntervalInteractor,
@@ -150,5 +154,65 @@ describe('mirrorClauses', () => {
     await settle();
     expect(all.clauses).toHaveLength(1);
     stop();
+  });
+});
+
+describe('binAt', () => {
+  const mark = {
+    channels: [
+      { channel: 'x1', as: 'x1' },
+      { channel: 'x2', as: 'x2' },
+      { channel: 'y', as: 'y' },
+    ],
+    data: { numRows: 2, columns: { x1: [0, 0.5], x2: [0.5, 1], y: [10, 3] } },
+  };
+  it('finds the bin under a value of the axis, from the result the mark drew', () => {
+    expect(binAt(mark, 0.7)).toEqual({ lo: 0.5, hi: 1, count: 3 });
+    expect(binAt(mark, 2)).toBeUndefined();
+    expect(binAt({ channels: [] }, 0)).toBeUndefined();
+  });
+});
+
+describe('linkBrush', () => {
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+  /** A brush on `mag` in a plot of its own, as a filters panel's or a Mosaic panel's histogram. */
+  function brushOn(selection: Selection) {
+    const mark = {};
+    const self = interval(selection);
+    Object.assign(self, { mark: { plot: { markSet: new Set([mark]) } } });
+    self.clause = (value) => clauseInterval('mag', value as never, { source: self, clients: new Set([mark]) as never });
+    return { brush: self, mark };
+  }
+
+  it('leaves every histogram brushing the column out of a clause on it, and the last brush wins', async () => {
+    const selection = Selection.crossfilter();
+    const a = brushOn(selection);
+    const b = brushOn(selection);
+    expect(brushColumn(a.brush)).toBe('mag');
+    const stopA = linkBrush(selection, a.brush, 'mag');
+    const stopB = linkBrush(selection, b.brush, 'mag');
+
+    selection.update(a.brush.clause([2, 4]));
+    await settle();
+    expect([...selection.clauses[0].clients!]).toEqual(expect.arrayContaining([a.mark, b.mark]));
+    // The other brush shows the range, and makes no clause of its own.
+    expect(b.brush.value).toEqual([2, 4]);
+    expect(b.brush.moves).toEqual([[20, 40]]);
+
+    // Brushing the other one replaces the first one's clause.
+    a.brush.value = [2, 4];
+    selection.update(b.brush.clause([5, 6]));
+    await settle();
+    expect(selection.clauses.map((c) => c.source)).toEqual([b.brush]);
+    expect(a.brush.value).toEqual([5, 6]);
+
+    // Clearing the column clears every brush on it.
+    clearColumn(selection, 'mag');
+    await settle();
+    expect(selection.clauses).toHaveLength(0);
+    expect(a.brush.value).toBeUndefined();
+    stopA();
+    stopB();
   });
 });

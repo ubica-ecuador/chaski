@@ -23,8 +23,9 @@ reads the declarations of a filters variable (see the cross-filter section of th
 - **A colour per filter**, from Grafana's classic palette in declaration order: its bars, its brush,
   the dot on its section and its pill. Each control draws two layers: in grey, what the other filters
   leave; in the filter's colour, what its own picks or brush keep as well. So a brush leaves the bins
-  outside it grey, and a picked value keeps its colour while the others grey out. Histograms have a
-  tooltip with the bin and its count.
+  outside it grey, and a picked value keeps its colour while the others grey out. Hovering a histogram
+  shows the bin under the pointer and its count where the filter's value goes (in a strip, under the
+  histogram), never over the bars a brush is picking.
 - **A × on each filter that narrows**, and **Clear all**. A filter that is set but removes no rows (a
   map publishing its whole view) is not shown as set.
 
@@ -76,7 +77,17 @@ A panel as JSON:
   filters panel, a Mosaic panel's brush) is left to it, so no column is filtered twice.
 - **A search** is the panel's own text box, with a case-insensitive clause as Chaski's `search` filter
   reads it, so the controls count what the dashboard's SQL shows.
-- **The time range**, when a time column is set, is a clause on the selection that no control writes.
+- **The time range**, when a time column is set, is a clause on the selection that no control writes;
+  a new range replaces it in place, without drawing the controls again.
+- **Linked brushes** (`linkBrush` in `src/filters/sync.ts`). A column can be brushed in several places:
+  this panel's histogram, a Mosaic panel's, a second filters panel. Each registers its brush under its
+  column; an interval clause on that column, whoever made it, leaves out every registered histogram, so
+  each keeps drawing the whole column; the brush moved last takes the column (the other brushes' clauses
+  go, and they move to show its range); clearing the filter clears it wherever it was drawn. Each panel
+  writes only what its own brushes did, so a range is written once.
+- **Pre-aggregates** are off while the controls read their columns, and dropped when one brush takes a
+  column from another: Mosaic plans them as the pointer enters a brush, with the other clauses as they
+  are then.
 - **Narrowing** (whether a set filter is shown as set) is one SQL count per variable change, on the
   panels' connections.
 

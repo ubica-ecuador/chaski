@@ -152,6 +152,13 @@ export const getStyles = (theme: GrafanaTheme2) => ({
     whiteSpace: 'nowrap',
     maxWidth: '60%',
   }),
+  hover: css({ color: theme.colors.text.primary, fontVariantNumeric: 'tabular-nums' }),
+  readout: css({
+    minHeight: 18,
+    paddingTop: theme.spacing(0.5),
+    color: theme.colors.text.secondary,
+    fontVariantNumeric: 'tabular-nums',
+  }),
   sectionBody: css({ paddingTop: theme.spacing(0.75) }),
   note: css({ color: theme.colors.text.secondary }),
   pill: css({

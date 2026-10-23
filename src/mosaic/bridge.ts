@@ -148,8 +148,16 @@ function clauseWrites(link: VariableLink, clause: SelectionClause | undefined, w
   }
 }
 
-/** What the links write for the params' current state. */
-export function writesFor(links: VariableLink[], params: Map<string, Param<unknown> | Selection>): Writes {
+/**
+ * What the links write for the params' current state. With `owns`, a clause
+ * another panel made is that panel's to write: its links are left out, so one
+ * brush is written once, by the panel it was drawn in.
+ */
+export function writesFor(
+  links: VariableLink[],
+  params: Map<string, Param<unknown> | Selection>,
+  owns?: (clause: SelectionClause) => boolean
+): Writes {
   const writes: Writes = {};
   for (const link of links) {
     const param = params.get(link.param);
@@ -157,7 +165,11 @@ export function writesFor(links: VariableLink[], params: Map<string, Param<unkno
       continue;
     }
     if (isSelection(param)) {
-      clauseWrites(link, pickClause(param, link.column), writes);
+      const clause = pickClause(param, link.column);
+      if (clause && owns && !owns(clause)) {
+        continue;
+      }
+      clauseWrites(link, clause, writes);
     } else if (link.variable !== undefined) {
       const value = param.value;
       writes[link.variable] = Array.isArray(value) ? value.map(formatValue) : formatValue(value);
@@ -184,16 +196,17 @@ const sameValue = (a: string | string[] | undefined, b: string | string[]) =>
  */
 export function linkVariables(
   links: VariableLink[],
-  params: Map<string, Param<unknown> | Selection>
+  params: Map<string, Param<unknown> | Selection>,
+  owns?: (clause: SelectionClause) => boolean
 ): (flush?: boolean) => void {
   if (links.length === 0) {
     return () => {};
   }
   let timer: ReturnType<typeof setTimeout> | undefined;
-  let last = writesFor(links, params);
+  let last = writesFor(links, params, owns);
   const publish = () => {
     timer = undefined;
-    const next = writesFor(links, params);
+    const next = writesFor(links, params, owns);
     const changed: Record<string, string | string[]> = {};
     for (const [name, value] of Object.entries(next)) {
       if (!sameValue(last[name], value)) {

@@ -14,7 +14,12 @@ describe('rangeSpec', () => {
     expect(() => parseSpec(spec as never)).not.toThrow();
     expect(datasetNames(spec)).toEqual(['quakes']);
     const [grey, brush, colour] = spec.plot;
-    expect(grey).toMatchObject({ mark: 'rectY', data: { filterBy: '$quakeFilters' }, fill: '#444', tip: true });
+    expect(grey).toMatchObject({
+      mark: 'rectY',
+      data: { filterBy: '$quakeFilters' },
+      fill: '#444',
+    });
+    expect(grey).not.toHaveProperty('tip');
     expect(brush).toMatchObject({ select: 'intervalX', as: '$quakeFilters' });
     expect(colour).toMatchObject({
       data: { filterBy: `$${allOf('quakeFilters')}` },

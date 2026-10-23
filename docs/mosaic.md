@@ -114,6 +114,9 @@ quakes in four Mosaic panels writing variables, and a plain table following them
 - **One copy of Mosaic for the app.** The panel's module also hands its Mosaic out on its plugin
   object (`src/mosaic/runtime.ts`), and the filters panel draws with that copy, so both share
   selections by name: brush one, and the other follows as the brush moves.
+- **Linked brushes.** A 1-D brush on a column is linked to every other brush on that column and
+  selection, in this panel or a filters panel: each shows the range of the one moved last, and a
+  panel writes variables only for clauses its own interactors made.
 - **A coordinator per panel, params per dashboard.** Each panel builds its own Mosaic coordinator,
   so its errors are its own. Params, selections and named plots live in a map shared by the panels
   of the dashboard on screen (`src/mosaic/page.ts`).

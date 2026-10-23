@@ -59,7 +59,8 @@ export function rangeSpec(dataset: string, filter: RangeFilter, selection: strin
   return {
     params: { [selection]: { select: 'crossfilter' }, [allOf(selection)]: { select: 'intersect' } },
     plot: [
-      { ...layer, fill: look.muted, tip: true },
+      // No tip: on a short histogram it covers the brush. The panel shows the bin under the pointer instead.
+      { ...layer, fill: look.muted },
       { select: 'intervalX', as: `$${selection}`, brush: brushStyle(look) },
       {
         ...layer,
