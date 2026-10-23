@@ -1,6 +1,22 @@
 import { css } from '@emotion/css';
 import type { GrafanaTheme2 } from '@grafana/data';
 
+/** Observable Plot draws in currentColor; its tips read --plot-background. */
+const mosaicRules = (theme: GrafanaTheme2) => ({
+  '[class^="plot-"], [class*=" plot-"]': {
+    '--plot-background': theme.colors.background.primary,
+  },
+  svg: { overflow: 'visible', display: 'block', fontSize: 11, cursor: 'crosshair' },
+  'svg text': { fill: theme.colors.text.secondary },
+  // A list's values read as labels, not as an axis.
+  '[aria-label="y-axis tick label"] text': {
+    fill: theme.colors.text.primary,
+    fontSize: theme.typography.bodySmall.fontSize,
+    cursor: 'pointer',
+  },
+  '[aria-label="bar"] rect': { cursor: 'pointer' },
+});
+
 export const getStyles = (theme: GrafanaTheme2) => ({
   root: css({
     width: '100%',
@@ -8,6 +24,7 @@ export const getStyles = (theme: GrafanaTheme2) => ({
     overflow: 'auto',
     color: theme.colors.text.primary,
     fontSize: theme.typography.bodySmall.fontSize,
+    ...mosaicRules(theme),
   }),
   pillsRoot: css({
     display: 'flex',
@@ -19,6 +36,7 @@ export const getStyles = (theme: GrafanaTheme2) => ({
     overflow: 'auto',
     color: theme.colors.text.primary,
     fontSize: theme.typography.bodySmall.fontSize,
+    ...mosaicRules(theme),
   }),
   header: css({
     display: 'flex',
@@ -62,7 +80,10 @@ export const getStyles = (theme: GrafanaTheme2) => ({
     borderBottom: `1px solid ${theme.colors.border.weak}`,
     '&:last-child': { borderBottom: 'none' },
   }),
+  sectionHead: css({ display: 'flex', alignItems: 'center', gap: theme.spacing(0.5) }),
   sectionTitle: css({
+    flex: 1,
+    minWidth: 0,
     display: 'flex',
     alignItems: 'center',
     gap: theme.spacing(0.5),
@@ -86,106 +107,35 @@ export const getStyles = (theme: GrafanaTheme2) => ({
   }),
   sectionBody: css({ paddingTop: theme.spacing(0.75) }),
   note: css({ color: theme.colors.text.secondary }),
-  values: css({ display: 'flex', flexDirection: 'column', gap: 1 }),
-  valueRow: css({
-    position: 'relative',
-    display: 'flex',
-    alignItems: 'center',
-    gap: theme.spacing(0.75),
-    width: '100%',
-    padding: theme.spacing(0.25, 0.5),
-    background: 'none',
-    border: 'none',
-    borderRadius: theme.shape.radius.default,
-    color: theme.colors.text.primary,
-    textAlign: 'left',
-    cursor: 'pointer',
-    '&:hover': { background: theme.colors.action.hover },
-  }),
-  valueBar: css({
-    position: 'absolute',
-    left: 0,
-    top: 2,
-    bottom: 2,
-    borderRadius: theme.shape.radius.default,
-    background: theme.colors.primary.transparent,
-    pointerEvents: 'none',
-  }),
-  valueMark: css({
-    position: 'relative',
-    flex: 'none',
-    width: 12,
-    height: 12,
-    borderRadius: 3,
-    border: `1px solid ${theme.colors.border.strong}`,
-  }),
-  valueMarkOn: css({
-    background: theme.colors.primary.main,
-    borderColor: theme.colors.primary.main,
-  }),
-  valueLabel: css({
-    position: 'relative',
-    flex: 1,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-  }),
-  valueCount: css({
-    position: 'relative',
-    color: theme.colors.text.secondary,
-    fontVariantNumeric: 'tabular-nums',
-  }),
-  dim: css({ opacity: 0.45 }),
-  more: css({
-    alignSelf: 'flex-start',
-    marginTop: theme.spacing(0.5),
-    background: 'none',
-    border: 'none',
-    padding: 0,
-    color: theme.colors.text.link,
-    cursor: 'pointer',
-  }),
-  histogram: css({
-    display: 'block',
-    touchAction: 'none',
-    cursor: 'crosshair',
-    userSelect: 'none',
-  }),
-  barIn: css({ fill: theme.colors.primary.main }),
-  barOut: css({ fill: theme.colors.text.disabled, opacity: 0.5 }),
-  brush: css({
-    fill: theme.colors.primary.transparent,
-    stroke: theme.colors.primary.border,
-  }),
-  axis: css({
-    display: 'flex',
-    justifyContent: 'space-between',
-    gap: theme.spacing(1),
-    color: theme.colors.text.secondary,
-    fontVariantNumeric: 'tabular-nums',
-    span: { whiteSpace: 'nowrap' },
-  }),
-  axisPicked: css({ color: theme.colors.text.primary, fontWeight: theme.typography.fontWeightMedium }),
   pill: css({
     display: 'inline-flex',
     alignItems: 'center',
-    gap: theme.spacing(0.5),
     height: theme.spacing(theme.components.height.sm),
-    padding: theme.spacing(0, 1),
+    paddingRight: theme.spacing(0.5),
     borderRadius: theme.shape.radius.pill,
     border: `1px solid ${theme.colors.border.medium}`,
     background: theme.colors.background.secondary,
+    maxWidth: '24em',
+  }),
+  pillButton: css({
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: theme.spacing(0.5),
+    minWidth: 0,
+    height: '100%',
+    padding: theme.spacing(0, 0.5, 0, 1),
+    background: 'none',
+    border: 'none',
     color: theme.colors.text.primary,
     cursor: 'pointer',
     whiteSpace: 'nowrap',
-    maxWidth: '22em',
     span: { overflow: 'hidden', textOverflow: 'ellipsis' },
   }),
   pillOn: css({
     background: theme.colors.primary.transparent,
     borderColor: theme.colors.primary.border,
   }),
-  popover: css({ width: 300, maxHeight: 420, overflow: 'auto' }),
+  popover: css({ width: 300, maxHeight: 420, overflow: 'auto', ...mosaicRules(theme) }),
   message: css({ color: theme.colors.text.secondary, padding: theme.spacing(1) }),
   error: css({ color: theme.colors.error.text, padding: theme.spacing(1), whiteSpace: 'pre-wrap' }),
 });

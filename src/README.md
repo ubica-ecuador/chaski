@@ -172,7 +172,8 @@ panel; their texts are in
 ## Filters panel
 
 The app brings **Chaski Filters**, a panel that shows a dataset's cross-filters and sets them, with no
-query to write: how many rows they leave, and a control for each, counted under the others. Values to
+query to write: how many rows they leave, and a control for each drawn by Mosaic, counted under the
+others and following each other live as a brush moves. Values to
 pick for `in` and `equals`, a histogram to brush for `range`, a text box for `search`; a map's area
 shows as set, with a ×. It writes the same variables the filters read, so every panel follows it. Tall,
 it is a sidebar; low, a strip of pills. See

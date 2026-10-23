@@ -30,6 +30,8 @@ export interface VariableLink {
    * other axes take `from` and `to`.
    */
   variable?: string;
+  /** Rounds an interval's end before it is written; a brush's ends come from pixels. */
+  round?: (value: unknown) => unknown;
 }
 
 export type Writes = Record<string, string | string[]>;
@@ -123,7 +125,8 @@ function clauseWrites(link: VariableLink, clause: SelectionClause | undefined, w
     const extents: unknown[][] = !interval ? [] : clause!.fields.length === 1 ? [value] : (value as unknown[][]);
     const ends = (names: string | string[] | undefined, end: 0 | 1) =>
       [names ?? []].flat().forEach((name, axis) => {
-        writes[name] = formatValue(extents[axis]?.[end]);
+        const bound = extents[axis]?.[end];
+        writes[name] = formatValue(link.round && bound !== undefined ? link.round(bound) : bound);
       });
     ends(link.from, 0);
     ends(link.to, 1);

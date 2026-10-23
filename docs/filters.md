@@ -5,22 +5,26 @@ reads the declarations of a filters variable (see the cross-filter section of th
 [tutorial](tutorial-earthquakes.md) and `$__crossfilter`) and draws, with no query to write:
 
 - **How many rows are left:** "2,431 of 50,000 quakes", under every active filter.
-- **A control for each filter**, counted under every other filter, so it shows what picking in it
-  would give:
+- **A control for each filter, drawn by [Mosaic](https://idl.uw.edu/mosaic/)**, counted under every
+  other filter, so it shows what picking in it would give. The controls share a Mosaic crossfilter
+  selection: while a brush moves, every other control and the count follow it, from tables Mosaic
+  pre-aggregates when the pointer enters a control.
 
-  | Filter type    | Control                                                                             |
-  | -------------- | ----------------------------------------------------------------------------------- |
-  | `range`        | a histogram over the whole dataset's extent; drag across it to pick, click to clear |
-  | `in`           | the column's values with their counts, picked or not; several may be picked         |
-  | `equals`       | the same list; one value at a time                                                  |
-  | `search`       | a text box, written once typing pauses                                              |
-  | `area`, `link` | none: a map or another dataset sets them; they show as set, with a ×                |
+  | Filter type    | Control                                                                                      |
+  | -------------- | -------------------------------------------------------------------------------------------- |
+  | `range`        | a histogram; drag across it to pick a range, click outside the brush to clear it             |
+  | `in`           | the most frequent values as bars with their counts; click one to pick it, shift-click to add |
+  | `equals`       | the same bars; one value at a time                                                           |
+  | `search`       | a text box; the controls follow as it is typed                                               |
+  | `area`, `link` | none: a map or another dataset sets them; an area filters the controls, a link only the SQL  |
 
 - **A × on each filter that narrows**, and **Clear all**. A filter that is set but removes no rows (a
   map publishing its whole view) is not shown as set.
 
-The panel writes the same variables the filters read, in the URL, so the map, the Mosaic panels and
-every Chaski query follow it, and it follows them: a brush elsewhere moves its histogram.
+The panel writes the same variables the filters read, in the URL, once a control rests (300 ms), so
+the map and every Chaski query follow it; and it follows them: a variable set elsewhere (a shared link,
+a chip's ×, another panel) moves its brush or its picks. A Mosaic panel whose spec uses the same
+selection name follows it live, and drives it live.
 
 ## Options
 
@@ -44,20 +48,27 @@ A panel as JSON:
 }
 ```
 
+## How it works
+
+- **Mosaic specs made from the declarations.** The panel reads the filters variable from the dashboard,
+  checks it with the datasource's own code, and draws one Mosaic spec per control on a coordinator of
+  its own, over the dataset by name, as the Mosaic panel does (`src/filters/specs.ts`). The count is a
+  Mosaic client of the same selection. Its params live with the Mosaic panels' (`src/mosaic/page.ts`).
+- **To the variables** through the Mosaic panel's bridge, once a control rests; a range's ends are
+  rounded to what one pixel of its axis tells apart: to the minute, hour or day for times (as UTC ISO
+  strings), to a pixel's decimal for numbers.
+- **From the variables** (`src/filters/sync.ts`): a value set elsewhere is applied to the control, so
+  its brush or its picks show it. A value the control already holds, within a pixel, is its own write
+  coming back and is left alone; a value another source on the selection already holds (a second
+  filters panel, a Mosaic panel's brush) is left to it, so no column is filtered twice.
+- **A search** is the panel's own text box, with a case-insensitive clause as Chaski's `search` filter
+  reads it, so the controls count what the dashboard's SQL shows.
+- **The time range**, when a time column is set, is a clause on the selection that no control writes.
+- **Narrowing** (whether a set filter is shown as set) is one SQL count per variable change, on the
+  panels' connections.
+
 ## Writing the variables it sets
 
-- A range writes its two variables, rounded to what one pixel of the histogram tells apart: to the
-  minute, hour or day for times (as UTC ISO strings), to a pixel's decimal for numbers.
 - An `in` filter's variable takes several values: a custom variable with **Multi-value** and
   **Include All** (All, `$__all`, is no filter), hidden, starting at All. A textbox works too.
 - `equals` and `search` write one value; a hidden textbox is enough.
-
-## How it works
-
-- **No queries of its own.** The panel reads the filters variable from the dashboard and checks it
-  with the datasource's own code, finds its dataset's table on the engine API (`window.__chaski`), and
-  runs its counts there on the panels' connections: one for the counts, one per list, one per
-  histogram, plus each range's extent once per loaded version of the dataset.
-- **Values from the URL first**, then the template service, which follows the URL a moment later.
-- It reads again when the URL changes (a variable written, here or elsewhere) and when a dataset
-  reloads; the counts on screen stay until the next arrive.

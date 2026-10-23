@@ -1,5 +1,5 @@
 import type { Clause } from '../engine/crossfilter';
-import { countSql, extentSql, histogramSql, timeCondition, valuesSql, whereOf } from './queries';
+import { countSql, timeCondition, whereOf } from './queries';
 
 const states: Clause[] = [
   { name: 'mag', label: 'Magnitude', sql: '"mag" >= 4', text: '≥ 4', variables: ['mag_lo', 'mag_hi'] },
@@ -35,38 +35,5 @@ describe('countSql', () => {
     expect(sql).toContain(`AS "without_place"`);
     expect(sql).not.toContain('without_kind');
     expect(sql).toMatch(/FROM "t_1" WHERE "time" >= 'a'$/);
-  });
-});
-
-describe('valuesSql', () => {
-  it('counts a column’s values under the other filters, the picked ones first', () => {
-    const sql = valuesSql('t_1', 'type', states, 'kind', [], ["it's"], 50);
-    expect(sql).toContain('CAST("type" AS VARCHAR) AS value');
-    expect(sql).toContain(`count(*) FILTER (WHERE ("mag" >= 4) AND (contains("place", 'chile')))::DOUBLE AS n`);
-    expect(sql).toContain(`ORDER BY (CAST("type" AS VARCHAR) IN ('it''s')) DESC, n DESC`);
-    expect(sql).toContain('"type" IS NOT NULL');
-    expect(sql).toMatch(/LIMIT 50$/);
-  });
-
-  it('leaves its own filter out', () => {
-    expect(valuesSql('t', 'mag', states, 'mag', [], [], 5)).not.toContain('"mag" >= 4');
-  });
-});
-
-describe('histograms', () => {
-  it('reads times as epoch milliseconds', () => {
-    expect(extentSql('t', 'time', true)).toBe(
-      'SELECT min(epoch_ms(CAST("time" AS TIMESTAMP))::DOUBLE) AS lo, max(epoch_ms(CAST("time" AS TIMESTAMP))::DOUBLE) AS hi FROM "t"'
-    );
-  });
-
-  it('bins over the extent, the last bin closed, leaving its own filter out', () => {
-    const sql = histogramSql('t', 'mag', false, { lo: 0, hi: 10 }, 20, states, 'mag', []);
-    expect(sql).toContain('least(greatest(floor((CAST("mag" AS DOUBLE) - 0) / 0.5), 0), 19)::INTEGER AS bin');
-    expect(sql).not.toContain('"mag" >= 4');
-  });
-
-  it('keeps a step when the extent is a single value', () => {
-    expect(histogramSql('t', 'mag', false, { lo: 3, hi: 3 }, 10, [], 'mag', [])).toContain('/ 1)');
   });
 });

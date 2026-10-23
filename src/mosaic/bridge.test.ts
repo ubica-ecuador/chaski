@@ -46,6 +46,15 @@ describe('values', () => {
 });
 
 describe('writesFor', () => {
+  it('rounds an interval’s ends when the link says how', () => {
+    const brush = Selection.crossfilter();
+    brush.update(clauseInterval('mag', [2.69999957085, 5.40000021458], { source: source('mag') }));
+    const round = (v: unknown) => Math.round(Number(v) * 100) / 100;
+    expect(
+      writesFor([{ param: 'brush', column: 'mag', from: 'lo', to: 'hi', round }], new Map([['brush', brush]]))
+    ).toEqual({ lo: '2.7', hi: '5.4' });
+  });
+
   it('reads each clause by its column', () => {
     const brush = Selection.crossfilter();
     brush.update(clauseInterval('mag', [4, 6.5], { source: source('mag') }));

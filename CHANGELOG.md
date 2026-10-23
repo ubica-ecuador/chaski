@@ -3,9 +3,10 @@
 ## Unreleased
 
 - **Filters panel.** `ubica-chaski-filters-panel` shows a dataset's cross-filters and sets them, with no
-  query to write: how many rows they leave, a × on each and Clear all, and a control per filter
-  counted under the others: values to pick (`in`, `equals`), a histogram to brush (`range`), a text
-  box (`search`). Tall, it is a sidebar of sections; low, a strip of pills that open their control.
+  query to write: how many rows they leave, a × on each and Clear all, and a control per filter drawn
+  by Mosaic, counted under the others and following each other live as a brush moves: values to pick
+  (`in`, `equals`), a histogram to brush (`range`), a text box (`search`). Mosaic panels on the same
+  selection drive it and follow it live. Tall, it is a sidebar of sections; low, a strip of pills that open their control.
   Unsigned builds must also allow `ubica-chaski-filters-panel`. See docs/filters.md.
 
 ## 2.1.0 (2026-10-23)

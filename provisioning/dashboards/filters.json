@@ -319,7 +319,7 @@
       "id": 4,
       "type": "ubica-chaski-mosaic-panel",
       "title": "Magnitude (Mosaic)",
-      "description": "A Mosaic brush on the same variables as the Magnitude filter: brush here and the filters panel follows. Mosaic draws only its own selection: it reads the other filters only through its Read from variables option.",
+      "description": "A Mosaic panel on the filters panels' selection, quakeFilters: brush here or there and the other follows as the brush moves. It writes the same magnitude variables.",
       "gridPos": {
         "h": 8,
         "w": 9,
@@ -327,8 +327,8 @@
         "y": 3
       },
       "options": {
-        "spec": "params:\n  brush: { select: crossfilter }\nplot:\n  - mark: rectY\n    data: { from: quakes, filterBy: $brush }\n    x: { bin: mag }\n    y: { count: }\n    fill: steelblue\n  - select: intervalX\n    as: $brush\nxDomain: Fixed\n",
-        "variables": "- param: brush\n  column: mag\n  from: mag_lo\n  to: mag_hi\n",
+        "spec": "params:\n  quakeFilters: { select: crossfilter }\nplot:\n  - mark: rectY\n    data: { from: quakes, filterBy: $quakeFilters }\n    x: { bin: mag }\n    y: { count: }\n    fill: steelblue\n  - select: intervalX\n    as: $quakeFilters\nxDomain: Fixed\n",
+        "variables": "- param: quakeFilters\n  column: mag\n  from: mag_lo\n  to: mag_hi\n",
         "reads": "",
         "preaggregate": true
       },

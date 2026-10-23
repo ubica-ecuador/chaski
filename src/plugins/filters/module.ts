@@ -24,6 +24,13 @@ export const plugin = new PanelPlugin<FiltersOptions>(FiltersPanel).setPanelOpti
           })),
       },
     })
+    .addTextInput({
+      path: 'selection',
+      name: 'Mosaic selection',
+      description:
+        'The Mosaic selection the controls share. Empty: one named after the filters variable. Use the name the dashboard’s Mosaic panels use, and they filter each other live.',
+      defaultValue: DEFAULT_OPTIONS.selection,
+    })
     .addRadio({
       path: 'layout',
       name: 'Layout',
@@ -52,7 +59,7 @@ export const plugin = new PanelPlugin<FiltersOptions>(FiltersPanel).setPanelOpti
     .addNumberInput({
       path: 'maxValues',
       name: 'Values shown',
-      description: 'How many values a list shows before “more”.',
+      description: 'How many of a column’s most frequent values a list shows.',
       defaultValue: DEFAULT_OPTIONS.maxValues,
       settings: { min: 3, integer: true },
     })
