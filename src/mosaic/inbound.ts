@@ -104,29 +104,42 @@ export function wktRing(wkt: string): Array<[number, number]> {
   return ring.length >= 3 ? ring : [];
 }
 
+/**
+ * Rows whose longitude and latitude fall in a WKT polygon, as kepler's drawn
+ * area writes it: its bounding box first, which DuckDB answers cheaply, then
+ * the polygon. Null when the text is no polygon. The polygon is rebuilt from
+ * its numbers, so nothing else of the text reaches the SQL.
+ */
+export function areaPredicate(
+  lngColumn: string,
+  latColumn: string,
+  wkt: string
+): { value: string; predicate: ExprNode } | null {
+  const ring = wktRing(wkt);
+  if (ring.length === 0) {
+    return null;
+  }
+  const polygon = `POLYGON((${ring.map(([x, y]) => `${x} ${y}`).join(', ')}))`;
+  const xs = ring.map(([x]) => x);
+  const ys = ring.map(([, y]) => y);
+  const lng = column(lngColumn);
+  const lat = column(latColumn);
+  return {
+    value: polygon,
+    predicate: and(
+      isBetween(lng, [Math.min(...xs), Math.max(...xs)]),
+      isBetween(lat, [Math.min(...ys), Math.max(...ys)]),
+      sql`ST_Contains(ST_GeomFromText(${literal(polygon)}), ST_Point(${lng}, ${lat}))`
+    ),
+  };
+}
+
 /** The predicate a read makes of the variables' current values, or null when they say nothing. */
 export function predicateFor(read: VariableRead, valueOf: ReadValue): { value: unknown; predicate: ExprNode } | null {
   const [first, second] = [read.column].flat();
   if (read.area !== undefined) {
     const [wkt] = valueOf(read.area);
-    const ring = wkt ? wktRing(wkt) : [];
-    if (ring.length === 0) {
-      return null;
-    }
-    // Rebuilt from its numbers, so nothing of the variable's text reaches the SQL.
-    const polygon = `POLYGON((${ring.map(([x, y]) => `${x} ${y}`).join(', ')}))`;
-    const xs = ring.map(([x]) => x);
-    const ys = ring.map(([, y]) => y);
-    const lng = column(first);
-    const lat = column(second);
-    return {
-      value: polygon,
-      predicate: and(
-        isBetween(lng, [Math.min(...xs), Math.max(...xs)]),
-        isBetween(lat, [Math.min(...ys), Math.max(...ys)]),
-        sql`ST_Contains(ST_GeomFromText(${literal(polygon)}), ST_Point(${lng}, ${lat}))`
-      ),
-    };
+    return wkt ? areaPredicate(first, second, wkt) : null;
   }
   if (read.values !== undefined) {
     const values = valueOf(read.values);

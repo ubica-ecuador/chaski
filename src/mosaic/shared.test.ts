@@ -2,7 +2,7 @@ import { Param, Selection } from '@uwdata/mosaic-core';
 
 import type { ChaskiEngineApi } from '../grafana/publicApi';
 import { pageFor, resetPages } from './page';
-import { sharedSelection } from './shared';
+import { clauseArea, sharedSelection } from './shared';
 
 const engine: ChaskiEngineApi = {
   duckdbVersion: 'v1.4.3',
@@ -37,6 +37,27 @@ it('takes the Selection a Mosaic panel already made', async () => {
 });
 
 it('refuses a param of that name that is not a Selection', async () => {
-  pageFor('taxi', engine).params.set('bins', Param.value(20));
+  pageFor('taxi', engine).params.set('bins', Param.value<unknown>(20));
   await expect(sharedSelection('bins', new AbortController().signal)).rejects.toThrow('not a Selection');
+});
+
+it('makes an area clause of a drawn polygon, bounding box first, and an empty one of anything else', () => {
+  const source = {};
+  const clause = clauseArea(['lng', 'lat'], 'POLYGON((0 0, 2 0, 2 1, 0 0))', { source });
+  expect(clause.meta).toEqual({ type: 'area' });
+  expect(clause.value).toBe('POLYGON((0 0, 2 0, 2 1, 0 0))');
+  expect(String(clause.predicate)).toBe(
+    '(("lng" BETWEEN 0 AND 2) AND ("lat" BETWEEN 0 AND 1) AND ST_Contains(ST_GeomFromText(\'POLYGON((0 0, 2 0, 2 1, 0 0))\'), ST_Point("lng", "lat")))'
+  );
+  expect(clauseArea(['lng', 'lat'], 'POINT(1 2)', { source })).toMatchObject({ value: null, predicate: null });
+  expect(clauseArea(['lng', 'lat'], null, { source }).value).toBeNull();
+});
+
+it('takes a Selection’s area clause out with an empty one from the same source', async () => {
+  const selection = await sharedSelection('brush', new AbortController().signal);
+  const source = {};
+  selection.update(clauseArea(['lng', 'lat'], 'POLYGON((0 0, 2 0, 2 1, 0 0))', { source }));
+  expect(selection.clauses).toHaveLength(1);
+  selection.update(clauseArea(['lng', 'lat'], null, { source }));
+  expect(selection.clauses).toHaveLength(0);
 });

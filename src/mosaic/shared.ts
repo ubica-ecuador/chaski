@@ -1,6 +1,8 @@
-import { isSelection, Selection } from '@uwdata/mosaic-core';
+import { isSelection, Selection, type ClauseSource, type SelectionClause } from '@uwdata/mosaic-core';
+import { column } from '@uwdata/mosaic-sql';
 
 import { waitForEngine } from './connector';
+import { areaPredicate } from './inbound';
 import { dashboardKey, pageFor } from './page';
 
 /*
@@ -27,4 +29,29 @@ export async function sharedSelection(name: string, signal: AbortSignal): Promis
   }
   page.params.set(name, param);
   return param;
+}
+
+/**
+ * A clause keeping the rows whose longitude and latitude fall in a WKT
+ * polygon: a figure drawn on a kepler map. No value, or text that is no
+ * polygon, makes a clause with no value, which takes the source's clause out.
+ *
+ * Its type is `area`, not `interval`: Mosaic pre-aggregates intervals and
+ * points only, and a polygon is neither, so the panels query it as it is.
+ */
+export function clauseArea(
+  fields: [string, string],
+  wkt: string | null | undefined,
+  { source }: { source: ClauseSource }
+): SelectionClause {
+  const [lng, lat] = fields;
+  const made = wkt ? areaPredicate(lng, lat, wkt) : null;
+  return {
+    source,
+    clients: undefined,
+    fields: [column(lng), column(lat)],
+    value: made?.value ?? null,
+    predicate: made?.predicate ?? null,
+    meta: { type: 'area' },
+  } as SelectionClause;
 }

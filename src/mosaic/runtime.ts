@@ -16,7 +16,7 @@ import { clauseColumns, linkVariables } from './bridge';
 import { ChaskiConnector, unreadable } from './connector';
 import { linkReads } from './inbound';
 import { dashboardKey, pageFor, PREAGG_SCHEMA, releaseClauses } from './page';
-import { sharedSelection } from './shared';
+import { clauseArea, sharedSelection } from './shared';
 
 /*
  * Mosaic as every panel of the app shares it. Each plugin is a bundle of its
@@ -27,7 +27,8 @@ import { sharedSelection } from './shared';
  * panel loads it through Grafana (src/filters/runtime.ts) and bundles none.
  *
  * Panels of other plugins load it the same way. What they use of it is a
- * contract: `sharedSelection`, the clause builders and `clauseColumns` keep
+ * contract: `sharedSelection`, the clause builders (`clauseArea` among them)
+ * and `clauseColumns` keep
  * their shapes, or a kepler map linked to a Selection breaks with no error.
  */
 export const mosaicRuntime = {
@@ -53,6 +54,7 @@ export const mosaicRuntime = {
   clauseInterval,
   clauseIntervals,
   clausePoints,
+  clauseArea,
   clauseColumns,
 };
 
