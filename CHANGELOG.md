@@ -6,7 +6,10 @@
   query to write: how many rows they leave, a × on each and Clear all, and a control per filter drawn
   by Mosaic, counted under the others and following each other live as a brush moves: values to pick
   (`in`, `equals`), a histogram to brush (`range`), a text box (`search`). Mosaic panels on the same
-  selection drive it and follow it live. Tall, it is a sidebar of sections; low, a strip of pills that open their control.
+  selection drive it and follow it live: the Mosaic panel's module now hands its copy of Mosaic to the
+  filters panel. A colour per filter, the bins outside a brush and the values not picked in grey,
+  tooltips, and the share of rows left as a bar. Tall, it is a sidebar of sections; low, a strip of
+  pills that open their control, with the count at the end so the pills never move.
   Unsigned builds must also allow `ubica-chaski-filters-panel`. See docs/filters.md.
 
 ## 2.1.0 (2026-10-23)

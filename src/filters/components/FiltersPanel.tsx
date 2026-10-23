@@ -1,37 +1,22 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { GrafanaTheme2, PanelProps } from '@grafana/data';
 import { getTemplateSrv, locationService } from '@grafana/runtime';
 import { IconButton, Toggletip, useStyles2, useTheme2 } from '@grafana/ui';
-import { Coordinator, isSelection, type Logger, makeClient, type Selection } from '@uwdata/mosaic-core';
-import { count, Query } from '@uwdata/mosaic-sql';
-import { astToDOM, parseSpec } from '@uwdata/mosaic-spec';
-import { createAPIContext } from '@uwdata/vgplot';
+import type { Logger } from '@uwdata/mosaic-core';
 import { tableFromIPC } from 'apache-arrow';
 
 import { type Clause, type DeclaredDataset, type FilterDeclaration, filterStates } from '../../engine/crossfilter';
 import { quoteIdent } from '../../engine/sql';
 import { rawValue } from '../../grafana/interpolate';
 import type { ChaskiEngineApi } from '../../grafana/publicApi';
-import { linkVariables, type VariableLink } from '../../mosaic/bridge';
-import { ChaskiConnector, unreadable, waitForEngine } from '../../mosaic/connector';
-import { linkReads, type VariableRead } from '../../mosaic/inbound';
-import { dashboardKey, pageFor, PREAGG_SCHEMA, releaseClauses } from '../../mosaic/page';
+import type { VariableLink } from '../../mosaic/bridge';
+import { waitForEngine } from '../../mosaic/connector';
+import type { VariableRead } from '../../mosaic/inbound';
 import { crossfilterSource, filtersVariables, pickVariable, urlFirst, type ValueOf } from '../model';
 import { countSql, timeCondition } from '../queries';
-import { controlLinks, labelWidth, rangeSpec, type ValueFilter, valuesSpec } from '../specs';
-import {
-  applyRange,
-  applyValues,
-  heldElsewhere,
-  type IntervalInteractor,
-  pixelOf,
-  rangeMatches,
-  searchClause,
-  spanOf,
-  timeClause,
-  type ToggleInteractor,
-  valuesMatch,
-} from '../sync';
+import { allOf, controlLinks, labelWidth, rangeSpec, type ValueFilter, valuesSpec } from '../specs';
+import type { IntervalInteractor, ToggleInteractor } from '../sync';
+import { loadMosaic } from '../runtime';
 import { DEFAULT_OPTIONS, type FiltersOptions } from '../types';
 import { pickedValues, rangeOf } from '../values';
 import { clearing, writeVariables } from '../writes';
@@ -123,10 +108,16 @@ function quietLogger(onError: (message: string) => void): Logger {
   };
 }
 
-const barColours = (theme: GrafanaTheme2) => ({
-  fill: theme.colors.primary.main,
-  text: theme.colors.text.secondary,
-});
+/** Grafana's classic hues, one per filter in declaration order, so a chip and its control share a colour. */
+const HUES = ['blue', 'orange', 'green', 'purple', 'yellow', 'red', 'light-blue', 'light-orange', 'light-green'];
+
+export const filterColours = (theme: GrafanaTheme2, count: number): string[] =>
+  Array.from({ length: count }, (_, i) => theme.visualization.getColorByName(HUES[i % HUES.length]));
+
+const mutedOf = (theme: GrafanaTheme2) => (theme.isDark ? 'rgba(204, 204, 220, 0.16)' : 'rgba(36, 41, 46, 0.12)');
+
+/** An id an SVG gradient can carry: React's ids hold colons. */
+const gradientId = (base: string, index: number, axis: 'x' | 'y') => `${base.replace(/[^\w-]/g, '')}-${index}-${axis}`;
 
 type Row = Record<string, unknown>;
 const rowsOf = (ipc: Uint8Array): Row[] =>
@@ -155,7 +146,12 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
   const { filters: variableName, selection: selectionName, timeColumn, maxValues, bins } = options;
   const from = timeRange.from.valueOf();
   const to = timeRange.to.valueOf();
-  const { fill, text: textColour } = barColours(theme);
+  const muted = mutedOf(theme);
+  const textColour = theme.colors.text.secondary;
+  const gradients = useId();
+  // The filters' count is only known once built; enough colours for any dashboard's filters.
+  const colours = filterColours(theme, HUES.length);
+  const colourKey = colours.join(',');
 
   // The chips, the section titles and the narrowing counts follow the URL.
   useEffect(() => {
@@ -225,7 +221,29 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
     };
 
     const run = async () => {
-      const engine = await waitForEngine(abort.signal);
+      const [engine, mosaic] = await Promise.all([waitForEngine(abort.signal), loadMosaic()]);
+      const {
+        Coordinator,
+        Selection,
+        isSelection,
+        makeClient,
+        Query,
+        count,
+        astToDOM,
+        parseSpec,
+        createAPIContext,
+        ChaskiConnector,
+        unreadable,
+        pageFor,
+        dashboardKey,
+        releaseClauses,
+        PREAGG_SCHEMA,
+        linkVariables,
+        linkReads,
+      } = mosaic;
+      const { applyRange, applyValues, heldElsewhere, mirrorClauses, pixelOf, rangeMatches, searchClause } =
+        mosaic.sync;
+      const { spanOf, timeClause, valuesMatch } = mosaic.sync;
       const page = pageFor(dashboardKey(), engine);
       defer(page.subscribe(() => setRebuild((n) => n + 1)));
       let waiting = false;
@@ -275,14 +293,29 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
       };
       const isObject = (i: unknown): i is object => typeof i === 'object' && i !== null;
 
-      const look = { fill, text: textColour, width: controlWidth };
+      // The coloured layers filter on a mirror of the crossfilter Selection that keeps every clause.
+      if (!page.params.has(allOf(selection))) {
+        page.params.set(allOf(selection), Selection.intersect());
+      }
+      const lookOf = (index: number, axis: 'x' | 'y') => {
+        const colour = colourKey.split(',')[index % HUES.length];
+        return {
+          colour,
+          paint: `url(#${gradientId(gradients, index, axis)})`,
+          muted,
+          text: textColour,
+          width: controlWidth,
+        };
+      };
       const controls = new Map<string, Control>();
       const intervals = new Map<string, IntervalInteractor>();
       const toggles = new Map<string, ToggleInteractor[]>();
       const searches = new Map<string, { source: object; text: string }>();
-      for (const filter of dataset.filters) {
+      for (const [index, filter] of dataset.filters.entries()) {
         if (filter.type === 'range') {
-          const { element, interactors } = await draw(rangeSpec(dataset.name, filter, selection, bins, look));
+          const { element, interactors } = await draw(
+            rangeSpec(dataset.name, filter, selection, bins, lookOf(index, 'y'))
+          );
           const interval = interactors.find((i) => isObject(i) && 'brush' in i);
           if (interval) {
             intervals.set(filter.name, interval as IntervalInteractor);
@@ -300,12 +333,12 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
             selection,
             labels,
             labelWidth(labels, controlWidth),
-            look
+            lookOf(index, 'x')
           );
           const { element, interactors } = await draw(spec);
           toggles.set(
             filter.name,
-            interactors.filter((i): i is ToggleInteractor => isObject(i) && 'fields' in i && !('brush' in i))
+            interactors.filter((i): i is ToggleInteractor => isObject(i) && 'fields' in i && 'listMatch' in i)
           );
           controls.set(filter.name, { kind: 'mosaic', element });
         } else if (filter.type === 'search') {
@@ -315,7 +348,9 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
             kind: 'search',
             set: (text) => {
               searches.set(filter.name, { source, text });
-              (page.params.get(selection) as Selection).update(searchClause(source, filter.column, text));
+              (page.params.get(selection) as InstanceType<typeof Selection>).update(
+                searchClause(source, filter.column, text)
+              );
             },
           });
         } else {
@@ -328,9 +363,11 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
       page.read([dataset.name], engine.datasets());
 
       const shared = page.params.get(selection);
-      if (!shared || !isSelection(shared)) {
+      const all = page.params.get(allOf(selection));
+      if (!shared || !isSelection(shared) || !all || !isSelection(all)) {
         throw new Error(`The filters panel's selection ${selection} is a param elsewhere on this dashboard`);
       }
+      defer(mirrorClauses(shared, all));
 
       // The dashboard's time range, as a clause no control owns.
       if (timeColumn.trim()) {
@@ -444,7 +481,21 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
       cleanups.forEach((cleanup) => cleanup());
       setProblem(undefined);
     };
-  }, [variableName, selectionName, timeColumn, from, to, maxValues, bins, controlWidth, fill, textColour, rebuild]);
+  }, [
+    variableName,
+    selectionName,
+    timeColumn,
+    from,
+    to,
+    maxValues,
+    bins,
+    controlWidth,
+    muted,
+    textColour,
+    gradients,
+    colourKey,
+    rebuild,
+  ]);
 
   if (build.kind === 'starting') {
     return <div className={styles.message}>Waiting for Chaski…</div>;
@@ -469,9 +520,26 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
     without,
     options,
     styles,
+    colours,
   };
   return (
     <>
+      <svg className={styles.defs} aria-hidden>
+        <defs>
+          {colours.map((colour, i) => (
+            <React.Fragment key={i}>
+              <linearGradient id={gradientId(gradients, i, 'y')} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stopColor={colour} stopOpacity={1} />
+                <stop offset="1" stopColor={colour} stopOpacity={0.55} />
+              </linearGradient>
+              <linearGradient id={gradientId(gradients, i, 'x')} x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0" stopColor={colour} stopOpacity={0.55} />
+                <stop offset="1" stopColor={colour} stopOpacity={1} />
+              </linearGradient>
+            </React.Fragment>
+          ))}
+        </defs>
+      </svg>
       {problem && (
         <div className={styles.error} data-testid="filters-error">
           {problem}
@@ -492,30 +560,84 @@ interface ViewProps {
   without: Record<string, number>;
   options: FiltersOptions;
   styles: Styles;
+  /** One per filter, in declaration order. */
+  colours: string[];
 }
 
 /** A filter is shown as set when it is, and leaving it out would show more rows. */
 const narrows = (view: ViewProps, state: Clause) =>
   state.sql !== undefined && (view.without[state.name] === undefined || view.without[state.name] !== view.shown);
 
-function Count({ shown, total, options, styles }: ViewProps) {
-  const show = (n?: number) => (n === undefined ? '…' : formatCount(n));
+/** A number that eases to each new value instead of jumping. */
+function useEased(target: number | undefined, ms = 280): number | undefined {
+  const [shownValue, setShownValue] = useState(target);
+  const from = useRef(target);
+  useEffect(() => {
+    if (target === undefined) {
+      return;
+    }
+    const start = from.current ?? target;
+    const began = performance.now();
+    let frame = 0;
+    const step = (now: number) => {
+      const t = Math.min(1, (now - began) / ms);
+      const eased = 1 - Math.pow(1 - t, 3);
+      const value = start + (target - start) * eased;
+      from.current = value;
+      setShownValue(value);
+      if (t < 1) {
+        frame = requestAnimationFrame(step);
+      }
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [target, ms]);
+  return shownValue;
+}
+
+function Count({ shown, total, options, styles, wide }: ViewProps & { wide?: boolean }) {
+  // Room for the count at its largest, "50,000 of 50,000 rows 100%", so nothing beside it moves.
+  const widest = `${formatCount(total ?? 0)} of ${formatCount(total ?? 0)} ${options.noun} 100%`.length;
+  const eased = useEased(shown);
+  const show = (n?: number) => (n === undefined ? '…' : formatCount(Math.round(n)));
+  const share = shown !== undefined && total ? Math.min(1, shown / total) : undefined;
+  const percent =
+    share === undefined
+      ? ''
+      : share === 1
+        ? '100%'
+        : share >= 0.1
+          ? `${(share * 100).toFixed(0)}%`
+          : `${(share * 100).toFixed(1)}%`;
   return (
-    <span className={styles.count} data-testid="filters-count">
-      <b>{show(shown)}</b> of {show(total)} {options.noun}
+    <span className={wide ? styles.countBlock : styles.countInline} style={wide ? undefined : { width: `${widest}ch` }}>
+      <span className={styles.count}>
+        {/* The exact count for tests and screen readers; the eased one is what the eye sees. */}
+        <span className={styles.srOnly} data-testid="filters-count">
+          {show(shown)} of {show(total)} {options.noun}
+        </span>
+        <span aria-hidden>
+          <b>{show(eased)}</b> of {show(total)} {options.noun}
+          {percent && <span className={styles.percent}>{percent}</span>}
+        </span>
+      </span>
+      <span className={styles.share} aria-hidden>
+        <span className={styles.shareFill} style={{ width: `${(share ?? 1) * 100}%` }} />
+      </span>
     </span>
   );
 }
 
+/** Clear all; with nothing set it keeps its room, hidden, so what sits beside it does not move. */
 function ClearAll(view: ViewProps) {
   const set = view.states.filter((s) => narrows(view, s) && s.variables.length > 0);
-  if (set.length === 0) {
-    return null;
-  }
   return (
     <button
       type="button"
       className={view.styles.clearAll}
+      style={set.length === 0 ? { visibility: 'hidden' } : undefined}
+      aria-hidden={set.length === 0}
+      tabIndex={set.length === 0 ? -1 : undefined}
       onClick={() => writeVariables(clearing(view.states.flatMap((s) => s.variables)))}
     >
       Clear all
@@ -593,13 +715,14 @@ function Sidebar(view: ViewProps) {
   return (
     <div className={styles.root} data-testid="filters-panel">
       <div className={styles.header}>
-        <Count {...view} />
+        <Count {...view} wide />
         {on.length === 0 && <span className={styles.hint}>No filter yet.</span>}
         <ClearAll {...view} />
       </div>
-      {dataset.filters.map((filter) => {
+      {dataset.filters.map((filter, index) => {
         const state = states.find((s) => s.name === filter.name);
         const open = !closed.has(filter.name);
+        const colour = view.colours[index % view.colours.length];
         const set = state !== undefined && narrows(view, state);
         return (
           <div key={filter.name} className={styles.section}>
@@ -611,6 +734,7 @@ function Sidebar(view: ViewProps) {
                 onClick={() => toggle(filter.name)}
               >
                 <span>{open ? '▾' : '▸'}</span>
+                <span className={styles.dot} style={{ background: colour }} />
                 <span>{filter.label ?? filter.name}</span>
                 {set && <span className={styles.sectionValue}>{state.text}</span>}
               </button>
@@ -631,32 +755,45 @@ function Pills(view: ViewProps) {
   const { dataset, states, styles } = view;
   return (
     <div className={styles.pillsRoot} data-testid="filters-panel">
-      <Count {...view} />
-      {dataset.filters.map((filter) => {
-        const state = states.find((s) => s.name === filter.name);
-        const set = state !== undefined && narrows(view, state);
-        const label = filter.label ?? filter.name;
-        return (
-          <span key={filter.name} className={`${styles.pill} ${set ? styles.pillOn : ''}`}>
-            <Toggletip
-              placement="bottom-start"
-              closeButton={false}
-              content={
-                <div className={styles.popover}>
-                  <ControlView filter={filter} view={view} />
-                </div>
+      <div className={styles.pills}>
+        {dataset.filters.map((filter, index) => {
+          const state = states.find((s) => s.name === filter.name);
+          const set = state !== undefined && narrows(view, state);
+          const label = filter.label ?? filter.name;
+          const colour = view.colours[index % view.colours.length];
+          return (
+            <span
+              key={filter.name}
+              className={styles.pill}
+              style={
+                set ? { borderColor: colour, background: `color-mix(in srgb, ${colour} 16%, transparent)` } : undefined
               }
             >
-              <button type="button" className={styles.pillButton}>
-                <span>{set ? `${label}: ${state.text}` : label}</span>
-                {!set && <span>▾</span>}
-              </button>
-            </Toggletip>
-            {set && state.variables.length > 0 && <ClearOne state={state} />}
-          </span>
-        );
-      })}
-      <ClearAll {...view} />
+              <Toggletip
+                placement="bottom-start"
+                closeButton={false}
+                content={
+                  <div className={styles.popover}>
+                    <ControlView filter={filter} view={view} />
+                  </div>
+                }
+              >
+                <button type="button" className={styles.pillButton}>
+                  <span className={styles.dot} style={{ background: colour }} />
+                  <span>{set ? `${label}: ${state.text}` : label}</span>
+                  {!set && <span>▾</span>}
+                </button>
+              </Toggletip>
+              {set && state.variables.length > 0 && <ClearOne state={state} />}
+            </span>
+          );
+        })}
+      </div>
+      {/* At the end, at a width that holds the largest count: the pills never move as it changes. */}
+      <div className={styles.pillsEnd}>
+        <Count {...view} />
+        <ClearAll {...view} />
+      </div>
     </div>
   );
 }

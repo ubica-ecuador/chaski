@@ -13,8 +13,12 @@ import type { VariableLink } from '../mosaic/bridge';
 export type ValueFilter = Extract<FilterDeclaration, { type: 'in' | 'equals' }>;
 
 export interface ControlLook {
-  /** The bars that the other filters leave. */
-  fill: string;
+  /** The filter's own colour: its brush, and what its picks keep. */
+  colour: string;
+  /** The bars' paint in that colour: the colour itself, or a gradient as `url(#id)`. */
+  paint: string;
+  /** What the other filters leave but this one's picks do not. */
+  muted: string;
   /** Labels and counts. */
   text: string;
   width: number;
@@ -23,34 +27,46 @@ export interface ControlLook {
 const HISTOGRAM_HEIGHT = 64;
 const ROW_HEIGHT = 20;
 
-/** The name of the Selection a value filter's picks also go to, for highlighting them. */
-export const pickParam = (selection: string, filter: string) => `${selection}__${filter}`;
-
 const brushStyle = (look: ControlLook) => ({
-  fill: look.fill,
-  'fill-opacity': 0.18,
-  stroke: look.fill,
+  fill: look.colour,
+  'fill-opacity': 0.12,
+  stroke: look.colour,
   'stroke-opacity': 0.9,
 });
 
-/**
- * A histogram of the column under the other filters; drag across it to pick a
- * range. The y axis fits the rows left, so the shape stays readable however
- * narrow the other filters are.
+/*
+ * Each control is two layers of the same bars. Behind, in grey, what the other
+ * filters leave: the crossfilter Selection leaves a control's own clause out.
+ * In front, in the filter's colour, what every filter leaves, its own picks
+ * included: the same bars filtered by `allOf(selection)`, an intersect
+ * Selection the panel keeps holding every clause of the crossfilter one. So
+ * picks and brushes show in colour and the rest greys out. The coloured layer
+ * lets pointers through to the grey one, which takes the clicks, drags and tips.
  */
+
+/** The intersect Selection that mirrors the crossfilter one, own clauses and all. */
+export const allOf = (selection: string) => `${selection}__all`;
+
+/** A histogram of the column under the other filters; drag across it to pick a range. */
 export function rangeSpec(dataset: string, filter: RangeFilter, selection: string, bins: number, look: ControlLook) {
+  const layer = {
+    mark: 'rectY',
+    data: { from: dataset, filterBy: `$${selection}` },
+    x: { bin: filter.column, steps: bins },
+    y: { count: null },
+    inset: 0.5,
+  };
   return {
-    params: { [selection]: { select: 'crossfilter' } },
+    params: { [selection]: { select: 'crossfilter' }, [allOf(selection)]: { select: 'intersect' } },
     plot: [
-      {
-        mark: 'rectY',
-        data: { from: dataset, filterBy: `$${selection}` },
-        x: { bin: filter.column, steps: bins },
-        y: { count: null },
-        fill: look.fill,
-        inset: 0.5,
-      },
+      { ...layer, fill: look.muted, tip: true },
       { select: 'intervalX', as: `$${selection}`, brush: brushStyle(look) },
+      {
+        ...layer,
+        data: { from: dataset, filterBy: `$${allOf(selection)}` },
+        fill: look.paint,
+        pointerEvents: 'none',
+      },
     ],
     xDomain: 'Fixed',
     yAxis: null,
@@ -68,8 +84,8 @@ export function rangeSpec(dataset: string, filter: RangeFilter, selection: strin
 
 /**
  * The column's most frequent values as bars with their counts under the other
- * filters. A click picks a value, a shift-click adds one; the picked ones stay
- * bright, the others dim.
+ * filters. A click picks a value, a shift-click adds one; the picked ones keep
+ * their colour, the others grey out.
  */
 export function valuesSpec(
   dataset: string,
@@ -79,15 +95,19 @@ export function valuesSpec(
   labelWidth: number,
   look: ControlLook
 ) {
-  const pick = pickParam(selection, filter.name);
   const data = { from: dataset, filterBy: `$${selection}` };
+  const layer = { mark: 'barX', data, x: { count: null }, y: filter.column, insetTop: 2, insetBottom: 2 };
   return {
-    params: { [selection]: { select: 'crossfilter' }, [pick]: { select: 'single' } },
+    params: { [selection]: { select: 'crossfilter' }, [allOf(selection)]: { select: 'intersect' } },
     plot: [
-      { mark: 'barX', data, x: { count: null }, y: filter.column, fill: look.fill, insetTop: 2, insetBottom: 2 },
+      { ...layer, fill: look.muted },
       { select: 'toggleY', as: `$${selection}` },
-      { select: 'toggleY', as: `$${pick}` },
-      { select: 'highlight', by: `$${pick}`, opacity: 0.3 },
+      {
+        ...layer,
+        data: { from: dataset, filterBy: `$${allOf(selection)}` },
+        fill: look.paint,
+        pointerEvents: 'none',
+      },
       {
         mark: 'text',
         data,
@@ -98,6 +118,7 @@ export function valuesSpec(
         textAnchor: 'start',
         fill: look.text,
         fontSize: 11,
+        pointerEvents: 'none',
       },
     ],
     yDomain: values,

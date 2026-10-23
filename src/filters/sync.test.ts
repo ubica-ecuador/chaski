@@ -6,6 +6,7 @@ import {
   applyValues,
   heldElsewhere,
   type IntervalInteractor,
+  mirrorClauses,
   pixelOf,
   rangeMatches,
   searchClause,
@@ -128,5 +129,26 @@ describe('clauses the panel makes itself', () => {
     );
     expect(clause.meta).toEqual({ type: 'variable' });
     expect(clause.fields.map(String)).toEqual([String(column('time'))]);
+  });
+});
+
+describe('mirrorClauses', () => {
+  // Mosaic emits a Selection's later values once listeners settle: let them.
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+  it('keeps every clause of the crossfilter Selection in the mirror, and drops those it drops', async () => {
+    const shared = Selection.crossfilter();
+    const all = Selection.intersect();
+    const a = {};
+    shared.update(clauseInterval('mag', [1, 2], { source: a }));
+    const stop = mirrorClauses(shared, all);
+    expect(all.clauses).toHaveLength(1);
+    shared.update(clausePoints(['type'], [['x']], { source: {} }));
+    await settle();
+    expect(all.clauses).toHaveLength(2);
+    shared.update(clauseInterval('mag', null, { source: a }));
+    await settle();
+    expect(all.clauses).toHaveLength(1);
+    stop();
   });
 });

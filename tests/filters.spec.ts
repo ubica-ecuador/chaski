@@ -2,6 +2,25 @@ import { expect, test, type Page } from '@grafana/plugin-e2e';
 
 test.use({ viewport: { width: 1600, height: 1300 } });
 
+/** Clicks the grey bar of a value in a list: the one level with its label. Bars come in data order. */
+async function clickValue(plot: ReturnType<Page['locator']>, value: string) {
+  const label = (await plot
+    .locator('[aria-label="y-axis tick label"] text', { hasText: new RegExp(`^${value}$`) })
+    .boundingBox())!;
+  const bars = plot.locator('[aria-label="bar"]').first().locator('rect');
+  const boxes = await Promise.all((await bars.all()).map((bar) => bar.boundingBox()));
+  const mid = label.y + label.height / 2;
+  const index = boxes.reduce(
+    (best, box, i) =>
+      box &&
+      Math.abs(box.y + box.height / 2 - mid) < Math.abs((boxes[best]?.y ?? 0) + (boxes[best]?.height ?? 0) / 2 - mid)
+        ? i
+        : best,
+    0
+  );
+  await bars.nth(index).click({ force: true });
+}
+
 /** Drags across a plot from one fraction of its width to another. */
 async function drag(page: Page, plot: ReturnType<Page['locator']>, from: number, to: number) {
   const box = (await plot.boundingBox())!;
@@ -34,8 +53,7 @@ test('the filters panel draws a Mosaic control per filter, counted under the oth
   await expect(kind).toContainText(/42,?927/);
   // A click while Mosaic is still drawing the bars can land on the plot it replaces: try again until it holds.
   await expect(async () => {
-    // The bars in the values' order: earthquake, explosion, …
-    await kind.locator('[aria-label="bar"] rect').nth(1).click({ force: true });
+    await clickValue(kind, 'explosion');
     await expect(page).toHaveURL(/var-kinds=explosion/, { timeout: 2000 });
   }).toPass({ timeout: 20_000 });
   await expect(side.getByTestId('filters-count')).toHaveText(/^3,535 of/);
@@ -78,9 +96,36 @@ test('a Mosaic panel on the same selection drives the filters panel', async ({
   await expect(side.getByTestId('filters-count')).toHaveText('50,000 of 50,000 quakes', { timeout: 60_000 });
   await expect(mosaic.first()).toBeVisible();
 
-  await drag(page, mosaic.first(), 0.35, 0.6);
+  // Held, not released: the filters panel follows the brush before any variable is written.
+  const box = (await mosaic.first().boundingBox())!;
+  await page.mouse.move(box.x + box.width * 0.35, box.y + box.height * 0.5);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.5, { steps: 8 });
   await expect(side.getByTestId('filters-count')).not.toHaveText(/^50,000 of/);
+  await page.mouse.up();
   await expect(page).toHaveURL(/var-mag_lo=\d/);
-  // The filters panel shows the range without a second clause of its own: its histogram keeps every bin.
-  await expect(side).toContainText('Magnitude');
+});
+
+test('the Mosaic panel follows a pick in the filters panel', async ({
+  gotoDashboardPage,
+  readProvisionedDashboard,
+}) => {
+  test.setTimeout(120_000);
+  const dashboard = await readProvisionedDashboard({ fileName: 'filters.json' });
+  const dashboardPage = await gotoDashboardPage(dashboard);
+  const side = dashboardPage.getPanelByTitle('Filters').locator.getByTestId('filters-panel');
+  const ticks = dashboardPage
+    .getPanelByTitle('Magnitude (Mosaic)')
+    .locator.getByTestId('mosaic-panel')
+    .locator('[aria-label="y-axis tick label"]');
+  await expect(side.getByTestId('filters-count')).toHaveText('50,000 of 50,000 quakes', { timeout: 60_000 });
+  await expect(ticks).toContainText('15,000');
+
+  const kind = side.locator('svg').filter({ hasText: 'quarry blast' });
+  await expect(async () => {
+    await clickValue(kind, 'explosion');
+    await expect(side.getByTestId('filters-count')).not.toHaveText(/^50,000 of/, { timeout: 2000 });
+  }).toPass({ timeout: 20_000 });
+  // Its histogram now counts only the picked kind: its axis no longer reaches 15,000.
+  await expect(ticks).not.toContainText('15,000');
 });

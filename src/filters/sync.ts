@@ -170,3 +170,26 @@ export function spanOf(interactor: IntervalInteractor): number {
   const domain = interactor.scale?.domain?.map(asNumber) ?? [];
   return domain.length >= 2 ? Math.abs(domain[domain.length - 1] - domain[0]) : 0;
 }
+
+/**
+ * Keeps `mirror` holding every clause of `source`, the same clause objects:
+ * set when set there, taken out when taken out there. Returns the function
+ * that stops it.
+ */
+export function mirrorClauses(source: Selection, mirror: Selection): () => void {
+  const copy = () => {
+    const wanted = new Set(source.clauses);
+    const gone = mirror.clauses.filter((clause) => !source.clauses.some((c) => c.source === clause.source));
+    if (gone.length > 0) {
+      mirror.reset(gone);
+    }
+    for (const clause of wanted) {
+      if (!mirror.clauses.includes(clause)) {
+        mirror.update(clause);
+      }
+    }
+  };
+  copy();
+  source.addEventListener('value', copy);
+  return () => source.removeEventListener('value', copy);
+}

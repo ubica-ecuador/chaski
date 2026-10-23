@@ -1,6 +1,7 @@
 import { PanelPlugin } from '@grafana/data';
 
 import { patchEmptyGrids } from '../../mosaic/patches';
+import { mosaicRuntime } from '../../mosaic/runtime';
 
 import { CodeOption } from '../../mosaic/components/CodeOption';
 import { MosaicPanel } from '../../mosaic/components/MosaicPanel';
@@ -47,3 +48,6 @@ export const plugin = new PanelPlugin<MosaicOptions>(MosaicPanel).setPanelOption
       defaultValue: true,
     })
 );
+
+// The filters panel draws with this copy of Mosaic, so both panels share Selections (src/mosaic/runtime.ts).
+Object.assign(plugin, { mosaicRuntime });

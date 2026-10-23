@@ -1,7 +1,10 @@
 {
   "uid": "chaski-filters",
   "title": "Chaski filters panel",
-  "tags": ["filters", "dev"],
+  "tags": [
+    "filters",
+    "dev"
+  ],
   "schemaVersion": 41,
   "editable": true,
   "graphTooltip": 0,
@@ -116,8 +119,12 @@
         "multi": true,
         "includeAll": true,
         "current": {
-          "text": ["All"],
-          "value": ["$__all"]
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
         },
         "options": [],
         "hide": 2

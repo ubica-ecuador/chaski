@@ -111,6 +111,9 @@ quakes in four Mosaic panels writing variables, and a plain table following them
 - **No second DuckDB.** The panel's Mosaic connector is the engine API on `window.__chaski`:
   `queryIPC` for Arrow queries, `exec` for the rest, on the explorer's connections, whose
   `search_path` finds datasets by bare name. Mosaic's own DuckDB-WASM connector is never bundled.
+- **One copy of Mosaic for the app.** The panel's module also hands its Mosaic out on its plugin
+  object (`src/mosaic/runtime.ts`), and the filters panel draws with that copy, so both share
+  selections by name: brush one, and the other follows as the brush moves.
 - **A coordinator per panel, params per dashboard.** Each panel builds its own Mosaic coordinator,
   so its errors are its own. Params, selections and named plots live in a map shared by the panels
   of the dashboard on screen (`src/mosaic/page.ts`).
