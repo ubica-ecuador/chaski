@@ -6,8 +6,10 @@ import { readFileSync } from 'node:fs';
 // EXAMPLES=1 GRAFANA_VERSION=13.2.4 on the dev Grafana.
 test.skip(!process.env.EXAMPLES, 'set EXAMPLES=1 to run the examples against the network');
 test.use({ viewport: { width: 1600, height: 1300 } });
+// One worker: the dashboards are created once, not by two workers racing.
+test.describe.configure({ mode: 'serial' });
 
-const DASHBOARDS = ['mosaic-gallery', 'mosaic-density'];
+const DASHBOARDS = ['mosaic-gallery', 'mosaic-density', 'mosaic-nyc-taxi'];
 
 test.beforeAll(async ({ request }) => {
   const health = await (await request.get('/api/health')).json();
@@ -109,4 +111,32 @@ test('every tab of the density dashboard draws, and an empty brush leaves the pa
   await expect(page).toHaveURL(/var-p_flip_lo=2\d\d/);
   await expect(count).not.toContainText('342');
   await expect(count).not.toHaveText(/Penguins\s*0$/);
+});
+
+test('the taxi dashboard: Mosaic brushes drive the kepler map and the cards, and the map drives Mosaic', async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(300_000);
+  const kepler = await request.get('/api/plugins/ubica-keplergl-panel/settings');
+  test.skip(!kepler.ok(), 'needs the kepler panel (ubica-keplergl-panel)');
+  // A million rides, 49 MB, read by the browser.
+  await open(page, 'mosaic-nyc-taxi', 1);
+  await expect(page.getByTestId('mosaic-panel').locator('svg').first()).toBeVisible({ timeout: 60_000 });
+  // The map publishes its view on load; Mosaic and the cards read it.
+  await expect(page).toHaveURL(/var-view_w=-7\d/, { timeout: 60_000 });
+  await expect(page.getByTestId('mosaic-error')).toHaveCount(0);
+  await expect(page.getByTestId('data-testid Panel status error')).toHaveCount(0);
+
+  const trips = panel(page, 'Trips');
+  await expect(trips).toContainText('K', { timeout: 60_000 });
+  const before = await trips.innerText();
+  // The hour histogram has drawn its bars, so its brush is live.
+  await expect(panel(page, 'Pickup hour').getByTestId('mosaic-panel').locator('svg rect').nth(10)).toBeAttached({
+    timeout: 60_000,
+  });
+  await drag(page, await plotBox(page, 'Pickup hour'), [0.15, 0.3], [0.5, 0.5]);
+  await expect(page).toHaveURL(/var-t_hour_lo=\d/);
+  await expect(trips).not.toHaveText(before, { timeout: 60_000 });
+  await expect(panel(page, 'Active filters')).toContainText('Hour');
 });

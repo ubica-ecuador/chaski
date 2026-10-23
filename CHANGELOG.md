@@ -15,6 +15,10 @@
   tabs, each driving Grafana stat panels and tables through cross-filters, one on the live USGS feed.
   Pacha syncs the folder with Git Sync. A second dashboard, `mosaic-density`, holds Mosaic's density
   visualizations (penguins, flights, stocks) with brushes that drive stat panels.
+- **Read from variables.** The Mosaic panel turns dashboard variables written elsewhere into clauses
+  of its selections: a range from one or two variables, a WKT area over longitude and latitude, or a
+  list of values. A kepler map's viewport and drawn area now drive Mosaic. A third example,
+  `mosaic-nyc-taxi`, has Mosaic and kepler driving each other over a million taxi rides.
 - The Mosaic panel: a 2-D brush can write one range per axis (`from` and `to` as lists), for axes that
   are not longitude and latitude; an error after the panel has drawn shows over it until a later query
   answers; and a brush that leaves a contour or heatmap no rows no longer freezes the dashboard's

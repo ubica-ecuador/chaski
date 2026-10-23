@@ -4,10 +4,11 @@ Dashboards that show what Chaski and its Mosaic panel do together. They need **G
 dashboard tabs) and the Chaski app, and they read public data from the network in the viewer's
 browser.
 
-| Dashboard      | uid              | What it shows                                                                                                                                    |
-| -------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Mosaic gallery | `mosaic-gallery` | Five tabs on [Mosaic's examples](https://idl.uw.edu/mosaic/examples/), each with something only Grafana adds (below). About 3 MB of data in all. |
-| Mosaic density | `mosaic-density` | Mosaic's density visualizations in three tabs: penguins, flights and stocks. About 7.5 MB of data.                                               |
+| Dashboard                         | uid               | What it shows                                                                                                                                                                                                             |
+| --------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mosaic gallery                    | `mosaic-gallery`  | Five tabs on [Mosaic's examples](https://idl.uw.edu/mosaic/examples/), each with something only Grafana adds (below). About 3 MB of data in all.                                                                          |
+| Mosaic density                    | `mosaic-density`  | Mosaic's density visualizations in three tabs: penguins, flights and stocks. About 7.5 MB of data.                                                                                                                        |
+| NYC taxi rides, Mosaic and kepler | `mosaic-nyc-taxi` | A million rides with Mosaic rasters and histograms and a kepler map of the trips, each driving the other. 49 MB of data. Needs the [kepler panel](https://github.com/ubica-ecuador/keplergl-grafana-panel), 1.4 or later. |
 
 **Mosaic gallery**, tab by tab:
 
@@ -33,12 +34,24 @@ browser.
 - **Stocks.** Mosaic's dense lines over 3,600 stocks since 2006, with a stock picked from a menu drawn
   on top (Bank of America and its 2008 fall, to start) and stat panels on the stock you pick.
 
+**NYC taxi rides, Mosaic and kepler.** A million rides, January 1–3, 2010.
+
+- Mosaic draws the pickups and dropoffs as rasters computed in DuckDB, and histograms of the hour
+  and fare, plus cash or card.
+- Its brushes write variables: the kepler map draws 12,000 of the trips they leave as arcs, and stat
+  panels (trips, fare, tip, distance) follow.
+- The other way, the map publishes its viewport and drawn area, which the Mosaic panels read: pan and
+  zoom, and the rasters, histograms and cards follow what the map shows. The map leaves its own view
+  and drawing out of its query, or it would filter itself.
+
 ## Data
 
 All of it is read by the viewer's browser when the dashboard opens; the servers send CORS headers.
 
 - Flights, Seattle weather, athletes, wind, penguins and stocks:
   [Mosaic's example datasets](https://idl.uw.edu/mosaic/data/), from `https://idl.uw.edu/mosaic/data/`.
+- Taxi rides: Mosaic's 1M-ride sample of the NYC TLC records for January 2010, from Mosaic's
+  public bucket.
 - Earthquakes: the [USGS real-time feed](https://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.php),
   public domain.
 - Land: [Natural Earth](https://www.naturalearthdata.com/) 1:110m land, public domain.

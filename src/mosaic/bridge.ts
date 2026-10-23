@@ -90,7 +90,8 @@ export function clauseColumns(clause: SelectionClause): string[] {
 }
 
 function pickClause(selection: Selection, column: VariableLink['column']): SelectionClause | undefined {
-  const clauses = selection.clauses;
+  // A clause read from a variable (inbound.ts) is that variable's, not this panel's to write back.
+  const clauses = selection.clauses.filter((c) => (c.meta as { type?: string } | undefined)?.type !== 'variable');
   if (column === undefined) {
     return selection.active && clauses.includes(selection.active) ? selection.active : clauses[clauses.length - 1];
   }

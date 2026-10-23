@@ -6,6 +6,7 @@ import { astToDOM, parseSpec } from '@uwdata/mosaic-spec';
 import { createAPIContext } from '@uwdata/vgplot';
 
 import { linkVariables, parseLinks } from '../bridge';
+import { linkReads, parseReads } from '../inbound';
 import { ChaskiConnector, unreadable, waitForEngine } from '../connector';
 import { dashboardKey, pageFor, PREAGG_SCHEMA, releaseClauses } from '../page';
 import { datasetNames, fitToPanel, parseSpecText } from '../spec';
@@ -63,7 +64,7 @@ export function MosaicPanel({ options, width, height }: PanelProps<MosaicOptions
   const [rebuild, setRebuild] = useState(0);
   const w = useDebounced(width, 150);
   const h = useDebounced(height, 150);
-  const { spec: specText = '', variables = '', preaggregate = true } = options;
+  const { spec: specText = '', variables = '', reads: readsText = '', preaggregate = true } = options;
 
   useEffect(() => {
     const abort = new AbortController();
@@ -125,6 +126,8 @@ export function MosaicPanel({ options, width, height }: PanelProps<MosaicOptions
       }
       const spec = parseSpecText(specText);
       const links = parseLinks(variables);
+      const written = new Set(links.flatMap((l) => [l.from, l.to, l.variable].flat()).filter((v): v is string => !!v));
+      const reads = parseReads(readsText, written);
       const names = datasetNames(spec);
       // Listed is not yet readable: a dataset's view comes a moment after its load.
       const missing = await unreadable(engine, names, abort.signal);
@@ -160,6 +163,7 @@ export function MosaicPanel({ options, width, height }: PanelProps<MosaicOptions
       page.read(names, infos);
       host.current?.replaceChildren(element);
       defer(() => host.current?.replaceChildren());
+      defer(linkReads(reads, page.params));
       const unlink = linkVariables(links, page.params);
       defer(() => unlink(dashboardKey() === page.key));
       drawn = true;
@@ -177,7 +181,7 @@ export function MosaicPanel({ options, width, height }: PanelProps<MosaicOptions
       // The next build starts clean; this one's error went with it.
       setProblem(undefined);
     };
-  }, [specText, variables, preaggregate, w, h, rebuild]);
+  }, [specText, variables, readsText, preaggregate, w, h, rebuild]);
 
   return (
     <div className={styles.root} data-testid="mosaic-panel">

@@ -30,6 +30,16 @@ export const plugin = new PanelPlugin<MosaicOptions>(MosaicPanel).setPanelOption
       defaultValue: '',
       settings: { height: 160 },
     })
+    .addCustomEditor({
+      id: 'reads',
+      path: 'reads',
+      name: 'Read from variables',
+      description:
+        'A list: `param` (a selection of the spec), `column`, then `from` and `to` for a range (a kepler viewport’s edges), `area` for a WKT polygon over `[longitude, latitude]` (a kepler drawn area), or `values` for a multi-value variable. The Mosaic panels follow those variables. Declare each read in one panel.',
+      editor: CodeOption,
+      defaultValue: '',
+      settings: { height: 160 },
+    })
     .addBooleanSwitch({
       path: 'preaggregate',
       name: 'Pre-aggregate',

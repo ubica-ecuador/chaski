@@ -1,0 +1,1126 @@
+{
+  "apiVersion": "dashboard.grafana.app/v2",
+  "kind": "Dashboard",
+  "metadata": {
+    "name": "mosaic-nyc-taxi"
+  },
+  "spec": {
+    "title": "NYC taxi rides, Mosaic and kepler",
+    "description": "A million New York taxi rides, January 1–3, 2010: Mosaic rasters and histograms over them in the browser, and a kepler map of the trips. Each drives the other through dashboard variables.",
+    "tags": ["chaski", "mosaic", "kepler", "examples"],
+    "editable": true,
+    "cursorSync": "Off",
+    "liveNow": false,
+    "preload": false,
+    "links": [],
+    "annotations": [
+      {
+        "kind": "AnnotationQuery",
+        "spec": {
+          "builtIn": true,
+          "enable": true,
+          "hide": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name": "Annotations & Alerts",
+          "query": {
+            "datasource": {
+              "name": "-- Grafana --"
+            },
+            "group": "grafana",
+            "kind": "DataQuery",
+            "spec": {},
+            "version": "v0"
+          }
+        }
+      }
+    ],
+    "timeSettings": {
+      "autoRefresh": "",
+      "autoRefreshIntervals": ["1m", "5m", "15m", "1h"],
+      "fiscalYearStartMonth": 0,
+      "from": "now-30d",
+      "to": "now",
+      "hideTimepicker": true,
+      "timezone": "utc"
+    },
+    "variables": [
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "allowCustomValue": true,
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "includeAll": false,
+          "multi": false,
+          "name": "rides",
+          "options": [],
+          "query": {
+            "datasource": {
+              "name": "duckdbwasm"
+            },
+            "group": "ubica-chaski-datasource",
+            "kind": "DataQuery",
+            "version": "v0",
+            "spec": {
+              "refId": "rides",
+              "kind": "dataset",
+              "name": "rides",
+              "source": {
+                "type": "sql",
+                "sql": "SELECT\n  hour(t) + minute(t) / 60 AS hour,\n  pickup_longitude AS px, pickup_latitude AS py,\n  dropoff_longitude AS dx, dropoff_latitude AS dy,\n  trip_distance AS distance, fare_amount AS fare, tip_amount AS tip,\n  CASE upper(payment_type) WHEN 'CAS' THEN 'Cash' WHEN 'CRE' THEN 'Card' ELSE 'Other' END AS paid\nFROM (SELECT *, strptime(pickup_datetime, '%Y-%m-%d %H:%M:%S') AS t FROM read_parquet('https://pub-1da360b43ceb401c809f68ca37c7f8a4.r2.dev/data/nyc-rides-2010.parquet'))\nWHERE pickup_longitude BETWEEN -74.3 AND -73.65 AND pickup_latitude BETWEEN 40.5 AND 40.95\n  AND dropoff_longitude BETWEEN -74.3 AND -73.65 AND dropoff_latitude BETWEEN 40.5 AND 40.95\n  AND fare_amount BETWEEN 0 AND 100"
+              }
+            }
+          },
+          "refresh": "onDashboardLoad",
+          "regex": "",
+          "regexApplyTo": "value",
+          "skipUrlSync": true,
+          "sort": "disabled"
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "t_hour_lo",
+          "name": "t_hour_lo",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "t_hour_hi",
+          "name": "t_hour_hi",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "t_fare_lo",
+          "name": "t_fare_lo",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "t_fare_hi",
+          "name": "t_fare_hi",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "t_paid",
+          "name": "t_paid",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "pickup_area",
+          "name": "pickup_area",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "dropoff_area",
+          "name": "dropoff_area",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "map_area",
+          "name": "map_area",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "view_w",
+          "name": "view_w",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "view_s",
+          "name": "view_s",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "view_e",
+          "name": "view_e",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "view_n",
+          "name": "view_n",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "allowCustomValue": true,
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "includeAll": false,
+          "multi": false,
+          "name": "rideFilters",
+          "options": [],
+          "query": {
+            "datasource": {
+              "name": "duckdbwasm"
+            },
+            "group": "ubica-chaski-datasource",
+            "kind": "DataQuery",
+            "version": "v0",
+            "spec": {
+              "refId": "rideFilters",
+              "kind": "filters",
+              "dataset": "$rides",
+              "filters": [
+                {
+                  "name": "hour",
+                  "type": "range",
+                  "column": "hour",
+                  "from": "$t_hour_lo",
+                  "to": "$t_hour_hi",
+                  "label": "Hour",
+                  "upper": "closed"
+                },
+                {
+                  "name": "fare",
+                  "type": "range",
+                  "column": "fare",
+                  "from": "$t_fare_lo",
+                  "to": "$t_fare_hi",
+                  "label": "Fare ($)",
+                  "upper": "closed"
+                },
+                {
+                  "name": "paid",
+                  "type": "in",
+                  "column": "paid",
+                  "variable": "$t_paid",
+                  "label": "Paid by"
+                },
+                {
+                  "name": "pickup",
+                  "type": "area",
+                  "variable": "$pickup_area",
+                  "lat": "py",
+                  "lng": "px",
+                  "label": "Pickup area"
+                },
+                {
+                  "name": "dropoff",
+                  "type": "area",
+                  "variable": "$dropoff_area",
+                  "lat": "dy",
+                  "lng": "dx",
+                  "label": "Dropoff area"
+                },
+                {
+                  "name": "drawn",
+                  "type": "area",
+                  "variable": "$map_area",
+                  "lat": "py",
+                  "lng": "px",
+                  "label": "Drawn on the map"
+                },
+                {
+                  "name": "view_lng",
+                  "type": "range",
+                  "column": "px",
+                  "from": "$view_w",
+                  "to": "$view_e",
+                  "label": "In view (longitude)",
+                  "upper": "closed"
+                },
+                {
+                  "name": "view_lat",
+                  "type": "range",
+                  "column": "py",
+                  "from": "$view_s",
+                  "to": "$view_n",
+                  "label": "In view (latitude)",
+                  "upper": "closed"
+                }
+              ]
+            }
+          },
+          "refresh": "onDashboardLoad",
+          "regex": "",
+          "regexApplyTo": "value",
+          "skipUrlSync": true,
+          "sort": "disabled"
+        }
+      }
+    ],
+    "elements": {
+      "t-count": {
+        "kind": "Panel",
+        "spec": {
+          "id": 1,
+          "title": "Trips",
+          "description": "Trips that start in the map's view and pass every brush.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT count(*)::DOUBLE AS n FROM $rides WHERE $__crossfilter($rideFilters)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "options": {
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "textMode": "value",
+                "orientation": "auto",
+                "wideLayout": true,
+                "showPercentChange": false
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "short",
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "#5794F2"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "t-fare": {
+        "kind": "Panel",
+        "spec": {
+          "id": 2,
+          "title": "Mean fare",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT avg(fare)::DOUBLE AS v FROM $rides WHERE $__crossfilter($rideFilters)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "options": {
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "textMode": "value",
+                "orientation": "auto",
+                "wideLayout": true,
+                "showPercentChange": false
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "currencyUSD",
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "#FF9830"
+                  },
+                  "decimals": 2
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "t-tip": {
+        "kind": "Panel",
+        "spec": {
+          "id": 3,
+          "title": "Tip, paid by card",
+          "description": "Tips are recorded only for card payments.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT (sum(tip) / nullif(sum(fare), 0))::DOUBLE AS v FROM $rides WHERE $__crossfilter($rideFilters) AND paid = 'Card'"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "options": {
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "textMode": "value",
+                "orientation": "auto",
+                "wideLayout": true,
+                "showPercentChange": false
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "percentunit",
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "#73BF69"
+                  },
+                  "decimals": 1
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "t-distance": {
+        "kind": "Panel",
+        "spec": {
+          "id": 4,
+          "title": "Mean distance",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT avg(distance)::DOUBLE AS v FROM $rides WHERE $__crossfilter($rideFilters)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "options": {
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "textMode": "value",
+                "orientation": "auto",
+                "wideLayout": true,
+                "showPercentChange": false
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "lengthmi",
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "#B877D9"
+                  },
+                  "decimals": 1
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "t-pickups": {
+        "kind": "Panel",
+        "spec": {
+          "id": 5,
+          "title": "Pickups",
+          "description": "A raster of every pickups computed in DuckDB. Drag a box to keep trips starting there: the map and the cards follow. This panel also reads the kepler map: what it shows and what you draw on it filter every Mosaic panel.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "ubica-chaski-mosaic-panel",
+            "spec": {
+              "options": {
+                "spec": "params:\n  tbrush: { select: crossfilter }\n\nplot:\n  - mark: raster\n    data: { from: rides, filterBy: $tbrush }\n    x: px\n    y: py\n    bandwidth: 0\n    pixelSize: 1\n  - select: intervalXY\n    as: $tbrush\n  - mark: text\n    data: [{ label: Pickups }]\n    dx: 8\n    dy: 8\n    text: label\n    fill: currentColor\n    fontSize: 1.1em\n    frameAnchor: top-left\ncolorScheme: magma\nxDomain: [-74.05, -73.75]\nyDomain: [40.6, 40.9]\nmargin: 0\nxAxis: null\nyAxis: null\ncolorScale: symlog\n",
+                "variables": "- param: tbrush\n  column: [px, py]\n  variable: pickup_area\n",
+                "preaggregate": true,
+                "reads": "- param: tbrush\n  column: [px, py]\n  area: map_area\n- param: tbrush\n  column: px\n  from: view_w\n  to: view_e\n- param: tbrush\n  column: py\n  from: view_s\n  to: view_n\n"
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "t-dropoffs": {
+        "kind": "Panel",
+        "spec": {
+          "id": 6,
+          "title": "Dropoffs",
+          "description": "A raster of every dropoffs computed in DuckDB. Drag a box to keep trips ending there: the map and the cards follow.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "ubica-chaski-mosaic-panel",
+            "spec": {
+              "options": {
+                "spec": "params:\n  tbrush: { select: crossfilter }\n\nplot:\n  - mark: raster\n    data: { from: rides, filterBy: $tbrush }\n    x: dx\n    y: dy\n    bandwidth: 0\n    pixelSize: 1\n  - select: intervalXY\n    as: $tbrush\n  - mark: text\n    data: [{ label: Dropoffs }]\n    dx: 8\n    dy: 8\n    text: label\n    fill: currentColor\n    fontSize: 1.1em\n    frameAnchor: top-left\ncolorScheme: viridis\nxDomain: [-74.05, -73.75]\nyDomain: [40.6, 40.9]\nmargin: 0\nxAxis: null\nyAxis: null\ncolorScale: symlog\n",
+                "variables": "- param: tbrush\n  column: [dx, dy]\n  variable: dropoff_area\n",
+                "preaggregate": true
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "t-hour": {
+        "kind": "Panel",
+        "spec": {
+          "id": 7,
+          "title": "Pickup hour",
+          "description": "New Year's Day to January 3rd, 2010. Drag to select hours: the late-night rides after midnight on the 1st stand out.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "ubica-chaski-mosaic-panel",
+            "spec": {
+              "options": {
+                "spec": "params:\n  tbrush: { select: crossfilter }\n\nplot:\n  - mark: rectY\n    data: { from: rides, filterBy: $tbrush }\n    x: { bin: hour }\n    y: { count: }\n    fill: \"#5794F2\"\n    inset: 0.5\n  - select: intervalX\n    as: $tbrush\nxDomain: [0, 24]\nyTickFormat: '~s'\nxLabel: null\nyLabel: null\n",
+                "variables": "- param: tbrush\n  column: hour\n  from: t_hour_lo\n  to: t_hour_hi\n",
+                "preaggregate": true
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "t-fare-hist": {
+        "kind": "Panel",
+        "spec": {
+          "id": 8,
+          "title": "Fare ($)",
+          "description": "Drag to select a range of fares.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "ubica-chaski-mosaic-panel",
+            "spec": {
+              "options": {
+                "spec": "params:\n  tbrush: { select: crossfilter }\n\nplot:\n  - mark: rectY\n    data: { from: rides, filterBy: $tbrush }\n    x: { bin: fare }\n    y: { count: }\n    fill: \"#FF9830\"\n    inset: 0.5\n  - select: intervalX\n    as: $tbrush\nxDomain: [0, 60]\nyTickFormat: '~s'\nxLabel: null\nyLabel: null\n",
+                "variables": "- param: tbrush\n  column: fare\n  from: t_fare_lo\n  to: t_fare_hi\n",
+                "preaggregate": true
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "t-paid": {
+        "kind": "Panel",
+        "spec": {
+          "id": 9,
+          "title": "Paid by",
+          "description": "Click a bar to keep cash or card rides.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "ubica-chaski-mosaic-panel",
+            "spec": {
+              "options": {
+                "spec": "params:\n  tbrush: { select: crossfilter }\n\nplot:\n  - mark: barX\n    data: { from: rides, filterBy: $tbrush }\n    x: { count: }\n    y: paid\n    fill: paid\n  - select: toggleY\n    as: $tbrush\nyDomain: [Card, Cash, Other]\ncolorDomain: [Card, Cash, Other]\ncolorRange: ['#5794F2', '#73BF69', '#8E8E8E']\nxTickFormat: '~s'\nxLabel: null\nyLabel: null\nmarginLeft: 45\n",
+                "variables": "- param: tbrush\n  column: paid\n  variable: t_paid\n",
+                "preaggregate": true
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "t-filters": {
+        "kind": "Panel",
+        "spec": {
+          "id": 10,
+          "title": "Active filters",
+          "description": "What the Mosaic brushes on this tab wrote to the dashboard's variables, as Chaski's cross-filters read them.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT label AS Filter, value AS Range FROM $__filters($rideFilters) WHERE active"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "table",
+            "spec": {
+              "options": {
+                "showHeader": true,
+                "cellHeight": "sm",
+                "footer": {
+                  "show": false
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {
+                    "align": "auto"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "t-map": {
+        "kind": "Panel",
+        "spec": {
+          "id": 11,
+          "title": "Trips, pickup to dropoff",
+          "description": "12,000 of the trips the Mosaic brushes leave, from pickup (orange) to dropoff (teal). Pan and zoom: the cards and the Mosaic panels follow what the map shows. Draw a polygon to keep trips that start inside it.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT * FROM (\n  SELECT px AS lng0, py AS lat0, dx AS lng1, dy AS lat1, fare, distance, round(hour, 2) AS hour, paid\n  FROM $rides\n  WHERE $__crossfilter($rideFilters, -drawn, -view_lng, -view_lat)\n) USING SAMPLE reservoir(12000 ROWS) REPEATABLE (7)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "ubica-keplergl-panel",
+            "spec": {
+              "options": {
+                "areaVariable": "map_area",
+                "viewportVariables": {
+                  "west": "view_w",
+                  "south": "view_s",
+                  "east": "view_e",
+                  "north": "view_n"
+                },
+                "basemap": "dark-matter",
+                "followGrafanaTheme": true,
+                "showSidePanel": false,
+                "mapConfig": {
+                  "version": "v1",
+                  "config": {
+                    "mapState": {
+                      "bearing": 0,
+                      "dragRotate": false,
+                      "latitude": 40.745,
+                      "longitude": -73.955,
+                      "pitch": 0,
+                      "zoom": 11.4
+                    },
+                    "mapStyle": {
+                      "styleType": "dark-matter"
+                    },
+                    "visState": {
+                      "filters": [],
+                      "layerBlending": "normal",
+                      "interactionConfig": {
+                        "tooltip": {
+                          "enabled": true,
+                          "config": {
+                            "compareMode": false,
+                            "compareType": "absolute",
+                            "fieldsToShow": {
+                              "grafana-A": [
+                                {
+                                  "name": "fare"
+                                },
+                                {
+                                  "name": "distance"
+                                },
+                                {
+                                  "name": "hour"
+                                },
+                                {
+                                  "name": "paid"
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      "layers": [
+                        {
+                          "id": "trips",
+                          "type": "arc",
+                          "config": {
+                            "dataId": "grafana-A",
+                            "label": "Trips",
+                            "columnMode": "points",
+                            "isVisible": true,
+                            "columns": {
+                              "lat0": "lat0",
+                              "lng0": "lng0",
+                              "lat1": "lat1",
+                              "lng1": "lng1"
+                            },
+                            "color": [255, 152, 48],
+                            "highlightColor": [252, 242, 26, 255],
+                            "visConfig": {
+                              "opacity": 0.25,
+                              "thickness": 1,
+                              "targetColor": [63, 182, 178],
+                              "sizeRange": [0, 4]
+                            }
+                          },
+                          "visualChannels": {
+                            "colorScale": "quantile",
+                            "sizeScale": "linear"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "layout": {
+      "kind": "GridLayout",
+      "spec": {
+        "items": [
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "kind": "ElementReference",
+                "name": "t-count"
+              },
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 4
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "kind": "ElementReference",
+                "name": "t-fare"
+              },
+              "x": 6,
+              "y": 0,
+              "width": 6,
+              "height": 4
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "kind": "ElementReference",
+                "name": "t-tip"
+              },
+              "x": 12,
+              "y": 0,
+              "width": 6,
+              "height": 4
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "kind": "ElementReference",
+                "name": "t-distance"
+              },
+              "x": 18,
+              "y": 0,
+              "width": 6,
+              "height": 4
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "kind": "ElementReference",
+                "name": "t-map"
+              },
+              "x": 0,
+              "y": 4,
+              "width": 14,
+              "height": 20
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "kind": "ElementReference",
+                "name": "t-pickups"
+              },
+              "x": 14,
+              "y": 4,
+              "width": 5,
+              "height": 20
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "kind": "ElementReference",
+                "name": "t-dropoffs"
+              },
+              "x": 19,
+              "y": 4,
+              "width": 5,
+              "height": 20
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "kind": "ElementReference",
+                "name": "t-hour"
+              },
+              "x": 0,
+              "y": 24,
+              "width": 9,
+              "height": 8
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "kind": "ElementReference",
+                "name": "t-fare-hist"
+              },
+              "x": 9,
+              "y": 24,
+              "width": 7,
+              "height": 8
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "kind": "ElementReference",
+                "name": "t-paid"
+              },
+              "x": 16,
+              "y": 24,
+              "width": 4,
+              "height": 8
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "kind": "ElementReference",
+                "name": "t-filters"
+              },
+              "x": 20,
+              "y": 24,
+              "width": 4,
+              "height": 8
+            }
+          }
+        ]
+      }
+    }
+  }
+}

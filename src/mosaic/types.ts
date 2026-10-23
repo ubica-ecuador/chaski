@@ -3,6 +3,8 @@ export interface MosaicOptions {
   spec: string;
   /** Which of the spec's Selections and Params write dashboard variables, YAML or JSON. */
   variables: string;
+  /** Dashboard variables that become clauses of the spec's Selections, YAML or JSON. */
+  reads?: string;
   /** Pre-aggregate the tables brushes read, for large data. */
   preaggregate: boolean;
 }

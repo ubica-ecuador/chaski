@@ -70,11 +70,39 @@ Mosaic panels:
 SELECT count(*) FROM $quakes WHERE $__crossfilter($quakeFilters)
 ```
 
-It is one way: a variable changed elsewhere does not move a brush. Don't let a dataset's own SQL read
-a variable the panel writes: each write would reload the dataset, which clears the brushes.
+A variable changed elsewhere does not move a brush; the other way in is below. Don't let a dataset's
+own SQL read a variable the panel writes: each write would reload the dataset, which clears the
+brushes.
 
-For a tour, see [examples/](../examples/README.md): a gallery of five of Mosaic's examples and a
-dashboard of its density visualizations, each driving Grafana panels. The dev Grafana also provisions two dashboards for it: **Mosaic on Chaski** (`mosaic`, 50 000 synthetic
+## Reading variables
+
+The **Read from variables** option goes the other way: dashboard variables written elsewhere become
+clauses of a selection of the spec, and every Mosaic panel on that selection follows them. That is
+how a kepler map drives Mosaic: kepler publishes its viewport as four variables and a drawn area as
+WKT.
+
+```yaml
+- param: brush
+  column: [pickup_lon, pickup_lat]
+  area: map_area # a WKT polygon, as kepler's drawn area writes it
+- param: brush
+  column: pickup_lon
+  from: view_w # a range; an empty end is open (kepler's viewport edges)
+  to: view_e
+- param: brush
+  column: paid
+  values: payment # a multi-value variable
+```
+
+- Values are read from the URL, as kepler does, and followed as it changes. Numbers and ISO times
+  are ranges; an area is rebuilt from the numbers in the WKT, so nothing else of the variable reaches
+  the SQL, and is tested with `ST_Contains` behind its bounding box.
+- Declare each read in one panel: each panel adds its own clause.
+- A panel cannot read a variable it writes, and a clause read from a variable is never written back.
+
+For a tour, see [examples/](../examples/README.md): a gallery of five of Mosaic's examples, a
+dashboard of its density visualizations, and New York taxi rides where Mosaic and a kepler map drive
+each other. The dev Grafana also provisions two dashboards for it: **Mosaic on Chaski** (`mosaic`, 50 000 synthetic
 quakes in four Mosaic panels writing variables, and a plain table following them through
 `$__crossfilter`) and **Mosaic panel states** (`mosaic-states`).
 
