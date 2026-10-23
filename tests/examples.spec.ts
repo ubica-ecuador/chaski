@@ -9,7 +9,7 @@ test.use({ viewport: { width: 1600, height: 1300 } });
 // One worker: the dashboards are created once, not by two workers racing.
 test.describe.configure({ mode: 'serial' });
 
-const DASHBOARDS = ['mosaic-gallery', 'mosaic-density', 'mosaic-nyc-taxi'];
+const DASHBOARDS = ['mosaic-gallery', 'mosaic-density', 'mosaic-nyc-taxi', 'mosaic-gaia'];
 
 test.beforeAll(async ({ request }) => {
   const health = await (await request.get('/api/health')).json();
@@ -139,4 +139,21 @@ test('the taxi dashboard: Mosaic brushes drive the kepler map and the cards, and
   await expect(page).toHaveURL(/var-t_hour_lo=\d/);
   await expect(trips).not.toHaveText(before, { timeout: 60_000 });
   await expect(panel(page, 'Active filters')).toContainText('Hour');
+});
+
+test('Gaia: 5 million stars load, and the nearby ones sharpen the HR diagram', async ({ page }) => {
+  test.setTimeout(300_000);
+  // About 100 MB, read by the browser.
+  await open(page, 'mosaic-gaia', 1);
+  const stars = panel(page, 'Stars');
+  await expect(stars).toContainText('3.71', { timeout: 120_000 });
+  await expect(page.getByTestId('mosaic-error')).toHaveCount(0);
+  await expect(page.getByTestId('data-testid Panel status error')).toHaveCount(0);
+  await expect(panel(page, 'Parallax (mas)').getByTestId('mosaic-panel').locator('svg rect').nth(10)).toBeAttached({
+    timeout: 60_000,
+  });
+  await drag(page, await plotBox(page, 'Parallax (mas)'), [0.45, 0.97], [0.5, 0.5]);
+  await expect(page).toHaveURL(/var-g_par_lo=\d/);
+  await expect(stars).not.toContainText('3.71', { timeout: 120_000 });
+  await expect(panel(page, 'Active filters')).toContainText('Parallax');
 });

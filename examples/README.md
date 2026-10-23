@@ -9,6 +9,7 @@ browser.
 | Mosaic gallery                    | `mosaic-gallery`  | Five tabs on [Mosaic's examples](https://idl.uw.edu/mosaic/examples/), each with something only Grafana adds (below). About 3 MB of data in all.                                                                          |
 | Mosaic density                    | `mosaic-density`  | Mosaic's density visualizations in three tabs: penguins, flights and stocks. About 7.5 MB of data.                                                                                                                        |
 | NYC taxi rides, Mosaic and kepler | `mosaic-nyc-taxi` | A million rides with Mosaic rasters and histograms and a kepler map of the trips, each driving the other. 49 MB of data. Needs the [kepler panel](https://github.com/ubica-ecuador/keplergl-grafana-panel), 1.4 or later. |
+| Gaia, 5 million stars             | `mosaic-gaia`     | The Milky Way and a Hertzsprung–Russell diagram from 5 million stars, with brushes that drive stat panels. About 100 MB of data.                                                                                          |
 
 **Mosaic gallery**, tab by tab:
 
@@ -44,6 +45,12 @@ browser.
   zoom, and the rasters, histograms and cards follow what the map shows. The map leaves its own view
   and drawing out of its query, or it would filter itself.
 
+**Gaia, 5 million stars.** Mosaic's Gaia example: star density across the sky in galactic
+coordinates (the Milky Way, the Magellanic Clouds) and a Hertzsprung–Russell diagram, with histograms
+of brightness and parallax. Select the high parallaxes and the HR diagram sharpens into the main
+sequence, giants and white dwarfs. Every brush writes ranges that stat panels follow: stars, those
+within 100 parsecs, median distance and colour.
+
 ## Data
 
 All of it is read by the viewer's browser when the dashboard opens; the servers send CORS headers.
@@ -52,6 +59,8 @@ All of it is read by the viewer's browser when the dashboard opens; the servers 
   [Mosaic's example datasets](https://idl.uw.edu/mosaic/data/), from `https://idl.uw.edu/mosaic/data/`.
 - Taxi rides: Mosaic's 1M-ride sample of the NYC TLC records for January 2010, from Mosaic's
   public bucket.
+- Stars: a 5-million-star sample of [ESA Gaia](https://www.cosmos.esa.int/gaia) DR2, from Mosaic's
+  public bucket; CC BY-SA 3.0 IGO.
 - Earthquakes: the [USGS real-time feed](https://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.php),
   public domain.
 - Land: [Natural Earth](https://www.naturalearthdata.com/) 1:110m land, public domain.
