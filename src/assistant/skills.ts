@@ -19,6 +19,8 @@ Cross-filters: a hidden variable of kind 'filters' declares a dataset's filters 
 search, area, link), each a column and the dashboard variables that narrow it, all written $name.
 $__crossfilter($quakeFilters, -own) is the AND of the active ones except the panel's own (the one
 whose variables that panel writes); $__filters($quakeFilters) is a table of them for a filter bar.
+The Chaski Filters panel (type 'ubica-chaski-filters-panel', no targets, options.filters naming the
+filters variable) shows and sets them: a count, and a control per filter counted under the others.
 A dataset that reloads on time-range change keeps its table when the new range fits inside the
 loaded one, so its source must return plain rows for the range (no ORDER BY … LIMIT, no totals),
 and panels reading it must filter by time themselves with $__timeFilter.

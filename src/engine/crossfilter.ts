@@ -101,7 +101,7 @@ export interface CrossfilterSource {
 }
 
 /** One declared filter as it stands now. */
-interface Clause {
+export interface Clause {
   name: string;
   label: string;
   /** The condition, or undefined while the filter is off. */
@@ -217,7 +217,7 @@ function single(source: CrossfilterSource, dataset: DeclaredDataset, filter: Nam
   return read(source, dataset, filter, variable)[0] ?? '';
 }
 
-function parseNumber(text: string): number | undefined {
+export function parseNumber(text: string): number | undefined {
   if (text === '') {
     return undefined;
   }
@@ -229,7 +229,7 @@ function parseNumber(text: string): number | undefined {
  * Epoch milliseconds, or ISO 8601. A date and time with no zone is UTC, as DuckDB reads it here; JavaScript
  * alone would read it in the viewer's own zone.
  */
-function parseTime(text: string): number | undefined {
+export function parseTime(text: string): number | undefined {
   if (text === '') {
     return undefined;
   }
@@ -378,6 +378,11 @@ function clausesOf(
       }
     }
   });
+}
+
+/** Every declared filter of a dataset as it stands now, for a panel that shows and sets them. */
+export function filterStates(dataset: DeclaredDataset, source: CrossfilterSource): Clause[] {
+  return clausesOf(dataset, source, undefined, new Set());
 }
 
 /**

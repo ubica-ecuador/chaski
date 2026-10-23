@@ -169,6 +169,15 @@ itself. The app registers skills that teach it Chaski's SQL, its dataset variabl
 panel; their texts are in
 [docs/grafana-assistant.md](https://github.com/ubica-ecuador/chaski/blob/main/docs/grafana-assistant.md).
 
+## Filters panel
+
+The app brings **Chaski Filters**, a panel that shows a dataset's cross-filters and sets them, with no
+query to write: how many rows they leave, and a control for each, counted under the others. Values to
+pick for `in` and `equals`, a histogram to brush for `range`, a text box for `search`; a map's area
+shows as set, with a ×. It writes the same variables the filters read, so every panel follows it. Tall,
+it is a sidebar; low, a strip of pills. See
+[docs/filters.md](https://github.com/ubica-ecuador/chaski/blob/main/docs/filters.md).
+
 ## Mosaic panel
 
 The app also brings **Chaski Mosaic**, a panel that draws a

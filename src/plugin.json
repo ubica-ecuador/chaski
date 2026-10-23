@@ -66,6 +66,11 @@
       "type": "panel",
       "name": "Chaski Mosaic",
       "path": "plugins/mosaic/plugin.json"
+    },
+    {
+      "type": "panel",
+      "name": "Chaski Filters",
+      "path": "plugins/filters/plugin.json"
     }
   ],
   "extensions": {

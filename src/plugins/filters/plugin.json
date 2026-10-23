@@ -1,0 +1,24 @@
+{
+  "$schema": "https://raw.githubusercontent.com/grafana/grafana/main/docs/sources/developers/plugins/plugin.schema.json",
+  "type": "panel",
+  "name": "Chaski Filters",
+  "id": "ubica-chaski-filters-panel",
+  "skipDataQuery": true,
+  "info": {
+    "description": "The dashboard’s Chaski cross-filters as one panel: how many rows they leave, a chip for each with a ×, and a control for each, with counts under the other filters: values to pick, a histogram to brush, a text box.",
+    "author": {
+      "name": "UBICA"
+    },
+    "keywords": ["filters", "crossfilter", "facets", "duckdb", "chaski"],
+    "logos": {
+      "small": "img/logo.svg",
+      "large": "img/logo.svg"
+    },
+    "version": "%VERSION%",
+    "updated": "%TODAY%"
+  },
+  "dependencies": {
+    "grafanaDependency": ">=12.0.0",
+    "plugins": []
+  }
+}

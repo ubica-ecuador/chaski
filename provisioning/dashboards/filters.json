@@ -1,0 +1,373 @@
+{
+  "uid": "chaski-filters",
+  "title": "Chaski filters panel",
+  "tags": ["filters", "dev"],
+  "schemaVersion": 41,
+  "editable": true,
+  "graphTooltip": 0,
+  "time": {
+    "from": "now-90d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "refresh": "",
+  "annotations": {
+    "list": []
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "quakes",
+        "type": "query",
+        "hide": 2,
+        "skipUrlSync": true,
+        "refresh": 1,
+        "datasource": {
+          "type": "ubica-chaski-datasource",
+          "uid": "duckdbwasm"
+        },
+        "query": {
+          "refId": "quakes",
+          "kind": "dataset",
+          "name": "quakes",
+          "source": {
+            "type": "sql",
+            "sql": "WITH u AS (\n  SELECT i,\n    (hash(i * 8 + 1) % 1000000)::DOUBLE / 1e6 AS u1,\n    (hash(i * 8 + 2) % 1000000)::DOUBLE / 1e6 AS u2,\n    (hash(i * 8 + 3) % 1000000)::DOUBLE / 1e6 AS u3,\n    (hash(i * 8 + 4) % 1000000)::DOUBLE / 1e6 AS u4,\n    (hash(i * 8 + 5) % 1000000)::DOUBLE / 1e6 AS u5,\n    (hash(i * 8 + 6) % 1000000)::DOUBLE / 1e6 AS u6\n  FROM range(50000) t(i)\n)\nSELECT i AS id,\n  TIMESTAMP '2026-09-01' + to_seconds(floor(pow(u5, 0.7) * 2592000)::BIGINT) AS time,\n  -180 + 360 * u1 AS longitude,\n  30 * sin(radians(2 * (-180 + 360 * u1))) + (u2 - 0.5) * 24 AS latitude,\n  round(least(-ln(u3 + 1e-6) * 1.1, 9.0), 2) AS mag,\n  round(least(-ln(u3 + 1e-6) * 1.1, 9.0) * 35 + u4 * 80, 1) AS depth,\n  CASE WHEN u6 < 0.86 THEN 'earthquake' WHEN u6 < 0.93 THEN 'explosion' WHEN u6 < 0.98 THEN 'quarry blast' ELSE 'ice quake' END AS kind,\n  ['us', 'ci', 'ak', 'nc', 'hv', 'uw'][1 + (i % 6)::INTEGER] AS net,\n  'Zone ' || lpad(((hash(i * 8 + 7) % 40)::INTEGER)::VARCHAR, 2, '0') || ', ' || CASE WHEN u2 < 0.5 THEN 'north' ELSE 'south' END AS place\nFROM u"
+          }
+        }
+      },
+      {
+        "name": "t0",
+        "label": "From",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "options": [],
+        "hide": 2
+      },
+      {
+        "name": "t1",
+        "label": "To",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "options": [],
+        "hide": 2
+      },
+      {
+        "name": "mag_lo",
+        "label": "Magnitude from",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "options": [],
+        "hide": 2
+      },
+      {
+        "name": "mag_hi",
+        "label": "Magnitude to",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "options": [],
+        "hide": 2
+      },
+      {
+        "name": "depth_lo",
+        "label": "Depth from",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "options": [],
+        "hide": 2
+      },
+      {
+        "name": "depth_hi",
+        "label": "Depth to",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "options": [],
+        "hide": 2
+      },
+      {
+        "name": "kinds",
+        "label": "Kind",
+        "type": "custom",
+        "query": "earthquake,explosion,quarry blast,ice quake",
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "text": ["All"],
+          "value": ["$__all"]
+        },
+        "options": [],
+        "hide": 2
+      },
+      {
+        "name": "net",
+        "label": "Network",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "options": [],
+        "hide": 2
+      },
+      {
+        "name": "q",
+        "label": "Place",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "options": [],
+        "hide": 2
+      },
+      {
+        "name": "area",
+        "label": "Area",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "options": [],
+        "hide": 2
+      },
+      {
+        "name": "quakeFilters",
+        "type": "query",
+        "hide": 2,
+        "skipUrlSync": true,
+        "refresh": 1,
+        "datasource": {
+          "type": "ubica-chaski-datasource",
+          "uid": "duckdbwasm"
+        },
+        "query": {
+          "refId": "quakeFilters",
+          "kind": "filters",
+          "dataset": "$quakes",
+          "filters": [
+            {
+              "name": "time",
+              "type": "range",
+              "column": "time",
+              "as": "time",
+              "from": "$t0",
+              "to": "$t1",
+              "label": "Time"
+            },
+            {
+              "name": "mag",
+              "type": "range",
+              "column": "mag",
+              "from": "$mag_lo",
+              "to": "$mag_hi",
+              "label": "Magnitude",
+              "upper": "closed"
+            },
+            {
+              "name": "depth",
+              "type": "range",
+              "column": "depth",
+              "from": "$depth_lo",
+              "to": "$depth_hi",
+              "label": "Depth (km)",
+              "upper": "closed"
+            },
+            {
+              "name": "kind",
+              "type": "in",
+              "column": "kind",
+              "variable": "$kinds",
+              "label": "Kind"
+            },
+            {
+              "name": "net",
+              "type": "equals",
+              "column": "net",
+              "variable": "$net",
+              "label": "Network"
+            },
+            {
+              "name": "place",
+              "type": "search",
+              "column": "place",
+              "variable": "$q",
+              "label": "Place"
+            },
+            {
+              "name": "area",
+              "type": "area",
+              "variable": "$area",
+              "lat": "latitude",
+              "lng": "longitude",
+              "label": "Area"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "ubica-chaski-filters-panel",
+      "title": "Filters",
+      "description": "The filters panel as a sidebar: a control for each declared filter, counted under the others.",
+      "gridPos": {
+        "h": 23,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "options": {
+        "filters": "",
+        "layout": "auto",
+        "timeColumn": "time",
+        "noun": "quakes",
+        "maxValues": 8,
+        "bins": 40
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "type": "ubica-chaski-filters-panel",
+      "title": "",
+      "description": "",
+      "gridPos": {
+        "h": 3,
+        "w": 18,
+        "x": 6,
+        "y": 0
+      },
+      "options": {
+        "filters": "quakeFilters",
+        "layout": "auto",
+        "timeColumn": "",
+        "noun": "quakes",
+        "maxValues": 8,
+        "bins": 40
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "table",
+      "title": "Read by Chaski SQL",
+      "datasource": {
+        "type": "ubica-chaski-datasource",
+        "uid": "duckdbwasm"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 9,
+        "x": 6,
+        "y": 3
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "ubica-chaski-datasource",
+            "uid": "duckdbwasm"
+          },
+          "rawSql": "SELECT count(*)::DOUBLE AS quakes, round(avg(mag), 2) AS \"mean magnitude\", round(avg(depth), 1) AS \"mean depth\"\nFROM $quakes\nWHERE $__crossfilter($quakeFilters)"
+        }
+      ],
+      "options": {
+        "showHeader": true
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "type": "ubica-chaski-mosaic-panel",
+      "title": "Magnitude (Mosaic)",
+      "description": "A Mosaic brush on the same variables as the Magnitude filter: brush here and the filters panel follows. Mosaic draws only its own selection: it reads the other filters only through its Read from variables option.",
+      "gridPos": {
+        "h": 8,
+        "w": 9,
+        "x": 15,
+        "y": 3
+      },
+      "options": {
+        "spec": "params:\n  brush: { select: crossfilter }\nplot:\n  - mark: rectY\n    data: { from: quakes, filterBy: $brush }\n    x: { bin: mag }\n    y: { count: }\n    fill: steelblue\n  - select: intervalX\n    as: $brush\nxDomain: Fixed\n",
+        "variables": "- param: brush\n  column: mag\n  from: mag_lo\n  to: mag_hi\n",
+        "reads": "",
+        "preaggregate": true
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "type": "table",
+      "title": "Quakes",
+      "datasource": {
+        "type": "ubica-chaski-datasource",
+        "uid": "duckdbwasm"
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 18,
+        "x": 6,
+        "y": 11
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "ubica-chaski-datasource",
+            "uid": "duckdbwasm"
+          },
+          "rawSql": "SELECT time, mag, depth, kind, net, place\nFROM $quakes\nWHERE $__crossfilter($quakeFilters)\nORDER BY mag DESC\nLIMIT 100"
+        }
+      ],
+      "options": {
+        "showHeader": true
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    }
+  ]
+}
