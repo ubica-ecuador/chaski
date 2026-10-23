@@ -7,6 +7,10 @@
   `$__crossfilter($quakeFilters, -own)`, every active filter but the panel's own, and run again
   whenever one changes; `$__filters($quakeFilters)` lists them for a filter bar. Values are parsed
   and quoted by the plugin, never pasted into the SQL. See the plugin's README.
+- The development build no longer lints files as they change: `eslint-webpack-plugin` is gone from
+  the build and its dependencies. It brought in `braces`, whose every release carries a high
+  advisory with no fix (CVE-2026-93687), which the plugin validator reports and no longer lets
+  `osv-scanner.toml` excuse. It never ran in the production build; linting stays with `npm run lint`.
 
 ## 1.1.0 (2026-10-07)
 
