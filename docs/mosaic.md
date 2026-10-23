@@ -106,6 +106,21 @@ and a kepler map drive each other. The dev Grafana also provisions two dashboard
 quakes in four Mosaic panels writing variables, and a plain table following them through
 `$__crossfilter`) and **Mosaic panel states** (`mosaic-states`).
 
+## A kepler map in the Selection
+
+Variables move once a brush rests, through the URL. A kepler map can instead join a Selection
+directly: set its **Cross-filtering → Mosaic selection** to the Selection's name (`brush` for
+`as: $brush`). Its range, time and multi-select filters are then clauses on their columns, sent while
+they move, and the brushes and picks here land on the map's filter of the same column; with
+**Mosaic view columns** (`longitude, latitude`) what the map shows is a bounding box too. Name the
+map's columns as the dataset names them. A histogram of a column the map filters shows the map's
+window as its brush.
+
+The map gets this from the Mosaic panel's module, as the filters panel does:
+`mosaicRuntime.sharedSelection(name, signal)` returns the dashboard's Selection of that name (made a
+crossfilter one if no panel has), with `clauseInterval`, `clauseIntervals`, `clausePoints` and
+`clauseColumns` beside it. Those keep their shapes across releases.
+
 ## How it works
 
 - **No second DuckDB.** The panel's Mosaic connector is the engine API on `window.__chaski`:

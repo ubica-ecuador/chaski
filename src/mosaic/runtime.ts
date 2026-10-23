@@ -1,13 +1,22 @@
-import { Coordinator, isSelection, makeClient, Selection } from '@uwdata/mosaic-core';
+import {
+  clauseInterval,
+  clauseIntervals,
+  clausePoints,
+  Coordinator,
+  isSelection,
+  makeClient,
+  Selection,
+} from '@uwdata/mosaic-core';
 import { count, Query } from '@uwdata/mosaic-sql';
 import { astToDOM, parseSpec } from '@uwdata/mosaic-spec';
 import { createAPIContext } from '@uwdata/vgplot';
 
 import * as sync from '../filters/sync';
-import { linkVariables } from './bridge';
+import { clauseColumns, linkVariables } from './bridge';
 import { ChaskiConnector, unreadable } from './connector';
 import { linkReads } from './inbound';
 import { dashboardKey, pageFor, PREAGG_SCHEMA, releaseClauses } from './page';
+import { sharedSelection } from './shared';
 
 /*
  * Mosaic as every panel of the app shares it. Each plugin is a bundle of its
@@ -16,6 +25,10 @@ import { dashboardKey, pageFor, PREAGG_SCHEMA, releaseClauses } from './page';
  * panels would never see each other's brushes. So the Mosaic panel's module
  * carries the one copy and hands it out on its plugin object; the filters
  * panel loads it through Grafana (src/filters/runtime.ts) and bundles none.
+ *
+ * Panels of other plugins load it the same way. What they use of it is a
+ * contract: `sharedSelection`, the clause builders and `clauseColumns` keep
+ * their shapes, or a kepler map linked to a Selection breaks with no error.
  */
 export const mosaicRuntime = {
   Coordinator,
@@ -36,6 +49,11 @@ export const mosaicRuntime = {
   linkVariables,
   linkReads,
   sync,
+  sharedSelection,
+  clauseInterval,
+  clauseIntervals,
+  clausePoints,
+  clauseColumns,
 };
 
 export type MosaicRuntime = typeof mosaicRuntime;

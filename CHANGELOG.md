@@ -17,6 +17,11 @@
   the panel, with the other filters as pills, and plays its brush a bar at a time: a window that
   slides, or one that grows. Each step filters every control and Mosaic panel live and writes its
   variables, so maps reading them follow; it waits for the Chaski queries it set off before the next.
+- **Selections shared with other plugins.** The Mosaic panel's runtime also hands out
+  `sharedSelection(name)`, the dashboard's Selection of that name (a crossfilter one when no panel
+  made it), and Mosaic's clause builders, so a panel of another plugin takes part in it without a
+  copy of Mosaic: the kepler map's filters are clauses in it, sent as they move, and its brushes
+  land on the map. These keep their shapes from now on.
 - **Range reads.** A datasource setting, off by default, that reads remote Parquet files by HTTP
   range requests instead of downloading them whole (DuckDB-WASM forces full reads unless told
   otherwise). Worth it for a time window of a large file sorted by time, or a few of its columns;
