@@ -101,8 +101,8 @@ WKT.
 - A panel cannot read a variable it writes, and a clause read from a variable is never written back.
 
 For a tour, see [examples/](../examples/README.md): a gallery of five of Mosaic's examples, a
-dashboard of its density visualizations, and New York taxi rides where Mosaic and a kepler map drive
-each other. The dev Grafana also provisions two dashboards for it: **Mosaic on Chaski** (`mosaic`, 50 000 synthetic
+dashboard of its density visualizations, 5 million Gaia stars, and New York taxi rides where Mosaic
+and a kepler map drive each other. The dev Grafana also provisions two dashboards for it: **Mosaic on Chaski** (`mosaic`, 50 000 synthetic
 quakes in four Mosaic panels writing variables, and a plain table following them through
 `$__crossfilter`) and **Mosaic panel states** (`mosaic-states`).
 
