@@ -1,0 +1,118 @@
+{
+  "uid": "mosaic-states",
+  "title": "Mosaic panel states",
+  "tags": ["mosaic", "e2e"],
+  "schemaVersion": 41,
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "tiny",
+        "type": "query",
+        "hide": 2,
+        "skipUrlSync": true,
+        "refresh": 1,
+        "datasource": {
+          "type": "ubica-chaski-datasource",
+          "uid": "duckdbwasm"
+        },
+        "query": {
+          "refId": "tiny",
+          "kind": "dataset",
+          "name": "tiny",
+          "source": {
+            "type": "sql",
+            "sql": "SELECT i AS x FROM range(10) t(i)"
+          }
+        },
+        "current": {},
+        "options": []
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "ubica-chaski-mosaic-panel",
+      "title": "Empty",
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 0,
+        "y": 0
+      },
+      "options": {
+        "spec": "",
+        "variables": "",
+        "preaggregate": true
+      }
+    },
+    {
+      "id": 2,
+      "type": "ubica-chaski-mosaic-panel",
+      "title": "Waiting",
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 8,
+        "y": 0
+      },
+      "options": {
+        "spec": "plot:\n  - mark: dot\n    data: { from: nope }\n    x: x\n",
+        "variables": "",
+        "preaggregate": true
+      }
+    },
+    {
+      "id": 3,
+      "type": "ubica-chaski-mosaic-panel",
+      "title": "Broken",
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 16,
+        "y": 0
+      },
+      "options": {
+        "spec": "plot: [\n",
+        "variables": "",
+        "preaggregate": true
+      }
+    },
+    {
+      "id": 4,
+      "type": "ubica-chaski-mosaic-panel",
+      "title": "Bad column",
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 6
+      },
+      "options": {
+        "spec": "plot:\n  - mark: dot\n    data: { from: tiny }\n    x: missing\n",
+        "variables": "",
+        "preaggregate": true
+      }
+    },
+    {
+      "id": 5,
+      "type": "ubica-chaski-mosaic-panel",
+      "title": "Tiny",
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 6
+      },
+      "options": {
+        "spec": "plot:\n  - mark: dot\n    data: { from: tiny }\n    x: x\n",
+        "variables": "",
+        "preaggregate": true
+      }
+    }
+  ]
+}

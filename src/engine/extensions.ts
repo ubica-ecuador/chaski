@@ -1,4 +1,4 @@
-/** The DuckDB extensions this plugin ships in its own dist/extensions/. */
+/** The DuckDB extensions this plugin ships in its own dist/plugins/datasource/extensions/. */
 export const SHIPPED_EXTENSIONS = ['spatial', 'json', 'parquet', 'httpfs', 'icu'] as const;
 
 // DuckDB's Catalog Error for a function that a known-but-unloaded extension
@@ -10,7 +10,8 @@ const NOT_YET_LOADED = /is not in the catalog, but it exists in the (\S+) extens
  * The extension DuckDB says a Catalog Error is missing, when that extension is
  * one this plugin ships (so the caller knows it is safe to `LOAD` it and retry
  * the statement) — undefined for any other Catalog Error, including one
- * naming an extension this plugin does not carry in dist/extensions/.
+ * naming an extension this plugin does not carry in
+ * dist/plugins/datasource/extensions/.
  */
 export function missingExtension(message: string): string | undefined {
   const name = NOT_YET_LOADED.exec(message)?.[1];

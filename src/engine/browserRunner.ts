@@ -73,7 +73,7 @@ export async function createBrowserRunner(options: BrowserRunnerOptions): Promis
   await db.open({ query: { castBigIntToDouble: true } });
 
   const setup = await db.connect();
-  // Extensions come from the plugin's own dist/extensions/<version>/wasm_eh/:
+  // Extensions come from the plugin's own extensions/<version>/wasm_eh/, beside its module.js:
   // a signed plugin may not load code from extensions.duckdb.org.
   const repository = new URL('extensions', options.assetBase).href;
   await setup.query(`SET custom_extension_repository = ${quoteLiteral(repository)}`);

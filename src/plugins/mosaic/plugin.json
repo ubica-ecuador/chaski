@@ -1,0 +1,24 @@
+{
+  "$schema": "https://raw.githubusercontent.com/grafana/grafana/main/docs/sources/developers/plugins/plugin.schema.json",
+  "type": "panel",
+  "name": "Chaski Mosaic",
+  "id": "ubica-chaski-mosaic-panel",
+  "skipDataQuery": true,
+  "info": {
+    "description": "Linked views from Mosaic (vgplot) on the dashboard’s Chaski datasets: brush one chart and the others filter in the browser, with pre-aggregation for large tables.",
+    "author": {
+      "name": "UBICA"
+    },
+    "keywords": ["mosaic", "vgplot", "duckdb", "chaski", "crossfilter", "linked views"],
+    "logos": {
+      "small": "img/logo.svg",
+      "large": "img/logo.svg"
+    },
+    "version": "%VERSION%",
+    "updated": "%TODAY%"
+  },
+  "dependencies": {
+    "grafanaDependency": ">=12.0.0",
+    "plugins": []
+  }
+}

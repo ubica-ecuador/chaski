@@ -72,10 +72,16 @@ them changes. Its value then changes too, and Grafana runs again every panel tha
 
 ```json
 {
-  "name": "quakeFilters", "type": "query", "hide": 2, "skipUrlSync": true, "refresh": 1,
+  "name": "quakeFilters",
+  "type": "query",
+  "hide": 2,
+  "skipUrlSync": true,
+  "refresh": 1,
   "datasource": { "type": "ubica-chaski-datasource", "uid": "<chaski uid>" },
   "query": {
-    "refId": "quakeFilters", "kind": "filters", "dataset": "$quakes",
+    "refId": "quakeFilters",
+    "kind": "filters",
+    "dataset": "$quakes",
     "filters": [
       { "name": "time", "type": "range", "column": "time", "as": "time", "from": "$t0", "to": "$t1" },
       { "name": "mag", "type": "range", "column": "mag", "from": "$mag_lo", "to": "$mag_hi", "label": "Magnitude" },
@@ -93,14 +99,14 @@ WHERE $__timeFilter(time) AND $__crossfilter($quakeFilters, -mag)
 GROUP BY 1 ORDER BY 1
 ```
 
-| Type | Keys | Condition | Off while |
-| --- | --- | --- | --- |
-| `range` | `column`, `from`, `to`; `as`: `number` (default) or `time`; `upper`: `open` (default) or `closed` | `column >= from AND column < to` | both variables are empty; one empty leaves that side open |
-| `in` | `column`, `variable` (multi-value) | `column IN (…)` | empty, or All |
-| `equals` | `column`, `variable` | `column = value` | empty |
-| `search` | `column`, `variable` | case-insensitive substring | empty |
-| `area` | `variable` (WKT polygon, as kepler writes it), `lat`, `lng` | point in polygon, behind a bounding box; no `spatial` needed | empty |
-| `link` | `column`, `filters` (another dataset's filters variable), `to` | `column IN (SELECT to FROM that dataset WHERE its active filters)` | the other dataset has none active |
+| Type     | Keys                                                                                              | Condition                                                          | Off while                                                 |
+| -------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------- |
+| `range`  | `column`, `from`, `to`; `as`: `number` (default) or `time`; `upper`: `open` (default) or `closed` | `column >= from AND column < to`                                   | both variables are empty; one empty leaves that side open |
+| `in`     | `column`, `variable` (multi-value)                                                                | `column IN (…)`                                                    | empty, or All                                             |
+| `equals` | `column`, `variable`                                                                              | `column = value`                                                   | empty                                                     |
+| `search` | `column`, `variable`                                                                              | case-insensitive substring                                         | empty                                                     |
+| `area`   | `variable` (WKT polygon, as kepler writes it), `lat`, `lng`                                       | point in polygon, behind a bounding box; no `spatial` needed       | empty                                                     |
+| `link`   | `column`, `filters` (another dataset's filters variable), `to`                                    | `column IN (SELECT to FROM that dataset WHERE its active filters)` | the other dataset has none active                         |
 
 - `$__crossfilter($quakeFilters AS q)` prefixes the columns with `q.`. Columns are names, not
   expressions: compute a derived column in the dataset.
@@ -161,6 +167,16 @@ On a Grafana with the Grafana Assistant, the Assistant is told which datasets th
 with their columns and types, so it can write panel SQL over them. It cannot run Chaski queries
 itself. Skill texts to paste into its instructions are in
 [docs/grafana-assistant.md](https://github.com/ubica-ecuador/chaski/blob/main/docs/grafana-assistant.md).
+
+## Mosaic panel
+
+The app also brings **Chaski Mosaic**, a panel that draws a
+[Mosaic](https://idl.uw.edu/mosaic/) spec (YAML or JSON) over this dashboard's datasets, by name.
+Panels that share a selection filter each other in the browser, and Mosaic pre-aggregates what a
+brush reads, so it keeps up on millions of rows. A selection can write dashboard variables once the
+brush rests: interval ends, picked values, or a 2-D brush as a WKT polygon, in the shapes the filters
+above read, so every Chaski panel and the kepler map follow it. How to write one:
+[docs/mosaic.md](https://github.com/ubica-ecuador/chaski/blob/main/docs/mosaic.md).
 
 ## Limits
 

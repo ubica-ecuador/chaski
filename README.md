@@ -2,13 +2,17 @@
 
 # Chaski
 
-A Grafana datasource that loads a dashboard's data **once** into DuckDB running in the browser, and
-answers every panel query there. It is named after the runners who carried word along the Andean
+A Grafana app whose datasource loads a dashboard's data **once** into DuckDB running in the browser,
+and answers every panel query there. It is named after the runners who carried word along the Andean
 roads: the data is already here, so the answer is immediate. Changing a variable, an ad hoc filter or
 the time range re-queries the browser, not the server. Filters take milliseconds, and every panel
 keeps working: native, catalog and the kepler map.
 
-- **Plugin id:** `ubica-chaski-datasource`. Frontend only: no backend, no alerting.
+- **Plugin ids:** the app `ubica-chaski-app` brings the datasource `ubica-chaski-datasource` and the
+  panel `ubica-chaski-mosaic-panel`. Frontend only: no backend, no alerting.
+- **Mosaic panel:** linked views drawn by [Mosaic](https://idl.uw.edu/mosaic/) on the dashboard's
+  datasets. A brush in one filters the others in the browser, pre-aggregated for millions of rows, and
+  can write the variables `$__crossfilter` reads. See [docs/mosaic.md](docs/mosaic.md).
 - **Engine:** DuckDB 1.4.3 through `@duckdb/duckdb-wasm` 1.32.0, running in a Web Worker.
 - **Distribution:** built for the Grafana plugin catalog, Grafana Cloud included (there plugin files
   come from a CDN on another origin). Until it is listed, install a build by hand (see Install).
@@ -50,7 +54,8 @@ transition on the page. The e2e suite and the bench read it, and it is handy whe
 ## API for other plugins
 
 Other plugins on the page can use Chaski's engine instead of starting their own DuckDB. The SQLRooms
-explorer and the kepler map do. They find it at runtime; nothing imports Chaski's code.
+explorer, the kepler map and this app's Mosaic panel do. They find it at runtime; nothing imports
+Chaski's code (the Mosaic panel is a bundle of its own and imports only the API's types).
 
 ```ts
 const chaski = (window as any).__chaski; // undefined when Chaski is not installed
@@ -114,7 +119,8 @@ Chaski's SQL and dataset variables. Both are in [docs/grafana-assistant.md](docs
 - **Grafana 12.0.0 or later** (`grafanaDependency` in `src/plugin.json`). It is tested on 12.0.10
   and 13.2.2.
 - **Unsigned builds** (from source, or a release before the catalog signs it): Grafana must allow
-  loading it, with `GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS=ubica-chaski-datasource`.
+  loading the app and both plugins in it, with
+  `GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS=ubica-chaski-app,ubica-chaski-datasource,ubica-chaski-mosaic-panel`.
 - **Browser memory.** Each viewer's browser holds the datasets. The limit is a datasource setting
   (`memoryLimitMB`, 1024 by default). Aggregate on the server, and let only the working set reach the
   browser.
@@ -131,9 +137,12 @@ Chaski's SQL and dataset variables. Both are in [docs/grafana-assistant.md](docs
 
 1. Build it: `npm ci && npm run build`. This writes `dist/`, including the DuckDB worker, the wasm and
    the extensions.
-2. Put `dist/` in Grafana's plugin directory as `ubica-chaski-datasource/`, either copied or mounted.
-3. Allow the unsigned plugin (see Requirements) and restart Grafana. Changes to `src/plugin.json` also
-   need a restart; a rebuilt `dist/` is picked up on the next page load.
+2. Put `dist/` in Grafana's plugin directory as `ubica-chaski-app/`, either copied or mounted. From
+   1.x, remove the old `ubica-chaski-datasource/` folder first: Grafana refuses a plugin id it already
+   registered, and the app brings the datasource under that same id.
+3. Allow the unsigned plugins (see Requirements) and restart Grafana. The app enables itself
+   (`autoEnabled`). Changes to any `plugin.json` also need a restart; a rebuilt `dist/` is picked up
+   on the next page load.
 4. Provision the datasource, as in [provisioning/datasources/datasources.yml](provisioning/datasources/datasources.yml):
 
    ```yaml
@@ -174,18 +183,21 @@ npm run server     # dev Grafana on :3005, the CDN Grafana on :3007, the fixture
 
 ### Layout
 
-| Path                | Role                                                                                                                                                                                                                                                                                                                                       |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `src/engine/`       | The engine. It has no Grafana imports (`@grafana/*` is forbidden there by ESLint). It holds the DuckDB runner, the dataset registry and its visits, the range-reuse rule (`rangeReuse.ts`), panel execution with the schema cache (`executor.ts`, `schemaCache.ts`), `singleFlight.ts`, `activity.ts`, macros and quoting, and `stats.ts`. |
-| `src/grafana/`      | The Grafana side: the engine singleton, interpolation, Arrow ⇄ DataFrame conversion, loading from other datasources, dashboard keys and navigation, the data proxy (`proxy.ts`: base URL, routes, error explanations), the activity event, and notices.                                                                                    |
-| `src/assistant/`    | The Grafana Assistant support: the datasets digest, its page-context registration scoped to the dashboard, the live controller fed by the engine API, and the exported skill texts.                                                                                                                                                        |
-| `src/datasource.ts` | `DataSourceApi`: panel queries, dataset and values variables, ad hoc filter options.                                                                                                                                                                                                                                                       |
-| `src/components/`   | The config, query and variable editors.                                                                                                                                                                                                                                                                                                    |
-| `tests/`            | End-to-end tests (`@grafana/plugin-e2e`).                                                                                                                                                                                                                                                                                                  |
-| `fixtures/`         | What the fixtures server serves: `sample.parquet`, plus three locations that send no CORS headers and want a bearer token, basic auth or a key in the URL — what the data proxy tests read through.                                                                                                                                        |
-| `provisioning/`     | The dev Grafana's datasources and dashboards (`e2e`, `e2e-range`, `e2e-proxy`, `bench-1m`). Besides the plain instance it provisions four that read through the data proxy, one per way in plus one with a wrong token.                                                                                                                    |
-| `plugin-cdn/`       | The CDN Grafana's settings and the nginx that plays the plugin CDN, so that one Grafana serves the plugin the way Grafana Cloud does.                                                                                                                                                                                                      |
-| `bench/`            | Measurement scripts and bench dashboards (see Bench).                                                                                                                                                                                                                                                                                      |
+| Path                               | Role                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/engine/`                      | The engine. It has no Grafana imports (`@grafana/*` is forbidden there by ESLint). It holds the DuckDB runner, the dataset registry and its visits, the range-reuse rule (`rangeReuse.ts`), panel execution with the schema cache (`executor.ts`, `schemaCache.ts`), `singleFlight.ts`, `activity.ts`, macros and quoting, and `stats.ts`.                                                                                     |
+| `src/grafana/`                     | The Grafana side: the engine singleton, interpolation, Arrow ⇄ DataFrame conversion, loading from other datasources, dashboard keys and navigation, the data proxy (`proxy.ts`: base URL, routes, error explanations), the activity event, and notices.                                                                                                                                                                        |
+| `src/assistant/`                   | The Grafana Assistant support: the datasets digest, its page-context registration scoped to the dashboard, the live controller fed by the engine API, and the exported skill texts.                                                                                                                                                                                                                                            |
+| `src/plugin.json`, `src/module.ts` | The app: it has no pages, and brings the plugins in `src/plugins/`.                                                                                                                                                                                                                                                                                                                                                            |
+| `src/plugins/`                     | Each nested plugin's `plugin.json`, `module.ts` and logo: `datasource/` and `mosaic/`. The build writes each to `dist/plugins/<name>/`, which Grafana serves under the plugin's own id (13) or inside the app's folder (12), so everything a plugin loads by URL sits beside its module: the DuckDB worker, wasm and extensions in `dist/plugins/datasource/`. No plugin may split off a lazy chunk (see `webpack.config.ts`). |
+| `src/mosaic/`                      | The Mosaic panel: the connector on the engine API, the params shared by a dashboard's panels, spec sizing, and the variables a selection writes.                                                                                                                                                                                                                                                                               |
+| `src/datasource.ts`                | `DataSourceApi`: panel queries, dataset and values variables, ad hoc filter options.                                                                                                                                                                                                                                                                                                                                           |
+| `src/components/`                  | The config, query and variable editors.                                                                                                                                                                                                                                                                                                                                                                                        |
+| `tests/`                           | End-to-end tests (`@grafana/plugin-e2e`).                                                                                                                                                                                                                                                                                                                                                                                      |
+| `fixtures/`                        | What the fixtures server serves: `sample.parquet`, plus three locations that send no CORS headers and want a bearer token, basic auth or a key in the URL — what the data proxy tests read through.                                                                                                                                                                                                                            |
+| `provisioning/`                    | The dev Grafana's datasources and dashboards (`e2e`, `e2e-range`, `e2e-proxy`, `bench-1m`, and `mosaic`, `mosaic-states` for the panel). Besides the plain instance it provisions four that read through the data proxy, one per way in plus one with a wrong token.                                                                                                                                                           |
+| `plugin-cdn/`                      | The CDN Grafana's settings and the nginx that plays the plugin CDN, so that one Grafana serves the plugin the way Grafana Cloud does.                                                                                                                                                                                                                                                                                          |
+| `bench/`                           | Measurement scripts and bench dashboards (see Bench).                                                                                                                                                                                                                                                                                                                                                                          |
 
 ## Test
 
@@ -208,7 +220,9 @@ npm run e2e        # Playwright against the dev Grafana (npm run server first)
     messages a rejected credential and a direct read without CORS produce;
   - the engine API: a dataset read by name, a scratch table, and explore emptied on a dashboard change;
   - Save & test;
-  - the engine and the spatial extension starting from a plugin CDN, as on Grafana Cloud.
+  - the engine and the spatial extension starting from a plugin CDN, as on Grafana Cloud;
+  - the Mosaic panel: a brush filtering the other Mosaic panels and, through the variables it writes,
+    a Chaski table; and its empty, waiting and error states.
 
 ## Bench
 

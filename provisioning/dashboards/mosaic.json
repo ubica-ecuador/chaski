@@ -1,0 +1,296 @@
+{
+  "uid": "mosaic",
+  "title": "Mosaic on Chaski",
+  "tags": ["mosaic", "dev"],
+  "schemaVersion": 41,
+  "editable": true,
+  "graphTooltip": 0,
+  "time": {
+    "from": "now-90d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "refresh": "",
+  "templating": {
+    "list": [
+      {
+        "name": "quakes",
+        "type": "query",
+        "hide": 2,
+        "skipUrlSync": true,
+        "refresh": 1,
+        "datasource": {
+          "type": "ubica-chaski-datasource",
+          "uid": "duckdbwasm"
+        },
+        "query": {
+          "refId": "quakes",
+          "kind": "dataset",
+          "name": "quakes",
+          "source": {
+            "type": "sql",
+            "sql": "WITH u AS (\n  SELECT i,\n    (hash(i * 8 + 1) % 1000000)::DOUBLE / 1e6 AS u1,\n    (hash(i * 8 + 2) % 1000000)::DOUBLE / 1e6 AS u2,\n    (hash(i * 8 + 3) % 1000000)::DOUBLE / 1e6 AS u3,\n    (hash(i * 8 + 4) % 1000000)::DOUBLE / 1e6 AS u4,\n    (hash(i * 8 + 5) % 1000000)::DOUBLE / 1e6 AS u5\n  FROM range(50000) t(i)\n)\nSELECT i AS id,\n  TIMESTAMP '2026-09-01' + to_seconds(floor(pow(u5, 0.7) * 2592000)::BIGINT) AS time,\n  -180 + 360 * u1 AS longitude,\n  30 * sin(radians(2 * (-180 + 360 * u1))) + (u2 - 0.5) * 24 AS latitude,\n  round(least(-ln(u3 + 1e-6) * 1.1, 9.0), 2) AS mag,\n  round(least(-ln(u3 + 1e-6) * 1.1, 9.0) * 35 + u4 * 80, 1) AS depth\nFROM u"
+          }
+        },
+        "current": {},
+        "options": []
+      },
+      {
+        "name": "t0",
+        "label": "From",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "options": []
+      },
+      {
+        "name": "t1",
+        "label": "To",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "options": []
+      },
+      {
+        "name": "mag_lo",
+        "label": "Magnitude from",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "options": []
+      },
+      {
+        "name": "mag_hi",
+        "label": "Magnitude to",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "options": []
+      },
+      {
+        "name": "area",
+        "label": "Area",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "options": []
+      },
+      {
+        "name": "quakeFilters",
+        "type": "query",
+        "hide": 2,
+        "skipUrlSync": true,
+        "refresh": 1,
+        "datasource": {
+          "type": "ubica-chaski-datasource",
+          "uid": "duckdbwasm"
+        },
+        "query": {
+          "refId": "quakeFilters",
+          "kind": "filters",
+          "dataset": "$quakes",
+          "filters": [
+            {
+              "name": "time",
+              "type": "range",
+              "column": "time",
+              "as": "time",
+              "from": "$t0",
+              "to": "$t1",
+              "label": "Time"
+            },
+            {
+              "name": "mag",
+              "type": "range",
+              "column": "mag",
+              "from": "$mag_lo",
+              "to": "$mag_hi",
+              "label": "Magnitude"
+            },
+            {
+              "name": "area",
+              "type": "area",
+              "variable": "$area",
+              "lat": "latitude",
+              "lng": "longitude",
+              "label": "Area"
+            }
+          ]
+        },
+        "current": {},
+        "options": []
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "ubica-chaski-mosaic-panel",
+      "title": "Over time",
+      "description": "Brush to filter the other panels. Writes the variables t0 and t1.",
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "options": {
+        "spec": "params:\n  brush: { select: crossfilter }\nplot:\n  - mark: rectY\n    data: { from: quakes, filterBy: $brush }\n    x: { bin: time }\n    y: { count: }\n    fill: steelblue\n    inset: 0.5\n  - select: intervalX\n    as: $brush\nmarginLeft: 48\nyLabel: null\nxLabel: null\n",
+        "variables": "- param: brush\n  column: time\n  from: t0\n  to: t1\n",
+        "preaggregate": true
+      }
+    },
+    {
+      "id": 2,
+      "type": "ubica-chaski-mosaic-panel",
+      "title": "Magnitude",
+      "description": "Writes the variables mag_lo and mag_hi.",
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "options": {
+        "spec": "params:\n  brush: { select: crossfilter }\nplot:\n  - mark: rectY\n    data: { from: quakes, filterBy: $brush }\n    x: { bin: mag }\n    y: { count: }\n    fill: darkorange\n    inset: 0.5\n  - select: intervalX\n    as: $brush\nmarginLeft: 48\nyLabel: null\nxLabel: null\n",
+        "variables": "- param: brush\n  column: mag\n  from: mag_lo\n  to: mag_hi\n",
+        "preaggregate": true
+      }
+    },
+    {
+      "id": 3,
+      "type": "ubica-chaski-mosaic-panel",
+      "title": "Depth (km)",
+      "description": "",
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "options": {
+        "spec": "params:\n  brush: { select: crossfilter }\nplot:\n  - mark: rectY\n    data: { from: quakes, filterBy: $brush }\n    x: { bin: depth }\n    y: { count: }\n    fill: seagreen\n    inset: 0.5\n  - select: intervalX\n    as: $brush\nmarginLeft: 48\nyLabel: null\nxLabel: null\n",
+        "variables": "",
+        "preaggregate": true
+      }
+    },
+    {
+      "id": 4,
+      "type": "ubica-chaski-mosaic-panel",
+      "title": "Where",
+      "description": "Density computed in DuckDB. Drag a box: it writes the variable area, as WKT.",
+      "gridPos": {
+        "h": 11,
+        "w": 12,
+        "x": 0,
+        "y": 7
+      },
+      "options": {
+        "spec": "params:\n  brush: { select: crossfilter }\nplot:\n  - mark: raster\n    data: { from: quakes, filterBy: $brush }\n    x: longitude\n    y: latitude\n    fill: density\n    pixelSize: 2\n  - select: intervalXY\n    as: $brush\nxDomain: [-180, 180]\nyDomain: [-60, 60]\ncolorScale: sqrt\ncolorScheme: magma\nmarginLeft: 40\n",
+        "variables": "- param: brush\n  column: [longitude, latitude]\n  variable: area\n",
+        "preaggregate": true
+      }
+    },
+    {
+      "id": 5,
+      "type": "ubica-chaski-mosaic-panel",
+      "title": "Rows",
+      "description": "",
+      "gridPos": {
+        "h": 11,
+        "w": 12,
+        "x": 12,
+        "y": 7
+      },
+      "options": {
+        "spec": "params:\n  brush: { select: crossfilter }\ninput: table\nfrom: quakes\nfilterBy: $brush\ncolumns: [time, mag, depth, longitude, latitude]\nwidth: { time: 170 }\n",
+        "variables": "",
+        "preaggregate": true
+      }
+    },
+    {
+      "id": 6,
+      "type": "table",
+      "title": "Read by Chaski SQL",
+      "description": "A plain Grafana table on Chaski: it follows the brushes through the variables they write.",
+      "datasource": {
+        "type": "ubica-chaski-datasource",
+        "uid": "duckdbwasm"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 0,
+        "y": 18
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "ubica-chaski-datasource",
+            "uid": "duckdbwasm"
+          },
+          "rawSql": "SELECT count(*)::DOUBLE AS quakes, round(avg(mag), 2) AS \"mean magnitude\", round(avg(depth), 1) AS \"mean depth\"\nFROM $quakes\nWHERE $__crossfilter($quakeFilters)"
+        }
+      ],
+      "options": {
+        "showHeader": true
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 7,
+      "type": "table",
+      "title": "Filters",
+      "description": "Chaski's list of the active filters.",
+      "datasource": {
+        "type": "ubica-chaski-datasource",
+        "uid": "duckdbwasm"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 12,
+        "y": 18
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "ubica-chaski-datasource",
+            "uid": "duckdbwasm"
+          },
+          "rawSql": "SELECT label, value FROM $__filters($quakeFilters) WHERE active"
+        }
+      ],
+      "options": {
+        "showHeader": true
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    }
+  ],
+  "annotations": {
+    "list": []
+  }
+}

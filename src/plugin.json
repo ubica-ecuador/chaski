@@ -1,33 +1,43 @@
 {
   "$schema": "https://raw.githubusercontent.com/grafana/grafana/main/docs/sources/developers/plugins/plugin.schema.json",
-  "type": "datasource",
-  "name": "Chaski – powered by DuckDB",
-  "id": "ubica-chaski-datasource",
-  "metrics": true,
-  "routes": [
-    { "path": "_plain", "method": "GET", "url": "{{ .URL }}" },
-    { "path": "_plain", "method": "HEAD", "url": "{{ .URL }}" },
-    {
-      "path": "_key",
-      "method": "GET",
-      "url": "{{ .URL }}",
-      "urlParams": [{ "name": "{{ .JsonData.proxyKeyParam }}", "content": "{{ .SecureJsonData.proxyKeyValue }}" }]
-    },
-    {
-      "path": "_key",
-      "method": "HEAD",
-      "url": "{{ .URL }}",
-      "urlParams": [{ "name": "{{ .JsonData.proxyKeyParam }}", "content": "{{ .SecureJsonData.proxyKeyValue }}" }]
-    }
-  ],
+  "type": "app",
+  "name": "Chaski",
+  "id": "ubica-chaski-app",
+  "autoEnabled": true,
   "info": {
-    "description": "In-browser interactivity for Grafana dashboards: data loads once into DuckDB in the browser, and every filter answers locally.",
-    "author": { "name": "UBICA" },
-    "keywords": ["duckdb", "wasm", "sql", "parquet", "geospatial", "bi", "grafana assistant"],
-    "logos": { "small": "img/logo.svg", "large": "img/logo.svg" },
+    "description": "In-browser BI for Grafana: a dashboard’s data loads once into DuckDB in the browser, every filter answers locally, and Mosaic panels draw linked views over it.",
+    "author": {
+      "name": "UBICA"
+    },
+    "keywords": [
+      "duckdb",
+      "wasm",
+      "sql",
+      "parquet",
+      "geospatial",
+      "bi",
+      "crossfilter",
+      "mosaic",
+      "linked views",
+      "grafana assistant"
+    ],
+    "logos": {
+      "small": "img/logo.svg",
+      "large": "img/logo.svg"
+    },
     "links": [
-      { "name": "Source code", "url": "https://github.com/ubica-ecuador/chaski" },
-      { "name": "Tutorial", "url": "https://github.com/ubica-ecuador/chaski/blob/main/docs/tutorial-earthquakes.md" }
+      {
+        "name": "Source code",
+        "url": "https://github.com/ubica-ecuador/chaski"
+      },
+      {
+        "name": "Tutorial",
+        "url": "https://github.com/ubica-ecuador/chaski/blob/main/docs/tutorial-earthquakes.md"
+      },
+      {
+        "name": "Mosaic",
+        "url": "https://idl.uw.edu/mosaic/"
+      }
     ],
     "screenshots": [
       {
@@ -38,11 +48,26 @@
         "name": "Panel SQL in the query editor, reading the dataset by name",
         "path": "img/screenshots/query-editor.png"
       },
-      { "name": "Save & test starts DuckDB in the browser", "path": "img/screenshots/save-and-test.png" }
+      {
+        "name": "Save & test starts DuckDB in the browser",
+        "path": "img/screenshots/save-and-test.png"
+      }
     ],
     "version": "%VERSION%",
     "updated": "%TODAY%"
   },
+  "includes": [
+    {
+      "type": "datasource",
+      "name": "Chaski – powered by DuckDB",
+      "path": "plugins/datasource/plugin.json"
+    },
+    {
+      "type": "panel",
+      "name": "Chaski Mosaic",
+      "path": "plugins/mosaic/plugin.json"
+    }
+  ],
   "dependencies": {
     "grafanaDependency": ">=12.0.0",
     "plugins": []

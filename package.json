@@ -77,9 +77,14 @@
     "@grafana/runtime": "13.1.0",
     "@grafana/schema": "13.1.0",
     "@grafana/ui": "13.1.0",
+    "@uwdata/mosaic-core": "0.34.0",
+    "@uwdata/mosaic-spec": "0.34.0",
+    "@uwdata/mosaic-sql": "0.34.0",
+    "@uwdata/vgplot": "0.34.0",
     "apache-arrow": "17.0.0",
     "react": "^18.3.0",
-    "react-dom": "^18.3.0"
+    "react-dom": "^18.3.0",
+    "yaml": "2.9.1"
   },
   "packageManager": "npm@10.9.4",
   "overrides": {

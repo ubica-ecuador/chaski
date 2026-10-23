@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- **Chaski is an app.** The plugin is now `ubica-chaski-app`, which brings the datasource under its
+  same id, `ubica-chaski-datasource`, so dashboards and provisioned datasources keep working. Install
+  the app's folder as `ubica-chaski-app/` and remove an old `ubica-chaski-datasource/` folder first:
+  Grafana refuses a plugin id it already registered. Unsigned builds must allow
+  `ubica-chaski-app,ubica-chaski-datasource,ubica-chaski-mosaic-panel`. The app enables itself.
+- **Mosaic panel.** `ubica-chaski-mosaic-panel` draws a [Mosaic](https://idl.uw.edu/mosaic/) spec
+  (YAML or JSON) over the dashboard's datasets on Chaski's engine. Panels sharing a selection filter
+  each other in the browser, pre-aggregated for large tables, and a selection can write dashboard
+  variables in the shapes cross-filters read. See docs/mosaic.md.
+
 ## 1.2.0 (2026-10-23)
 
 - **Cross-filters.** A filters variable (kind `filters`) declares a dataset's filters: range, in,
