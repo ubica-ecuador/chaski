@@ -97,6 +97,18 @@ export function ConfigEditor({ options, onOptionsChange }: Props) {
         />
       </Field>
 
+      <Field
+        label="Range reads"
+        description="Read only the parts of a remote Parquet file a query needs, with HTTP range requests, instead of downloading it whole. Faster for a time window of a large file sorted by time, or a few of its columns; slower when a dataset reads most of a file. The first Chaski datasource a page uses sets it for the page."
+      >
+        <Switch
+          id="range-reads"
+          aria-label="Range reads"
+          value={Boolean(jsonData.rangeReads)}
+          onChange={(e) => setJsonData({ rangeReads: e.currentTarget.checked })}
+        />
+      </Field>
+
       <FieldSet label="Proxy for files without CORS or with credentials">
         <Field
           label="URL"

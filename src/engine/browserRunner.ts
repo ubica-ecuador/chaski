@@ -11,6 +11,24 @@ export interface BrowserRunnerOptions {
   /** Absolute URL of the plugin's public folder, ending in '/'. */
   assetBase: string;
   memoryLimitMB: number;
+  /** Read remote files by HTTP range requests instead of downloading them whole. */
+  rangeReads?: boolean;
+}
+
+/**
+ * DuckDB-WASM downloads every remote file whole unless told otherwise:
+ * `forceFullHTTPReads` defaults to true. Range reads fetch only the footer and
+ * the row groups and columns a query needs, but one at a time, so they pay off
+ * on a narrow slice of a large Parquet file (a time window of a file sorted by
+ * time, or a few of its columns) and lose when a dataset reads most of a file.
+ * A server that ignores ranges still gets a full read.
+ */
+export function databaseConfig(options: Pick<BrowserRunnerOptions, 'rangeReads'>): duckdb.DuckDBConfig {
+  const config: duckdb.DuckDBConfig = { query: { castBigIntToDouble: true } };
+  if (options.rangeReads) {
+    config.filesystem = { forceFullHTTPReads: false, allowFullHTTPReads: true };
+  }
+  return config;
 }
 
 /**
@@ -70,7 +88,7 @@ export async function createBrowserRunner(options: BrowserRunnerOptions): Promis
   const worker = startWorker(new URL('duckdb-browser-eh.worker.js', options.assetBase).href);
   const db = new duckdb.AsyncDuckDB(new duckdb.VoidLogger(), worker);
   await db.instantiate(new URL('duckdb-eh.wasm', options.assetBase).href, null);
-  await db.open({ query: { castBigIntToDouble: true } });
+  await db.open(databaseConfig(options));
 
   const setup = await db.connect();
   // Extensions come from the plugin's own extensions/<version>/wasm_eh/, beside its module.js:

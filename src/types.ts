@@ -50,6 +50,8 @@ export type DuckVariableQuery = DatasetVariableQuery | ValuesVariableQuery | Fil
 
 export interface DuckOptions extends DataSourceJsonData {
   memoryLimitMB?: number;
+  /** Read remote files by HTTP range requests instead of downloading them whole. Off by default. */
+  rangeReads?: boolean;
   /** Query-string parameter the `_key` route adds with the secret API key. Empty: no key in the URL. */
   proxyKeyParam?: string;
   /** Grafana's standard custom headers, read by its data proxy from 1 up to the first gap. */

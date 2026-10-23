@@ -17,6 +17,11 @@
   the panel, with the other filters as pills, and plays its brush a bar at a time: a window that
   slides, or one that grows. Each step filters every control and Mosaic panel live and writes its
   variables, so maps reading them follow; it waits for the Chaski queries it set off before the next.
+- **Range reads.** A datasource setting, off by default, that reads remote Parquet files by HTTP
+  range requests instead of downloading them whole (DuckDB-WASM forces full reads unless told
+  otherwise). Worth it for a time window of a large file sorted by time, or a few of its columns;
+  slower when a dataset reads most of a file. Save & test says when the engine reads by ranges. See
+  Requirements in the README.
 
 ## 2.1.0 (2026-10-23)
 

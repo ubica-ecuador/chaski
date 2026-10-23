@@ -54,6 +54,7 @@ interface PanelPlan {
 
 export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
   readonly memoryLimitMB: number;
+  readonly rangeReads: boolean;
   /** Where `$__proxy` points: this instance's data proxy plus the route its settings call for. */
   readonly proxyBase: string | undefined;
   private readonly panelsInFlight = new SingleFlight<DataQueryResponse>();
@@ -66,6 +67,7 @@ export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
   constructor(instanceSettings: DataSourceInstanceSettings<DuckOptions>) {
     super(instanceSettings);
     this.memoryLimitMB = instanceSettings.jsonData.memoryLimitMB ?? DEFAULT_MEMORY_LIMIT_MB;
+    this.rangeReads = instanceSettings.jsonData.rangeReads ?? false;
     this.proxyBase = instanceSettings.url
       ? proxyBaseUrl(instanceSettings.url, instanceSettings.jsonData.proxyKeyParam?.trim() ? KEY_ROUTE : PLAIN_ROUTE)
       : undefined;
@@ -124,7 +126,7 @@ export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
     }
     let engine: Engine;
     try {
-      engine = await getEngine(this.memoryLimitMB);
+      engine = await getEngine(this.memoryLimitMB, this.rangeReads);
     } catch (error) {
       const message = explainError(error, this.memoryLimitMB).message;
       return { answer: { data: [], errors: targets.map((target) => ({ refId: target.refId, message })) } };
@@ -196,7 +198,7 @@ export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
     const query = request.targets[0];
     let engine: Engine;
     try {
-      engine = await getEngine(this.memoryLimitMB);
+      engine = await getEngine(this.memoryLimitMB, this.rangeReads);
     } catch (error) {
       throw this.explain(error);
     }
@@ -299,8 +301,9 @@ export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
 
   async testDatasource(): Promise<TestDataSourceResponse> {
     try {
-      const engine = await getEngine(this.memoryLimitMB);
-      return { status: 'success', message: `DuckDB ${engine.version} is running in the browser.` };
+      const engine = await getEngine(this.memoryLimitMB, this.rangeReads);
+      const reads = engine.rangeReads ? ', reading remote files by HTTP ranges' : '';
+      return { status: 'success', message: `DuckDB ${engine.version} is running in the browser${reads}.` };
     } catch (error) {
       return { status: 'error', message: explainError(error, this.memoryLimitMB).message };
     }
@@ -308,7 +311,7 @@ export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
 
   async getTagKeys(): Promise<MetricFindValue[]> {
     try {
-      const engine = await getEngine(this.memoryLimitMB);
+      const engine = await getEngine(this.memoryLimitMB, this.rangeReads);
       const names = new Set<string>();
       for (const state of engine.registry.list(dashboardKey().key)) {
         for (const column of await describeColumns(engine.runner, `SELECT * FROM ${quoteIdent(state.table)}`)) {
@@ -323,7 +326,7 @@ export class DataSource extends DataSourceApi<DuckQuery, DuckOptions> {
 
   async getTagValues(options: DataSourceGetTagValuesOptions<DuckQuery>): Promise<MetricFindValue[]> {
     try {
-      const engine = await getEngine(this.memoryLimitMB);
+      const engine = await getEngine(this.memoryLimitMB, this.rangeReads);
       const values = new Set<string>();
       const column = quoteIdent(options.key);
       for (const state of engine.registry.list(dashboardKey().key)) {

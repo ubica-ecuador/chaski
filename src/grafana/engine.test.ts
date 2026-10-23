@@ -67,6 +67,22 @@ describe('the published engine API', () => {
   });
 });
 
+describe('range reads', () => {
+  it('are off unless the starting instance asks, and the engine says which it got', async () => {
+    const start = pendingStart();
+    const engine = getEngine(512, true);
+    expect(startRunner).toHaveBeenLastCalledWith(expect.objectContaining({ memoryLimitMB: 512, rangeReads: true }));
+    start.resolve(fakeRunner());
+    await expect(engine).resolves.toMatchObject({ rangeReads: true });
+    // The engine is per page: a later instance asking otherwise gets the running one.
+    await expect(getEngine(512, false)).resolves.toMatchObject({ rangeReads: true });
+
+    setEngineForTests(undefined);
+    pendingStart().resolve(fakeRunner());
+    await expect(getEngine(512)).resolves.toMatchObject({ rangeReads: false });
+  });
+});
+
 describe('the Grafana Assistant', () => {
   it('hears about the datasets through the published API, once the engine starts', async () => {
     const start = pendingStart();

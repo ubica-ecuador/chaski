@@ -137,6 +137,15 @@ describe('ConfigEditor', () => {
     fireEvent.change(screen.getByLabelText('Memory limit (MB)'), { target: { value: '512' } });
     expect(last(spy).jsonData.memoryLimitMB).toBe(512);
   });
+
+  it('turns range reads on, off by default', () => {
+    const spy = jest.fn();
+    render(<Harness initial={base} spy={spy} />);
+    const toggle = screen.getByLabelText('Range reads');
+    expect(toggle).not.toBeChecked();
+    fireEvent.click(toggle);
+    expect(last(spy).jsonData.rangeReads).toBe(true);
+  });
 });
 
 describe('headerCount', () => {

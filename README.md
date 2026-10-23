@@ -129,6 +129,21 @@ skills with it, for Chaski's SQL, its dataset variables and the Mosaic panel; th
 - **Browser memory.** Each viewer's browser holds the datasets. The limit is a datasource setting
   (`memoryLimitMB`, 1024 by default). Aggregate on the server, and let only the working set reach the
   browser.
+- **Range reads.** By default the engine downloads each remote file whole. The `rangeReads` setting
+  (off by default) makes it fetch only the parts of a Parquet file a query needs, with HTTP range
+  requests. Those requests go one after another, so it pays off on a narrow slice of a large file and
+  loses when a dataset reads most of one. Measured on a 40 Mbit/s link:
+  - a 12-hour window of 8 days of fires, from a file sorted by time: 1.6 s instead of 8.2 s;
+  - the same window from the same rows unsorted: no faster, because every row group spans the whole
+    week;
+  - a dataset that reads most columns of a 98 MB file: 30 s instead of 24 s.
+
+  For time series in a bucket, write files of a month or a year, each sorted by its time column with
+  row groups of about 100,000 rows, and build the file URLs from the time range in SQL: the browser
+  cannot list a bucket, so `year=*/…` globs do not expand. A server that ignores ranges still gets a
+  full read. The engine is one per page, so the first Chaski datasource a page uses sets this (and
+  the memory limit) for the page.
+
 - **Content Security Policy.**
   - The engine starts under Grafana's stock policy with nothing extra to allow.
   - Where Grafana serves plugin files from a CDN on another origin, as Grafana Cloud does, the
@@ -159,6 +174,7 @@ skills with it, for Chaski's SQL, its dataset variables and the Mosaic panel; th
        access: proxy
        jsonData:
          memoryLimitMB: 1024
+         rangeReads: false
    ```
 
 ## Develop

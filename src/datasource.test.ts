@@ -206,6 +206,13 @@ describe('DataSource', () => {
   it('reports the engine version on Save & test', async () => {
     expect(await ds.testDatasource()).toEqual({ status: 'success', message: 'DuckDB v1.4.3 is running in the browser.' });
   });
+
+  it('says so on Save & test when the engine reads by ranges', async () => {
+    setEngineForTests({ runner, registry, version: 'v1.4.3', rangeReads: true });
+    expect(await ds.testDatasource()).toMatchObject({
+      message: 'DuckDB v1.4.3 is running in the browser, reading remote files by HTTP ranges.',
+    });
+  });
 });
 
 describe('ad hoc filter options', () => {

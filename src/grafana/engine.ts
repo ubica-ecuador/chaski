@@ -12,6 +12,8 @@ export interface Engine {
   runner: SqlRunner;
   registry: DatasetRegistry;
   version: string;
+  /** Whether this engine reads remote files by HTTP ranges; set by the instance that started it. */
+  rangeReads?: boolean;
 }
 
 let enginePromise: Promise<Engine> | undefined;
@@ -23,7 +25,7 @@ export function assetBase(): string {
 
 /**
  * One engine per page, shared by every panel and every instance of this
- * datasource. The first instance to ask sets the memory limit. A failed start
+ * datasource. The first instance to ask sets the memory limit and range reads. A failed start
  * is forgotten, so the next query retries. From its start, the engine's
  * registry hears when the user leaves a dashboard, for as long as the page lives.
  *
@@ -32,12 +34,12 @@ export function assetBase(): string {
  * wait for it instead of seeing undefined. A failed start rejects that promise
  * and publishes undefined again, until a later query retries.
  */
-export function getEngine(memoryLimitMB: number): Promise<Engine> {
+export function getEngine(memoryLimitMB: number, rangeReads = false): Promise<Engine> {
   if (!enginePromise) {
     let api: ChaskiEngineApi | undefined;
-    enginePromise = createBrowserRunner({ assetBase: assetBase(), memoryLimitMB })
+    enginePromise = createBrowserRunner({ assetBase: assetBase(), memoryLimitMB, rangeReads })
       .then((runner) => {
-        const engine: Engine = { runner, registry: new DatasetRegistry(runner), version: runner.version };
+        const engine: Engine = { runner, registry: new DatasetRegistry(runner), version: runner.version, rangeReads };
         leaveDashboardOnNavigation(engine.registry);
         (window as unknown as { __duckdbwasm: unknown }).__duckdbwasm = { stats, runner };
         // Created here, before any caller of getEngine resumes, so it hears the first activation.
