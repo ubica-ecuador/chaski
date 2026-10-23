@@ -17,10 +17,18 @@ export interface VariableLink {
    * these two for a 2-D brush. Without it, the most recent clause.
    */
   column?: string | string[];
-  /** An interval's ends. */
-  from?: string;
-  to?: string;
-  /** Anything else: the points or text picked, a 2-D brush as a WKT polygon, or a Param's value. */
+  /**
+   * An interval's ends; for a 2-D brush, one variable per axis, in the
+   * order of `column`.
+   */
+  from?: string | string[];
+  to?: string | string[];
+  /**
+   * Anything else: the points or text picked, a Param's value, or a 2-D
+   * brush as a WKT polygon. The polygon is for longitude and latitude, which
+   * Chaski's `area` filter reads as such (it wraps them at the antimeridian);
+   * other axes take `from` and `to`.
+   */
   variable?: string;
 }
 
@@ -48,7 +56,9 @@ export function parseLinks(text: string | undefined): VariableLink[] {
     if (!isObject(entry) || typeof entry.param !== 'string') {
       throw new Error(`Variables, entry ${i + 1}: \`param\` names a Selection or Param of the spec.`);
     }
-    const names = ['from', 'to', 'variable'].filter((key) => typeof entry[key] === 'string');
+    const isNames = (v: unknown) =>
+      typeof v === 'string' || (Array.isArray(v) && v.length > 0 && v.every((n) => typeof n === 'string'));
+    const names = ['from', 'to', 'variable'].filter((key) => isNames(entry[key]));
     if (names.length === 0) {
       throw new Error(`Variables, entry ${i + 1}: give \`from\` and \`to\`, or \`variable\`.`);
     }
@@ -107,13 +117,15 @@ function clauseWrites(link: VariableLink, clause: SelectionClause | undefined, w
   const value = clause?.value;
   const type = (clause?.meta as { type?: string } | undefined)?.type;
   if (link.from !== undefined || link.to !== undefined) {
-    const [lo, hi] = type === 'interval' && Array.isArray(value) && clause!.fields.length === 1 ? value : [];
-    if (link.from !== undefined) {
-      writes[link.from] = formatValue(lo);
-    }
-    if (link.to !== undefined) {
-      writes[link.to] = formatValue(hi);
-    }
+    // One [lo, hi] per axis: a 1-D interval's value is that pair, a 2-D one's a pair of them.
+    const interval = type === 'interval' && Array.isArray(value);
+    const extents: unknown[][] = !interval ? [] : clause!.fields.length === 1 ? [value] : (value as unknown[][]);
+    const ends = (names: string | string[] | undefined, end: 0 | 1) =>
+      [names ?? []].flat().forEach((name, axis) => {
+        writes[name] = formatValue(extents[axis]?.[end]);
+      });
+    ends(link.from, 0);
+    ends(link.to, 1);
   }
   if (link.variable === undefined) {
     return;

@@ -22,6 +22,20 @@ describe('ChaskiConnector', () => {
     expect(e.queryIPC).toHaveBeenCalledWith('SELECT 1', { signal });
     expect(e.exec).toHaveBeenCalledWith('CREATE SCHEMA mosaic', { signal: undefined });
   });
+
+  it('reports each answer with when its query was sent, and not a failure', async () => {
+    const e = engine();
+    const onAnswer = jest.fn();
+    const connector = new ChaskiConnector(e, { onAnswer });
+    const before = performance.now();
+    await connector.query({ type: 'arrow', sql: 'SELECT 1' });
+    expect(onAnswer).toHaveBeenCalledTimes(1);
+    expect(onAnswer.mock.calls[0][0]).toBeGreaterThanOrEqual(before);
+
+    (e.queryIPC as jest.Mock).mockRejectedValueOnce(new Error('Binder Error'));
+    await expect(connector.query({ type: 'arrow', sql: 'SELECT nope' })).rejects.toThrow('Binder Error');
+    expect(onAnswer).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('waitForEngine', () => {

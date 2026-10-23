@@ -28,6 +28,7 @@ export const getStyles = (theme: GrafanaTheme2) => ({
       marginRight: theme.spacing(2),
     },
     'select, input[type="text"], input[type="search"]': {
+      maxWidth: '14em',
       height: theme.spacing(theme.components.height.sm),
       padding: theme.spacing(0, 1),
       color: theme.colors.text.primary,
@@ -83,5 +84,20 @@ export const getStyles = (theme: GrafanaTheme2) => ({
     color: theme.colors.error.text,
     whiteSpace: 'pre-wrap',
     overflow: 'auto',
+  }),
+  problem: css({
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1,
+    maxHeight: '40%',
+    overflow: 'auto',
+    padding: theme.spacing(0.5, 1),
+    color: theme.colors.error.text,
+    background: theme.colors.background.primary,
+    borderBottom: `1px solid ${theme.colors.error.border}`,
+    fontSize: theme.typography.bodySmall.fontSize,
+    whiteSpace: 'pre-wrap',
   }),
 });

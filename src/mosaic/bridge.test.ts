@@ -14,6 +14,9 @@ describe('parseLinks', () => {
       { param: 'brush', column: 'mag', from: 'lo', to: 'hi' },
     ]);
     expect(parseLinks('')).toEqual([]);
+    expect(parseLinks('- param: box\n  from: [a, b]\n  to: [c, d]\n')).toEqual([
+      { param: 'box', from: ['a', 'b'], to: ['c', 'd'] },
+    ]);
   });
 
   it('says which entry is wrong', () => {
@@ -75,6 +78,29 @@ describe('writesFor', () => {
       alerts: ['red', 'orange'],
       d_lo: '',
       d_hi: '',
+    });
+  });
+
+  it('writes a 2-D brush as one range per axis', () => {
+    const box = Selection.crossfilter();
+    box.update(
+      clauseIntervals(
+        ['flipper', 'mass'],
+        [
+          [190, 210],
+          [3500, 4500],
+        ],
+        { source: source('box') }
+      )
+    );
+    const links = [{ param: 'box', column: ['flipper', 'mass'], from: ['f_lo', 'm_lo'], to: ['f_hi', 'm_hi'] }];
+    expect(writesFor(links, new Map([['box', box]]))).toEqual({ f_lo: '190', m_lo: '3500', f_hi: '210', m_hi: '4500' });
+    // Cleared, every end empties.
+    expect(writesFor(links, new Map([['box', Selection.crossfilter()]]))).toEqual({
+      f_lo: '',
+      m_lo: '',
+      f_hi: '',
+      m_hi: '',
     });
   });
 

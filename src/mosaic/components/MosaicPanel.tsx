@@ -57,6 +57,8 @@ export function MosaicPanel({ options, width, height }: PanelProps<MosaicOptions
   const styles = useStyles2(getStyles);
   const host = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<Status>({ kind: 'starting' });
+  // An error after the panel has drawn: shown over it until a later query answers.
+  const [problem, setProblem] = useState<string>();
   // Bumped when the dashboard's datasets reload, or a dataset this panel waits for arrives.
   const [rebuild, setRebuild] = useState(0);
   const w = useDebounced(width, 150);
@@ -70,6 +72,28 @@ export function MosaicPanel({ options, width, height }: PanelProps<MosaicOptions
     // variable links stop, so the links can still publish that release.
     const cleanups: Array<() => void> = [];
     const defer = (cleanup: () => void) => (alive() ? cleanups.push(cleanup) : cleanup());
+
+    let drawn = false;
+    let problemAt: number | undefined;
+    const reportError = (message: string) => {
+      if (!alive()) {
+        return;
+      }
+      if (!drawn) {
+        setStatus({ kind: 'error', message });
+        return;
+      }
+      problemAt = performance.now();
+      setProblem(message);
+    };
+    // A query sent after the error answered: the panel works again (a brush
+    // that left a density mark nothing to draw has been cleared, say).
+    const onAnswer = (startedAt: number) => {
+      if (problemAt !== undefined && startedAt > problemAt && alive()) {
+        problemAt = undefined;
+        setProblem(undefined);
+      }
+    };
 
     const build = async () => {
       const engine = await waitForEngine(abort.signal);
@@ -115,8 +139,8 @@ export function MosaicPanel({ options, width, height }: PanelProps<MosaicOptions
       }
       awaits = () => false;
 
-      const coordinator = new Coordinator(new ChaskiConnector(engine), {
-        logger: panelLogger((message) => alive() && setStatus({ kind: 'error', message })),
+      const coordinator = new Coordinator(new ChaskiConnector(engine, { onAnswer }), {
+        logger: panelLogger(reportError),
         preagg: { schema: PREAGG_SCHEMA, enabled: preaggregate },
       });
       const api = createAPIContext({ coordinator, namedPlots: page.namedPlots as never });
@@ -138,6 +162,7 @@ export function MosaicPanel({ options, width, height }: PanelProps<MosaicOptions
       defer(() => host.current?.replaceChildren());
       const unlink = linkVariables(links, page.params);
       defer(() => unlink(dashboardKey() === page.key));
+      drawn = true;
       setStatus({ kind: 'ready' });
     };
 
@@ -149,12 +174,19 @@ export function MosaicPanel({ options, width, height }: PanelProps<MosaicOptions
     return () => {
       abort.abort();
       cleanups.forEach((cleanup) => cleanup());
+      // The next build starts clean; this one's error went with it.
+      setProblem(undefined);
     };
   }, [specText, variables, preaggregate, w, h, rebuild]);
 
   return (
     <div className={styles.root} data-testid="mosaic-panel">
       {status.kind !== 'ready' && <Message status={status} className={styles.message} errorClass={styles.error} />}
+      {status.kind === 'ready' && problem && (
+        <div className={styles.problem} data-testid="mosaic-error">
+          {problem}
+        </div>
+      )}
       <div ref={host} />
     </div>
   );

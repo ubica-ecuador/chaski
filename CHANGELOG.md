@@ -13,7 +13,12 @@
   variables in the shapes cross-filters read. See docs/mosaic.md.
 - **Examples.** `examples/dashboards/` holds a gallery for Grafana 13: five of Mosaic's examples in
   tabs, each driving Grafana stat panels and tables through cross-filters, one on the live USGS feed.
-  Pacha syncs the folder with Git Sync.
+  Pacha syncs the folder with Git Sync. A second dashboard, `mosaic-density`, holds Mosaic's density
+  visualizations (penguins, flights, stocks) with brushes that drive stat panels.
+- The Mosaic panel: a 2-D brush can write one range per axis (`from` and `to` as lists), for axes that
+  are not longitude and latitude; an error after the panel has drawn shows over it until a later query
+  answers; and a brush that leaves a contour or heatmap no rows no longer freezes the dashboard's
+  Mosaic panels (a fix to Mosaic 0.34).
 
 ## 1.2.0 (2026-10-23)
 

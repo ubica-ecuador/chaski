@@ -1,0 +1,1961 @@
+{
+  "apiVersion": "dashboard.grafana.app/v2",
+  "kind": "Dashboard",
+  "metadata": {
+    "name": "mosaic-density"
+  },
+  "spec": {
+    "title": "Mosaic density",
+    "description": "Mosaic's density visualizations on Chaski: contours, 2-D and grouped densities, 1-D densities, hexbins, heatmaps and dense lines, each tab with brushes or picks that drive Grafana panels.",
+    "tags": ["chaski", "mosaic", "examples", "density"],
+    "editable": true,
+    "cursorSync": "Off",
+    "liveNow": false,
+    "preload": false,
+    "links": [],
+    "annotations": [
+      {
+        "kind": "AnnotationQuery",
+        "spec": {
+          "builtIn": true,
+          "enable": true,
+          "hide": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name": "Annotations & Alerts",
+          "query": {
+            "datasource": {
+              "name": "-- Grafana --"
+            },
+            "group": "grafana",
+            "kind": "DataQuery",
+            "spec": {},
+            "version": "v0"
+          }
+        }
+      }
+    ],
+    "timeSettings": {
+      "autoRefresh": "",
+      "autoRefreshIntervals": ["1m", "5m", "15m", "1h"],
+      "fiscalYearStartMonth": 0,
+      "from": "now-30d",
+      "to": "now",
+      "hideTimepicker": true,
+      "timezone": "utc"
+    },
+    "variables": [
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "allowCustomValue": true,
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "includeAll": false,
+          "multi": false,
+          "name": "penguins",
+          "options": [],
+          "query": {
+            "datasource": {
+              "name": "duckdbwasm"
+            },
+            "group": "ubica-chaski-datasource",
+            "kind": "DataQuery",
+            "version": "v0",
+            "spec": {
+              "refId": "penguins",
+              "kind": "dataset",
+              "name": "penguins",
+              "source": {
+                "type": "sql",
+                "sql": "SELECT * FROM read_parquet('https://idl.uw.edu/mosaic/data/penguins.parquet')"
+              }
+            }
+          },
+          "refresh": "onDashboardLoad",
+          "regex": "",
+          "regexApplyTo": "value",
+          "skipUrlSync": true,
+          "sort": "disabled"
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "Species",
+          "name": "p_species",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "p_flip_lo",
+          "name": "p_flip_lo",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "p_flip_hi",
+          "name": "p_flip_hi",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "p_mass_lo",
+          "name": "p_mass_lo",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "p_mass_hi",
+          "name": "p_mass_hi",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "allowCustomValue": true,
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "includeAll": false,
+          "multi": false,
+          "name": "penguinFilters",
+          "options": [],
+          "query": {
+            "datasource": {
+              "name": "duckdbwasm"
+            },
+            "group": "ubica-chaski-datasource",
+            "kind": "DataQuery",
+            "version": "v0",
+            "spec": {
+              "refId": "penguinFilters",
+              "kind": "filters",
+              "dataset": "$penguins",
+              "filters": [
+                {
+                  "name": "species",
+                  "type": "in",
+                  "column": "species",
+                  "variable": "$p_species",
+                  "label": "Species"
+                },
+                {
+                  "name": "flipper",
+                  "type": "range",
+                  "column": "flipper_length",
+                  "from": "$p_flip_lo",
+                  "to": "$p_flip_hi",
+                  "label": "Flipper (mm)",
+                  "upper": "closed"
+                },
+                {
+                  "name": "mass",
+                  "type": "range",
+                  "column": "body_mass",
+                  "from": "$p_mass_lo",
+                  "to": "$p_mass_hi",
+                  "label": "Body mass (g)",
+                  "upper": "closed"
+                }
+              ]
+            }
+          },
+          "refresh": "onDashboardLoad",
+          "regex": "",
+          "regexApplyTo": "value",
+          "skipUrlSync": true,
+          "sort": "disabled"
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "allowCustomValue": true,
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "includeAll": false,
+          "multi": false,
+          "name": "flights",
+          "options": [],
+          "query": {
+            "datasource": {
+              "name": "duckdbwasm"
+            },
+            "group": "ubica-chaski-datasource",
+            "kind": "DataQuery",
+            "version": "v0",
+            "spec": {
+              "refId": "flights",
+              "kind": "dataset",
+              "name": "flights",
+              "source": {
+                "type": "sql",
+                "sql": "SELECT delay, time, distance\nFROM read_parquet('https://idl.uw.edu/mosaic/data/flights-200k.parquet')"
+              }
+            }
+          },
+          "refresh": "onDashboardLoad",
+          "regex": "",
+          "regexApplyTo": "value",
+          "skipUrlSync": true,
+          "sort": "disabled"
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "d_delay_lo",
+          "name": "d_delay_lo",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "d_delay_hi",
+          "name": "d_delay_hi",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "d_dist_lo",
+          "name": "d_dist_lo",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "d_dist_hi",
+          "name": "d_dist_hi",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "d_time_lo",
+          "name": "d_time_lo",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "d_time_hi",
+          "name": "d_time_hi",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "allowCustomValue": true,
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "includeAll": false,
+          "multi": false,
+          "name": "flightFilters",
+          "options": [],
+          "query": {
+            "datasource": {
+              "name": "duckdbwasm"
+            },
+            "group": "ubica-chaski-datasource",
+            "kind": "DataQuery",
+            "version": "v0",
+            "spec": {
+              "refId": "flightFilters",
+              "kind": "filters",
+              "dataset": "$flights",
+              "filters": [
+                {
+                  "name": "delay",
+                  "type": "range",
+                  "column": "delay",
+                  "from": "$d_delay_lo",
+                  "to": "$d_delay_hi",
+                  "label": "Arrival delay (min)",
+                  "upper": "closed"
+                },
+                {
+                  "name": "distance",
+                  "type": "range",
+                  "column": "distance",
+                  "from": "$d_dist_lo",
+                  "to": "$d_dist_hi",
+                  "label": "Distance (miles)",
+                  "upper": "closed"
+                },
+                {
+                  "name": "time",
+                  "type": "range",
+                  "column": "time",
+                  "from": "$d_time_lo",
+                  "to": "$d_time_hi",
+                  "label": "Departure (hour)",
+                  "upper": "closed"
+                }
+              ]
+            }
+          },
+          "refresh": "onDashboardLoad",
+          "regex": "",
+          "regexApplyTo": "value",
+          "skipUrlSync": true,
+          "sort": "disabled"
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "allowCustomValue": true,
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "includeAll": false,
+          "multi": false,
+          "name": "stocks",
+          "options": [],
+          "query": {
+            "datasource": {
+              "name": "duckdbwasm"
+            },
+            "group": "ubica-chaski-datasource",
+            "kind": "DataQuery",
+            "version": "v0",
+            "spec": {
+              "refId": "stocks",
+              "kind": "dataset",
+              "name": "stocks",
+              "source": {
+                "type": "sql",
+                "sql": "SELECT Symbol, Date, Close\nFROM read_parquet('https://idl.uw.edu/mosaic/data/stocks_after_2006.parquet')\nWHERE Close < 100"
+              }
+            }
+          },
+          "refresh": "onDashboardLoad",
+          "regex": "",
+          "regexApplyTo": "value",
+          "skipUrlSync": true,
+          "sort": "disabled"
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "bac",
+            "value": "bac"
+          },
+          "hide": "hideVariable",
+          "label": "Stock",
+          "name": "s_symbol",
+          "query": "bac",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "allowCustomValue": true,
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "includeAll": false,
+          "multi": false,
+          "name": "stockFilters",
+          "options": [],
+          "query": {
+            "datasource": {
+              "name": "duckdbwasm"
+            },
+            "group": "ubica-chaski-datasource",
+            "kind": "DataQuery",
+            "version": "v0",
+            "spec": {
+              "refId": "stockFilters",
+              "kind": "filters",
+              "dataset": "$stocks",
+              "filters": [
+                {
+                  "name": "symbol",
+                  "type": "in",
+                  "column": "Symbol",
+                  "variable": "$s_symbol",
+                  "label": "Stock"
+                }
+              ]
+            }
+          },
+          "refresh": "onDashboardLoad",
+          "regex": "",
+          "regexApplyTo": "value",
+          "skipUrlSync": true,
+          "sort": "disabled"
+        }
+      }
+    ],
+    "elements": {
+      "p-count": {
+        "kind": "Panel",
+        "spec": {
+          "id": 1,
+          "title": "Penguins",
+          "description": "Palmer penguins the brush and the legend leave.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT count(*)::DOUBLE AS n FROM $penguins WHERE $__crossfilter($penguinFilters)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "options": {
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "textMode": "value",
+                "orientation": "auto",
+                "wideLayout": true,
+                "showPercentChange": false
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "short",
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "#5794F2"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "p-length": {
+        "kind": "Panel",
+        "spec": {
+          "id": 2,
+          "title": "Mean bill length",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT avg(bill_length)::DOUBLE AS v FROM $penguins WHERE $__crossfilter($penguinFilters)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "options": {
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "textMode": "value",
+                "orientation": "auto",
+                "wideLayout": true,
+                "showPercentChange": false
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "lengthmm",
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "#FF9830"
+                  },
+                  "decimals": 1
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "p-depth": {
+        "kind": "Panel",
+        "spec": {
+          "id": 3,
+          "title": "Mean bill depth",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT avg(bill_depth)::DOUBLE AS v FROM $penguins WHERE $__crossfilter($penguinFilters)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "options": {
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "textMode": "value",
+                "orientation": "auto",
+                "wideLayout": true,
+                "showPercentChange": false
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "lengthmm",
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "#B877D9"
+                  },
+                  "decimals": 1
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "p-mass": {
+        "kind": "Panel",
+        "spec": {
+          "id": 4,
+          "title": "Mean body mass",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT avg(body_mass)::DOUBLE AS v FROM $penguins WHERE $__crossfilter($penguinFilters)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "options": {
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "textMode": "value",
+                "orientation": "auto",
+                "wideLayout": true,
+                "showPercentChange": false
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "massg",
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "#73BF69"
+                  },
+                  "decimals": 2
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "p-scatter": {
+        "kind": "Panel",
+        "spec": {
+          "id": 5,
+          "title": "Flipper and body mass",
+          "description": "The plus: drag a box to pick penguins by build, or click a species in the legend. The density views and the cards follow.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "ubica-chaski-mosaic-panel",
+            "spec": {
+              "options": {
+                "spec": "params:\n  pbrush: { select: crossfilter }\n\nvconcat:\n  - legend: color\n    for: pscatter\n    as: $pbrush\n  - name: pscatter\n    plot:\n      - mark: dot\n        data: { from: penguins, filterBy: $pbrush }\n        x: flipper_length\n        y: body_mass\n        fill: species\n        r: 3\n        fillOpacity: 0.85\n      - select: intervalXY\n        as: $pbrush\n    xyDomain: Fixed\n    xLabel: Flipper (mm) →\n    yLabel: ↑ Body mass (g)\n    marginLeft: 50\n    colorDomain: [Adelie, Chinstrap, Gentoo]\n    colorRange: ['#FF9830', '#B877D9', '#5794F2']\n",
+                "variables": "- param: pbrush\n  column: [flipper_length, body_mass]\n  from: [p_flip_lo, p_mass_lo]\n  to: [p_flip_hi, p_mass_hi]\n- param: pbrush\n  column: species\n  variable: p_species\n",
+                "preaggregate": true
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "p-contours": {
+        "kind": "Panel",
+        "spec": {
+          "id": 6,
+          "title": "Contours",
+          "description": "Mosaic's contour plot: a heatmap and contour lines of bill size, one density per species, computed in DuckDB. The sliders set the smoothing and the number of contours.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "ubica-chaski-mosaic-panel",
+            "spec": {
+              "options": {
+                "spec": "params:\n  pbrush: { select: crossfilter }\n\n  pbandwidth: 40\n  pthresholds: 10\nvconcat:\n  - input: slider\n    label: Bandwidth (σ)\n    as: $pbandwidth\n    min: 1\n    max: 100\n  - input: slider\n    label: Thresholds\n    as: $pthresholds\n    min: 2\n    max: 20\n  - plot:\n      - mark: heatmap\n        data: { from: penguins, filterBy: $pbrush }\n        x: bill_length\n        y: bill_depth\n        fill: species\n        bandwidth: $pbandwidth\n      - mark: contour\n        data: { from: penguins, filterBy: $pbrush }\n        x: bill_length\n        y: bill_depth\n        stroke: species\n        bandwidth: $pbandwidth\n        thresholds: $pthresholds\n      - mark: dot\n        data: { from: penguins, filterBy: $pbrush }\n        x: bill_length\n        y: bill_depth\n        fill: currentColor\n        r: 1\n    xyDomain: Fixed\n    xLabel: Bill length (mm) →\n    yLabel: ↑ Bill depth (mm)\n    colorDomain: [Adelie, Chinstrap, Gentoo]\n    colorRange: ['#FF9830', '#B877D9', '#5794F2']\n",
+                "variables": "",
+                "preaggregate": true
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "p-density2d": {
+        "kind": "Panel",
+        "spec": {
+          "id": 7,
+          "title": "Density 2D",
+          "description": "Mosaic's 2-D density: circle size is the local density of each species. The sliders set the smoothing and the grid.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "ubica-chaski-mosaic-panel",
+            "spec": {
+              "options": {
+                "spec": "params:\n  pbrush: { select: crossfilter }\n\n  p2bandwidth: 20\n  p2bins: 20\nvconcat:\n  - input: slider\n    label: Bandwidth (σ)\n    as: $p2bandwidth\n    min: 1\n    max: 100\n  - input: slider\n    label: Bins\n    as: $p2bins\n    min: 10\n    max: 60\n  - plot:\n      - mark: density\n        data: { from: penguins, filterBy: $pbrush }\n        x: bill_length\n        y: bill_depth\n        r: density\n        fill: species\n        fillOpacity: 0.5\n        width: $p2bins\n        height: $p2bins\n        bandwidth: $p2bandwidth\n      - mark: dot\n        data: { from: penguins, filterBy: $pbrush }\n        x: bill_length\n        y: bill_depth\n        fill: currentColor\n        r: 1\n    rRange: [0, 16]\n    xyDomain: Fixed\n    xLabel: Bill length (mm) →\n    yLabel: ↑ Bill depth (mm)\n    colorDomain: [Adelie, Chinstrap, Gentoo]\n    colorRange: ['#FF9830', '#B877D9', '#5794F2']\n",
+                "variables": "",
+                "preaggregate": true
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "p-groups": {
+        "kind": "Panel",
+        "spec": {
+          "id": 8,
+          "title": "Density groups",
+          "description": "Mosaic's density groups: bill depth by species. Normalize compares shapes; stack and offset pile the areas up.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "ubica-chaski-mosaic-panel",
+            "spec": {
+              "options": {
+                "spec": "params:\n  pbrush: { select: crossfilter }\n\n  pgbandwidth: 20\n  pnormalize: none\n  pstack: false\n  poffset: null\nvconcat:\n  - hconcat:\n      - input: menu\n        label: Normalize\n        as: $pnormalize\n        options: [none, sum, max]\n      - input: menu\n        label: Stack\n        as: $pstack\n        options: [false, true]\n      - input: menu\n        label: Offset\n        as: $poffset\n        options:\n          - { label: none, value: null }\n          - { label: normalize, value: normalize }\n          - { label: center, value: center }\n  - plot:\n      - mark: densityY\n        data: { from: penguins, filterBy: $pbrush }\n        x: bill_depth\n        fill: species\n        fillOpacity: 0.45\n        bandwidth: $pgbandwidth\n        normalize: $pnormalize\n        stack: $pstack\n        offset: $poffset\n    xDomain: Fixed\n    xLabel: Bill depth (mm) →\n    yLabel: null\n    marginLeft: 50\n    colorDomain: [Adelie, Chinstrap, Gentoo]\n    colorRange: ['#FF9830', '#B877D9', '#5794F2']\n",
+                "variables": "",
+                "preaggregate": true
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "p-filters": {
+        "kind": "Panel",
+        "spec": {
+          "id": 9,
+          "title": "Active filters",
+          "description": "What the Mosaic brushes on this tab wrote to the dashboard's variables, as Chaski's cross-filters read them.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT label AS Filter, value AS Range FROM $__filters($penguinFilters) WHERE active"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "table",
+            "spec": {
+              "options": {
+                "showHeader": true,
+                "cellHeight": "sm",
+                "footer": {
+                  "show": false
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {
+                    "align": "auto"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "d-count": {
+        "kind": "Panel",
+        "spec": {
+          "id": 10,
+          "title": "Flights",
+          "description": "Flights the brushes leave, counted by Chaski SQL.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT count(*)::DOUBLE AS n FROM $flights WHERE $__crossfilter($flightFilters)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "options": {
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "textMode": "value",
+                "orientation": "auto",
+                "wideLayout": true,
+                "showPercentChange": false
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "short",
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "#5794F2"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "d-ontime": {
+        "kind": "Panel",
+        "spec": {
+          "id": 11,
+          "title": "On time",
+          "description": "Share arriving no more than 15 minutes late.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT avg((delay <= 15)::INT)::DOUBLE AS v FROM $flights WHERE $__crossfilter($flightFilters)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "options": {
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "textMode": "value",
+                "orientation": "auto",
+                "wideLayout": true,
+                "showPercentChange": false
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "percentunit",
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "#73BF69"
+                  },
+                  "decimals": 1
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "d-delay": {
+        "kind": "Panel",
+        "spec": {
+          "id": 12,
+          "title": "Mean delay",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT avg(delay)::DOUBLE AS v FROM $flights WHERE $__crossfilter($flightFilters)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "options": {
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "textMode": "value",
+                "orientation": "auto",
+                "wideLayout": true,
+                "showPercentChange": false
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "m",
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "#FF9830"
+                  },
+                  "decimals": 1
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "d-filters": {
+        "kind": "Panel",
+        "spec": {
+          "id": 13,
+          "title": "Active filters",
+          "description": "What the Mosaic brushes on this tab wrote to the dashboard's variables, as Chaski's cross-filters read them.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT label AS Filter, value AS Range FROM $__filters($flightFilters) WHERE active"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "table",
+            "spec": {
+              "options": {
+                "showHeader": true,
+                "cellHeight": "sm",
+                "footer": {
+                  "show": false
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {
+                    "align": "auto"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "d-density1d": {
+        "kind": "Panel",
+        "spec": {
+          "id": 14,
+          "title": "Density 1D",
+          "description": "Mosaic's 1-D densities of 231,000 flights: binned in DuckDB, smoothed in the browser, distance on a log scale. Drag across either to filter everything on this tab.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "ubica-chaski-mosaic-panel",
+            "spec": {
+              "options": {
+                "spec": "params:\n  dbrush: { select: crossfilter }\n\n  dbandwidth: 20\nvconcat:\n  - input: slider\n    label: Bandwidth (σ)\n    as: $dbandwidth\n    min: 0.1\n    max: 100\n    step: 0.1\n  - plot:\n      - mark: densityY\n        data: { from: flights, filterBy: $dbrush }\n        x: delay\n        fill: '#5794F2'\n        fillOpacity: 0.6\n        bandwidth: $dbandwidth\n      - select: intervalX\n        as: $dbrush\n    yAxis: null\n    xDomain: Fixed\n    xLabel: Arrival delay (min) →\n    marginLeft: 10\n  - plot:\n      - mark: densityY\n        data: { from: flights, filterBy: $dbrush }\n        x: distance\n        fill: '#73BF69'\n        fillOpacity: 0.6\n        bandwidth: $dbandwidth\n      - select: intervalX\n        as: $dbrush\n    yAxis: null\n    xScale: log\n    xDomain: Fixed\n    xLabel: Distance (miles, log) →\n    marginLeft: 10\n",
+                "variables": "- param: dbrush\n  column: delay\n  from: d_delay_lo\n  to: d_delay_hi\n- param: dbrush\n  column: distance\n  from: d_dist_lo\n  to: d_dist_hi\n",
+                "preaggregate": true
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "d-hexbin": {
+        "kind": "Panel",
+        "spec": {
+          "id": 15,
+          "title": "Hexbin",
+          "description": "Mosaic's hexbin of departure time and arrival delay, with marginal histograms. Drag across the departure hours on top to filter.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "ubica-chaski-mosaic-panel",
+            "spec": {
+              "options": {
+                "spec": "params:\n  dbrush: { select: crossfilter }\n\n  dscale: { value: log }\nvconcat:\n  - hconcat:\n      - input: menu\n        label: Color scale\n        as: $dscale\n        options: [log, linear, sqrt]\n      - hspace: 10\n      - legend: color\n        for: dhexbins\n  - hconcat:\n      - plot:\n          - mark: rectY\n            data: { from: flights, filterBy: $dbrush }\n            x: { bin: time }\n            y: { count: }\n            fill: '#FF9830'\n            inset: 0.5\n          - select: intervalX\n            as: $dbrush\n        margins: { left: 5, right: 5, top: 30, bottom: 0 }\n        xDomain: Fixed\n        xAxis: top\n        yAxis: null\n        xLabel: Departure (hour)\n        xLabelAnchor: center\n        width: 605\n        height: 70\n      - hspace: 80\n  - hconcat:\n      - name: dhexbins\n        plot:\n          - mark: hexbin\n            data: { from: flights, filterBy: $dbrush }\n            x: time\n            y: delay\n            fill: { count: }\n            binWidth: 10\n          - mark: hexgrid\n            binWidth: 10\n            strokeOpacity: 0.1\n        colorScheme: ylgnbu\n        colorScale: $dscale\n        margins: { left: 5, right: 0, top: 0, bottom: 5 }\n        xAxis: null\n        yAxis: null\n        xyDomain: Fixed\n        width: 600\n        height: 400\n      - plot:\n          - mark: rectX\n            data: { from: flights, filterBy: $dbrush }\n            x: { count: }\n            y: { bin: delay }\n            fill: '#5794F2'\n            inset: 0.5\n        margins: { left: 0, right: 50, top: 4, bottom: 5 }\n        yDomain: [-60, 180]\n        xAxis: null\n        yAxis: right\n        yLabel: Delay (min)\n        yLabelAnchor: center\n        width: 80\n        height: 400\n",
+                "variables": "- param: dbrush\n  column: time\n  from: d_time_lo\n  to: d_time_hi\n",
+                "preaggregate": true
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "d-heatmap": {
+        "kind": "Panel",
+        "spec": {
+          "id": 16,
+          "title": "Heatmap and contours",
+          "description": "Mosaic's flights density: a smoothed heatmap and contour lines by departure time and arrival delay. The sliders set the smoothing and the contours.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "ubica-chaski-mosaic-panel",
+            "spec": {
+              "options": {
+                "spec": "params:\n  dbrush: { select: crossfilter }\n\n  dhbandwidth: 7\n  dhthresholds: 10\nvconcat:\n  - hconcat:\n      - input: slider\n        label: Bandwidth (σ)\n        as: $dhbandwidth\n        min: 1\n        max: 100\n      - input: slider\n        label: Thresholds\n        as: $dhthresholds\n        min: 2\n        max: 20\n  - plot:\n      - mark: heatmap\n        data: { from: flights, filterBy: $dbrush }\n        x: time\n        y: delay\n        fill: density\n        bandwidth: $dhbandwidth\n      - mark: contour\n        data: { from: flights, filterBy: $dbrush }\n        x: time\n        y: delay\n        stroke: white\n        strokeOpacity: 0.5\n        bandwidth: $dhbandwidth\n        thresholds: $dhthresholds\n    colorScheme: magma\n    colorScale: sqrt\n    xyDomain: Fixed\n    yDomain: [-60, 180]\n    xLabel: Departure (hour) →\n    yLabel: ↑ Arrival delay (min)\n",
+                "variables": "",
+                "preaggregate": true
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "s-change": {
+        "kind": "Panel",
+        "spec": {
+          "id": 17,
+          "title": "Change, first to last month",
+          "description": "From the first month to the last of the stock picked; with none picked, the median over every stock.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT median(change)::DOUBLE AS v FROM (\n  SELECT arg_max(Close, Date) / arg_min(Close, Date) - 1 AS change\n  FROM $stocks WHERE $__crossfilter($stockFilters)\n  GROUP BY Symbol\n)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "options": {
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "textMode": "value",
+                "orientation": "auto",
+                "wideLayout": true,
+                "showPercentChange": false
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "percentunit",
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "#FF9830"
+                  },
+                  "decimals": 0
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "s-low": {
+        "kind": "Panel",
+        "spec": {
+          "id": 18,
+          "title": "Lowest close",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT min(Close)::DOUBLE AS v FROM $stocks WHERE $__crossfilter($stockFilters)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "options": {
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "textMode": "value",
+                "orientation": "auto",
+                "wideLayout": true,
+                "showPercentChange": false
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "currencyUSD",
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "#B877D9"
+                  },
+                  "decimals": 2
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "s-high": {
+        "kind": "Panel",
+        "spec": {
+          "id": 19,
+          "title": "Highest close",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT max(Close)::DOUBLE AS v FROM $stocks WHERE $__crossfilter($stockFilters)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "options": {
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "textMode": "value",
+                "orientation": "auto",
+                "wideLayout": true,
+                "showPercentChange": false
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "currencyUSD",
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "#73BF69"
+                  },
+                  "decimals": 2
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "s-count": {
+        "kind": "Panel",
+        "spec": {
+          "id": 20,
+          "title": "Stocks",
+          "description": "Stocks in the picture: 1 with one picked.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT count(DISTINCT Symbol)::DOUBLE AS v FROM $stocks WHERE $__crossfilter($stockFilters)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "options": {
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "textMode": "value",
+                "orientation": "auto",
+                "wideLayout": true,
+                "showPercentChange": false
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "short",
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "#5794F2"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "s-lines": {
+        "kind": "Panel",
+        "spec": {
+          "id": 21,
+          "title": "Thousands of stocks, as densities",
+          "description": "Mosaic's line density over the monthly closes of 3,600 stocks since 2006. Lines are rasterized and summed in DuckDB, so the crowd shows as density. Drag a box on the lower plot to zoom the upper one; pick a stock to draw it on top.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "ubica-chaski-mosaic-panel",
+            "spec": {
+              "options": {
+                "spec": "params:\n  sbrush: { select: intersect }\n  ssym: { select: intersect }\n  scombo: { select: intersect, include: [$sbrush, $ssym] }\n  sbandwidth: 0\n  spixel: 2\nvconcat:\n  - hconcat:\n      - input: menu\n        label: Stock\n        as: $ssym\n        from: stocks\n        column: Symbol\n        value: bac\n      - input: slider\n        label: Bandwidth (σ)\n        as: $sbandwidth\n        min: 0\n        max: 10\n        step: 0.1\n      - input: menu\n        label: Pixel size\n        as: $spixel\n        options: [0.5, 1, 2]\n  - plot:\n      - mark: denseLine\n        data: { from: stocks, filterBy: $sbrush }\n        x: Date\n        y: Close\n        z: Symbol\n        fill: density\n        bandwidth: $sbandwidth\n        pixelSize: $spixel\n      - mark: lineY\n        data: { from: stocks, filterBy: $scombo }\n        x: Date\n        y: Close\n        z: Symbol\n        stroke: '#FF9830'\n        strokeWidth: 2\n    colorScheme: viridis\n    colorScale: sqrt\n    yLabel: ↑ Close, normalized density\n    yNice: true\n    margins: { left: 35, top: 20, right: 0 }\n  - plot:\n      - mark: denseLine\n        data: { from: stocks }\n        x: Date\n        y: Close\n        z: Symbol\n        fill: density\n        normalize: false\n        bandwidth: $sbandwidth\n        pixelSize: $spixel\n      - mark: lineY\n        data: { from: stocks, filterBy: $ssym }\n        x: Date\n        y: Close\n        z: Symbol\n        stroke: '#FF9830'\n        strokeWidth: 1.5\n      - select: intervalXY\n        as: $sbrush\n    colorScheme: viridis\n    colorScale: sqrt\n    yLabel: ↑ Close, unnormalized\n    yNice: true\n    margins: { left: 35, top: 20, right: 0 }\n",
+                "variables": "- param: ssym\n  column: Symbol\n  variable: s_symbol\n",
+                "preaggregate": true
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "s-about": {
+        "kind": "Panel",
+        "spec": {
+          "id": 22,
+          "title": "Reading it",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "text",
+            "spec": {
+              "options": {
+                "mode": "markdown",
+                "content": "**Dense lines.** Each of the 3,600 series is drawn into a pixel grid and the grids are summed, in DuckDB, so where many stocks pass the colour is bright.\n\n- The **upper plot normalizes each line by its length**, so a steep jump counts as much as a flat stretch; the **lower** one does not, and shows vertical streaks where prices jump.\n- **Drag a box on the lower plot** to zoom the upper one into that window of time and price.\n- **Pick a stock** in the menu to draw it in orange over the crowd: it starts on **bac**, Bank of America, whose fall in 2008 cuts across the whole market. The cards above follow the stock you pick.\n\nData: monthly closes of NYSE stocks since 2006, under $100, from [Mosaic's examples](https://idl.uw.edu/mosaic/examples/line-density.html).\n"
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "layout": {
+      "kind": "TabsLayout",
+      "spec": {
+        "tabs": [
+          {
+            "kind": "TabsLayoutTab",
+            "spec": {
+              "title": "Penguins",
+              "layout": {
+                "kind": "GridLayout",
+                "spec": {
+                  "items": [
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "p-count"
+                        },
+                        "x": 0,
+                        "y": 0,
+                        "width": 6,
+                        "height": 4
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "p-length"
+                        },
+                        "x": 6,
+                        "y": 0,
+                        "width": 6,
+                        "height": 4
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "p-depth"
+                        },
+                        "x": 12,
+                        "y": 0,
+                        "width": 6,
+                        "height": 4
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "p-mass"
+                        },
+                        "x": 18,
+                        "y": 0,
+                        "width": 6,
+                        "height": 4
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "p-scatter"
+                        },
+                        "x": 0,
+                        "y": 4,
+                        "width": 8,
+                        "height": 13
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "p-contours"
+                        },
+                        "x": 8,
+                        "y": 4,
+                        "width": 8,
+                        "height": 13
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "p-density2d"
+                        },
+                        "x": 16,
+                        "y": 4,
+                        "width": 8,
+                        "height": 13
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "p-groups"
+                        },
+                        "x": 0,
+                        "y": 17,
+                        "width": 16,
+                        "height": 9
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "p-filters"
+                        },
+                        "x": 16,
+                        "y": 17,
+                        "width": 8,
+                        "height": 9
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "kind": "TabsLayoutTab",
+            "spec": {
+              "title": "Flights",
+              "layout": {
+                "kind": "GridLayout",
+                "spec": {
+                  "items": [
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "d-count"
+                        },
+                        "x": 0,
+                        "y": 0,
+                        "width": 6,
+                        "height": 4
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "d-ontime"
+                        },
+                        "x": 6,
+                        "y": 0,
+                        "width": 6,
+                        "height": 4
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "d-delay"
+                        },
+                        "x": 12,
+                        "y": 0,
+                        "width": 6,
+                        "height": 4
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "d-filters"
+                        },
+                        "x": 18,
+                        "y": 0,
+                        "width": 6,
+                        "height": 4
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "d-density1d"
+                        },
+                        "x": 0,
+                        "y": 4,
+                        "width": 10,
+                        "height": 16
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "d-hexbin"
+                        },
+                        "x": 10,
+                        "y": 4,
+                        "width": 14,
+                        "height": 16
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "d-heatmap"
+                        },
+                        "x": 0,
+                        "y": 20,
+                        "width": 24,
+                        "height": 11
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "kind": "TabsLayoutTab",
+            "spec": {
+              "title": "Stocks",
+              "layout": {
+                "kind": "GridLayout",
+                "spec": {
+                  "items": [
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "s-change"
+                        },
+                        "x": 0,
+                        "y": 0,
+                        "width": 6,
+                        "height": 4
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "s-low"
+                        },
+                        "x": 6,
+                        "y": 0,
+                        "width": 6,
+                        "height": 4
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "s-high"
+                        },
+                        "x": 12,
+                        "y": 0,
+                        "width": 6,
+                        "height": 4
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "s-count"
+                        },
+                        "x": 18,
+                        "y": 0,
+                        "width": 6,
+                        "height": 4
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "s-lines"
+                        },
+                        "x": 0,
+                        "y": 4,
+                        "width": 17,
+                        "height": 20
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "s-about"
+                        },
+                        "x": 17,
+                        "y": 4,
+                        "width": 7,
+                        "height": 20
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

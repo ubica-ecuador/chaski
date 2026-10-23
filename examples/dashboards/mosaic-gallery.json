@@ -173,8 +173,50 @@
             "value": ""
           },
           "hide": "hideVariable",
-          "label": "f_area",
-          "name": "f_area",
+          "label": "f_box_time_lo",
+          "name": "f_box_time_lo",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "f_box_time_hi",
+          "name": "f_box_time_hi",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "f_box_delay_lo",
+          "name": "f_box_delay_lo",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "f_box_delay_hi",
+          "name": "f_box_delay_hi",
           "query": "",
           "skipUrlSync": false
         }
@@ -232,12 +274,22 @@
                   "upper": "closed"
                 },
                 {
-                  "name": "area",
-                  "type": "area",
-                  "variable": "$f_area",
-                  "lng": "time",
-                  "lat": "delay",
-                  "label": "Delay × departure"
+                  "name": "box_time",
+                  "type": "range",
+                  "column": "time",
+                  "from": "$f_box_time_lo",
+                  "to": "$f_box_time_hi",
+                  "label": "Box: departure (hour)",
+                  "upper": "closed"
+                },
+                {
+                  "name": "box_delay",
+                  "type": "range",
+                  "column": "delay",
+                  "from": "$f_box_delay_lo",
+                  "to": "$f_box_delay_hi",
+                  "label": "Box: delay (min)",
+                  "upper": "closed"
                 }
               ]
             }
@@ -467,8 +519,50 @@
             "value": ""
           },
           "hide": "hideVariable",
-          "label": "a_area",
-          "name": "a_area",
+          "label": "a_w_lo",
+          "name": "a_w_lo",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "a_w_hi",
+          "name": "a_w_hi",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "a_h_lo",
+          "name": "a_h_lo",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "a_h_hi",
+          "name": "a_h_hi",
           "query": "",
           "skipUrlSync": false
         }
@@ -520,12 +614,22 @@
                   "label": "Name"
                 },
                 {
-                  "name": "build",
-                  "type": "area",
-                  "variable": "$a_area",
-                  "lng": "weight",
-                  "lat": "height",
-                  "label": "Weight × height"
+                  "name": "weight",
+                  "type": "range",
+                  "column": "weight",
+                  "from": "$a_w_lo",
+                  "to": "$a_w_hi",
+                  "label": "Weight (kg)",
+                  "upper": "closed"
+                },
+                {
+                  "name": "height",
+                  "type": "range",
+                  "column": "height",
+                  "from": "$a_h_lo",
+                  "to": "$a_h_hi",
+                  "label": "Height (m)",
+                  "upper": "closed"
                 }
               ]
             }
@@ -1144,7 +1248,7 @@
             "spec": {
               "options": {
                 "spec": "params:\n  fbrush: { select: crossfilter }\nplot:\n  - mark: heatmap\n    data: { from: flights, filterBy: $fbrush }\n    x: time\n    y: delay\n    fill: density\n    bandwidth: 6\n  - mark: contour\n    data: { from: flights, filterBy: $fbrush }\n    x: time\n    y: delay\n    stroke: white\n    strokeOpacity: 0.35\n    bandwidth: 6\n    thresholds: 8\n  - select: intervalXY\n    as: $fbrush\nxDomain: [0, 24]\nyDomain: [-60, 180]\ncolorScale: sqrt\ncolorScheme: turbo\nxLabel: Departure (hour) →\nyLabel: ↑ Arrival delay (min)\nmarginLeft: 45\n",
-                "variables": "- param: fbrush\n  column: [time, delay]\n  variable: f_area\n",
+                "variables": "- param: fbrush\n  column: [time, delay]\n  from: [f_box_time_lo, f_box_delay_lo]\n  to: [f_box_time_hi, f_box_delay_hi]\n",
                 "preaggregate": true
               },
               "fieldConfig": {
@@ -1499,7 +1603,7 @@
             "group": "ubica-chaski-mosaic-panel",
             "spec": {
               "options": {
-                "spec": "params:\n  wclick: { select: single }\n  wrange: { select: intersect }\n  wdomain: [sun, fog, drizzle, rain, snow]\n  wcolors: ['#e7ba52', '#a7a7a7', '#aec7e8', '#1f77b4', '#9467bd']\nplot:\n  - mark: dot\n    data: { from: weather, filterBy: $wclick }\n    x: { dateMonthDay: date }\n    y: temp_max\n    fill: weather\n    r: precipitation\n    fillOpacity: 0.7\n  - select: intervalX\n    as: $wrange\n    brush: { fill: none, stroke: '#888' }\n  - select: highlight\n    by: $wrange\n    fill: '#ccc'\n    fillOpacity: 0.2\n  - legend: color\n    as: $wclick\n    columns: 1\nxyDomain: Fixed\nxTickFormat: '%b'\ncolorDomain: $wdomain\ncolorRange: $wcolors\nrDomain: Fixed\nrRange: [2, 10]\nxLabel: null\nyLabel: ↑ High (°C)\n",
+                "spec": "params:\n  wclick: { select: single }\n  wrange: { select: intersect }\n  wdomain: [sun, fog, drizzle, rain, snow]\n  wcolors: ['#e7ba52', '#a7a7a7', '#aec7e8', '#1f77b4', '#9467bd']\nvconcat:\n  - legend: color\n    for: wscatter\n    as: $wclick\n  - name: wscatter\n    plot:\n      - mark: dot\n        data: { from: weather, filterBy: $wclick }\n        x: { dateMonthDay: date }\n        y: temp_max\n        fill: weather\n        r: precipitation\n        fillOpacity: 0.7\n      - select: intervalX\n        as: $wrange\n        brush: { fill: none, stroke: '#888' }\n      - select: highlight\n        by: $wrange\n        fill: '#ccc'\n        fillOpacity: 0.2\n    xyDomain: Fixed\n    xTickFormat: '%b'\n    colorDomain: $wdomain\n    colorRange: $wcolors\n    rDomain: Fixed\n    rRange: [2, 10]\n    xLabel: null\n    yLabel: ↑ High (°C)\n",
                 "variables": "- param: wrange\n  column: date\n  from: w_lo\n  to: w_hi\n- param: wclick\n  column: weather\n  variable: w_types\n",
                 "preaggregate": true
               },
@@ -1884,7 +1988,7 @@
             "spec": {
               "options": {
                 "spec": "params:\n  acategory: { select: intersect }\n  aquery: { select: intersect, include: $acategory }\n  ahover: { select: intersect, empty: true }\n\nplot:\n  - mark: dot\n    data: { from: athletes, filterBy: $aquery }\n    x: weight\n    y: height\n    fill: sex\n    r: 2\n    opacity: 0.15\n  - mark: regressionY\n    data: { from: athletes, filterBy: $aquery }\n    x: weight\n    y: height\n    stroke: sex\n  - select: intervalXY\n    as: $aquery\n    brush: { fillOpacity: 0, stroke: currentColor }\n  - mark: dot\n    data: { from: athletes, filterBy: $ahover }\n    x: weight\n    y: height\n    fill: sex\n    stroke: currentColor\n    strokeWidth: 1\n    r: 4\nxyDomain: Fixed\ncolorDomain: Fixed\ncolorRange: ['#FF9830', '#5794F2']\nxLabel: Weight (kg) →\nyLabel: ↑ Height (m)\n",
-                "variables": "- param: aquery\n  column: [weight, height]\n  variable: a_area\n",
+                "variables": "- param: aquery\n  column: [weight, height]\n  from: [a_w_lo, a_h_lo]\n  to: [a_w_hi, a_h_hi]\n",
                 "preaggregate": true
               },
               "fieldConfig": {

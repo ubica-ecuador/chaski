@@ -65,21 +65,30 @@ export async function unreadable(engine: ChaskiEngineApi, names: string[], signa
   return missing;
 }
 
+export interface ConnectorHooks {
+  /** A query answered; `startedAt` is when it was sent, by `performance.now()`. */
+  onAnswer?: (startedAt: number) => void;
+}
+
 /**
  * A Mosaic connector on Chaski's engine. Queries run on the explorer's
  * connections: unqualified names find the dashboard's datasets, and Mosaic
  * may keep several queries in flight.
  */
 export class ChaskiConnector {
-  constructor(private readonly engine: ChaskiEngineApi) {}
+  constructor(
+    private readonly engine: ChaskiEngineApi,
+    private readonly hooks: ConnectorHooks = {}
+  ) {}
 
   query(query: ArrowQueryRequest, options?: ConnectorQueryOptions): Promise<Uint8Array>;
   query(query: ExecQueryRequest, options?: ConnectorQueryOptions): Promise<void>;
   async query(query: ConnectorQueryRequest, options?: ConnectorQueryOptions): Promise<Uint8Array | void> {
     const opts = { signal: options?.signal };
-    if (query.type === 'exec') {
-      return this.engine.exec(query.sql, opts);
-    }
-    return this.engine.queryIPC(query.sql, opts);
+    const startedAt = performance.now();
+    const result =
+      query.type === 'exec' ? await this.engine.exec(query.sql, opts) : await this.engine.queryIPC(query.sql, opts);
+    this.hooks.onAnswer?.(startedAt);
+    return result;
   }
 }

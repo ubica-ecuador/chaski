@@ -50,16 +50,21 @@ and writes dashboard variables once the brush rests (300 ms):
   to: mag_hi
 - param: brush
   column: [longitude, latitude]
-  variable: area # a 2-D brush, as a WKT polygon
+  variable: area # a 2-D brush on a map, as a WKT polygon
+- param: box
+  column: [flipper_length, body_mass]
+  from: [flip_lo, mass_lo] # any other 2-D brush: one range per axis
+  to: [flip_hi, mass_hi]
 - param: brush
   column: alert
   variable: alerts # points picked, as a multi-value variable
 ```
 
 Times are written as UTC ISO strings, numbers to 12 significant digits; a cleared brush writes empty
-values. These are
-the shapes the `range`, `area` and `in` filters of a filters variable read, so a filters variable
-built on the same variables lets every Chaski panel follow the Mosaic panels:
+values. These are the shapes the `range`, `area` and `in` filters of a filters variable read. Keep
+the WKT polygon for longitude and latitude: the `area` filter wraps its x at ±180, so on other axes it
+would move the box. A filters variable built on the same variables lets every Chaski panel follow the
+Mosaic panels:
 
 ```sql
 SELECT count(*) FROM $quakes WHERE $__crossfilter($quakeFilters)
@@ -68,8 +73,8 @@ SELECT count(*) FROM $quakes WHERE $__crossfilter($quakeFilters)
 It is one way: a variable changed elsewhere does not move a brush. Don't let a dataset's own SQL read
 a variable the panel writes: each write would reload the dataset, which clears the brushes.
 
-For a tour, see the gallery in [examples/](../examples/README.md): five of Mosaic's examples, each
-driving Grafana panels. The dev Grafana also provisions two dashboards for it: **Mosaic on Chaski** (`mosaic`, 50 000 synthetic
+For a tour, see [examples/](../examples/README.md): a gallery of five of Mosaic's examples and a
+dashboard of its density visualizations, each driving Grafana panels. The dev Grafana also provisions two dashboards for it: **Mosaic on Chaski** (`mosaic`, 50 000 synthetic
 quakes in four Mosaic panels writing variables, and a plain table following them through
 `$__crossfilter`) and **Mosaic panel states** (`mosaic-states`).
 
@@ -89,3 +94,7 @@ quakes in four Mosaic panels writing variables, and a plain table following them
   rests, and only those that changed.
 - **Mosaic is pre-1.0** and pinned to exact versions in `package.json`. Read its source before
   relying on an API.
+- **Patched where it breaks** (`src/mosaic/patches.ts`). In 0.34 a 2-D grid mark (contour, heatmap,
+  raster) over no rows throws. The plot then never renders again, and the selection waits for it, so a
+  brush that left nothing froze every Mosaic panel on the dashboard. The patch gives an empty grid its
+  columns.

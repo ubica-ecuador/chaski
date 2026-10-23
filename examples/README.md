@@ -7,6 +7,7 @@ browser.
 | Dashboard      | uid              | What it shows                                                                                                                                    |
 | -------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Mosaic gallery | `mosaic-gallery` | Five tabs on [Mosaic's examples](https://idl.uw.edu/mosaic/examples/), each with something only Grafana adds (below). About 3 MB of data in all. |
+| Mosaic density | `mosaic-density` | Mosaic's density visualizations in three tabs: penguins, flights and stocks. About 7.5 MB of data.                                               |
 
 **Mosaic gallery**, tab by tab:
 
@@ -22,12 +23,22 @@ browser.
   real-time feed, over Natural Earth's land, with brushes on magnitude and time driving stat panels
   and a table of the strongest that links to USGS.
 
+**Mosaic density**, tab by tab:
+
+- **Penguins.** Mosaic's contour plot, 2-D density and density groups, all filtered by a new scatter
+  of flipper length and body mass: drag a box or click a species in its legend, and the densities and
+  the stat panels follow.
+- **Flights.** Mosaic's 1-D densities, hexbin with marginal histograms, and heatmap with contours, on
+  one cross-filter that drives stat panels.
+- **Stocks.** Mosaic's dense lines over 3,600 stocks since 2006, with a stock picked from a menu drawn
+  on top (Bank of America and its 2008 fall, to start) and stat panels on the stock you pick.
+
 ## Data
 
 All of it is read by the viewer's browser when the dashboard opens; the servers send CORS headers.
 
-- Flights, Seattle weather, athletes and wind: [Mosaic's example datasets](https://idl.uw.edu/mosaic/data/),
-  from `https://idl.uw.edu/mosaic/data/`.
+- Flights, Seattle weather, athletes, wind, penguins and stocks:
+  [Mosaic's example datasets](https://idl.uw.edu/mosaic/data/), from `https://idl.uw.edu/mosaic/data/`.
 - Earthquakes: the [USGS real-time feed](https://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.php),
   public domain.
 - Land: [Natural Earth](https://www.naturalearthdata.com/) 1:110m land, public domain.
@@ -50,4 +61,6 @@ All of it is read by the viewer's browser when the dashboard opens; the servers 
   on any Grafana, not just Pacha.
 - Variables a Mosaic panel writes are hidden text variables; a `filters` variable declares them for
   Chaski panels, and a table on `$__filters(...)` shows them.
+- A 2-D brush on axes that are not longitude and latitude writes one range per axis (`from` and `to`
+  as lists): Chaski's `area` filter treats its x as a longitude and wraps it at ±180.
 - Give each tab's Mosaic params their own names: params are shared by name across the dashboard.

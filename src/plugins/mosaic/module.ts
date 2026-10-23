@@ -1,8 +1,12 @@
 import { PanelPlugin } from '@grafana/data';
 
+import { patchEmptyGrids } from '../../mosaic/patches';
+
 import { CodeOption } from '../../mosaic/components/CodeOption';
 import { MosaicPanel } from '../../mosaic/components/MosaicPanel';
 import type { MosaicOptions } from '../../mosaic/types';
+
+patchEmptyGrids();
 
 export const plugin = new PanelPlugin<MosaicOptions>(MosaicPanel).setPanelOptions((builder) =>
   builder
