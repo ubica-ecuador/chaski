@@ -56,13 +56,20 @@ export function parseLinks(text: string | undefined): VariableLink[] {
   });
 }
 
-/** A value as a variable holds it: times as UTC ISO, numbers in full. */
+/**
+ * A value as a variable holds it: times as UTC ISO, numbers to 12 significant
+ * digits. A brush's ends come from pixels, so binary noise such as
+ * 7.700000000000001 says nothing; twelve digits drop it and change no filter.
+ */
 export function formatValue(value: unknown): string {
   if (value === null || value === undefined) {
     return '';
   }
   if (value instanceof Date) {
     return value.toISOString();
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(Number(value.toPrecision(12)));
   }
   return String(value);
 }

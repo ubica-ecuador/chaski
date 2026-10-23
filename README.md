@@ -197,6 +197,7 @@ npm run server     # dev Grafana on :3005, the CDN Grafana on :3007, the fixture
 | `fixtures/`                        | What the fixtures server serves: `sample.parquet`, plus three locations that send no CORS headers and want a bearer token, basic auth or a key in the URL — what the data proxy tests read through.                                                                                                                                                                                                                            |
 | `provisioning/`                    | The dev Grafana's datasources and dashboards (`e2e`, `e2e-range`, `e2e-proxy`, `bench-1m`, and `mosaic`, `mosaic-states` for the panel). Besides the plain instance it provisions four that read through the data proxy, one per way in plus one with a wrong token.                                                                                                                                                           |
 | `plugin-cdn/`                      | The CDN Grafana's settings and the nginx that plays the plugin CDN, so that one Grafana serves the plugin the way Grafana Cloud does.                                                                                                                                                                                                                                                                                          |
+| `examples/`                        | Example dashboards for Grafana 13 (see [examples/README.md](examples/README.md)), synced into Pacha by Git Sync; `scripts/load-examples.mjs` loads them into a dev Grafana.                                                                                                                                                                                                                                                    |
 | `bench/`                           | Measurement scripts and bench dashboards (see Bench).                                                                                                                                                                                                                                                                                                                                                                          |
 
 ## Test
@@ -222,7 +223,9 @@ npm run e2e        # Playwright against the dev Grafana (npm run server first)
   - Save & test;
   - the engine and the spatial extension starting from a plugin CDN, as on Grafana Cloud;
   - the Mosaic panel: a brush filtering the other Mosaic panels and, through the variables it writes,
-    a Chaski table; and its empty, waiting and error states.
+    a Chaski table; and its empty, waiting and error states;
+  - with `EXAMPLES=1`, on Grafana 13 and with the network: every tab of the examples' gallery, and a
+    brush driving its stat panels.
 
 ## Bench
 

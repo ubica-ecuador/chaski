@@ -50,9 +50,27 @@ describe('fitToPanel', () => {
       500
     );
     const items = fitted.vconcat as Array<Record<string, unknown>>;
-    // 500 - 100 fixed - 4 gaps of 8 = 368, shared by two.
-    expect(items.map((item) => item.height)).toEqual([184, 100, undefined, 184]);
+    // 500 - 100 fixed - 36 for the menu - 4 gaps of 8 = 332, shared by two.
+    expect(items.map((item) => item.height)).toEqual([166, 100, undefined, 166]);
     expect(items.map((item) => item.width)).toEqual([592, 592, undefined, 592]);
+  });
+
+  it('leaves room in a column for legends, inputs and spacers', () => {
+    const fitted = fitToPanel(
+      {
+        vconcat: [
+          { legend: 'color', for: 'map' },
+          { hconcat: [{ input: 'slider' }, { input: 'menu' }] },
+          { vspace: 10 },
+          { plot: [], name: 'map' },
+        ],
+      },
+      600,
+      500
+    );
+    const items = fitted.vconcat as Array<Record<string, unknown>>;
+    // 500 - 52 legend - 36 inputs - 10 spacer - 4 gaps of 8 = 370.
+    expect(items[3].height).toBe(370);
   });
 
   it('shares a row across hconcat', () => {

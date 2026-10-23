@@ -11,6 +11,9 @@
   (YAML or JSON) over the dashboard's datasets on Chaski's engine. Panels sharing a selection filter
   each other in the browser, pre-aggregated for large tables, and a selection can write dashboard
   variables in the shapes cross-filters read. See docs/mosaic.md.
+- **Examples.** `examples/dashboards/` holds a gallery for Grafana 13: five of Mosaic's examples in
+  tabs, each driving Grafana stat panels and tables through cross-filters, one on the live USGS feed.
+  Pacha syncs the folder with Git Sync.
 
 ## 1.2.0 (2026-10-23)
 

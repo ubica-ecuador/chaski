@@ -24,9 +24,11 @@ describe('parseLinks', () => {
 });
 
 describe('values', () => {
-  it('writes times as UTC ISO and numbers in full', () => {
+  it('writes times as UTC ISO and numbers without binary noise', () => {
     expect(formatValue(new Date(Date.UTC(2026, 9, 1, 12)))).toBe('2026-10-01T12:00:00.000Z');
     expect(formatValue(4.123456789)).toBe('4.123456789');
+    expect(formatValue(7.700000000000001)).toBe('7.7');
+    expect(formatValue(41.286173633440505)).toBe('41.2861736334');
     expect(formatValue(null)).toBe('');
   });
 

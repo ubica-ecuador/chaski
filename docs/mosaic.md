@@ -56,7 +56,8 @@ and writes dashboard variables once the brush rests (300 ms):
   variable: alerts # points picked, as a multi-value variable
 ```
 
-Times are written as UTC ISO strings, numbers in full; a cleared brush writes empty values. These are
+Times are written as UTC ISO strings, numbers to 12 significant digits; a cleared brush writes empty
+values. These are
 the shapes the `range`, `area` and `in` filters of a filters variable read, so a filters variable
 built on the same variables lets every Chaski panel follow the Mosaic panels:
 
@@ -67,7 +68,8 @@ SELECT count(*) FROM $quakes WHERE $__crossfilter($quakeFilters)
 It is one way: a variable changed elsewhere does not move a brush. Don't let a dataset's own SQL read
 a variable the panel writes: each write would reload the dataset, which clears the brushes.
 
-The dev Grafana provisions two dashboards for it: **Mosaic on Chaski** (`mosaic`, 50 000 synthetic
+For a tour, see the gallery in [examples/](../examples/README.md): five of Mosaic's examples, each
+driving Grafana panels. The dev Grafana also provisions two dashboards for it: **Mosaic on Chaski** (`mosaic`, 50 000 synthetic
 quakes in four Mosaic panels writing variables, and a plain table following them through
 `$__crossfilter`) and **Mosaic panel states** (`mosaic-states`).
 

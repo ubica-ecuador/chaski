@@ -1,0 +1,3098 @@
+{
+  "apiVersion": "dashboard.grafana.app/v2",
+  "kind": "Dashboard",
+  "metadata": {
+    "name": "mosaic-gallery"
+  },
+  "spec": {
+    "title": "Mosaic gallery",
+    "description": "Mosaic's examples on Chaski, each with something only Grafana adds: brushes that drive Grafana panels through cross-filters, live data and extra views.",
+    "tags": ["chaski", "mosaic", "examples"],
+    "editable": true,
+    "cursorSync": "Off",
+    "liveNow": false,
+    "preload": false,
+    "links": [],
+    "annotations": [
+      {
+        "kind": "AnnotationQuery",
+        "spec": {
+          "builtIn": true,
+          "enable": true,
+          "hide": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name": "Annotations & Alerts",
+          "query": {
+            "datasource": {
+              "name": "-- Grafana --"
+            },
+            "group": "grafana",
+            "kind": "DataQuery",
+            "spec": {},
+            "version": "v0"
+          }
+        }
+      }
+    ],
+    "timeSettings": {
+      "autoRefresh": "",
+      "autoRefreshIntervals": ["1m", "5m", "15m", "1h"],
+      "fiscalYearStartMonth": 0,
+      "from": "now-30d",
+      "to": "now",
+      "hideTimepicker": true,
+      "timezone": "utc"
+    },
+    "variables": [
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "allowCustomValue": true,
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "includeAll": false,
+          "multi": false,
+          "name": "flights",
+          "options": [],
+          "query": {
+            "datasource": {
+              "name": "duckdbwasm"
+            },
+            "group": "ubica-chaski-datasource",
+            "kind": "DataQuery",
+            "version": "v0",
+            "spec": {
+              "refId": "flights",
+              "kind": "dataset",
+              "name": "flights",
+              "source": {
+                "type": "sql",
+                "sql": "SELECT delay, time, distance\nFROM read_parquet('https://idl.uw.edu/mosaic/data/flights-200k.parquet')"
+              }
+            }
+          },
+          "refresh": "onDashboardLoad",
+          "regex": "",
+          "regexApplyTo": "value",
+          "skipUrlSync": true,
+          "sort": "disabled"
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "f_delay_lo",
+          "name": "f_delay_lo",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "f_delay_hi",
+          "name": "f_delay_hi",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "f_time_lo",
+          "name": "f_time_lo",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "f_time_hi",
+          "name": "f_time_hi",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "f_dist_lo",
+          "name": "f_dist_lo",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "f_dist_hi",
+          "name": "f_dist_hi",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "f_area",
+          "name": "f_area",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "allowCustomValue": true,
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "includeAll": false,
+          "multi": false,
+          "name": "flightFilters",
+          "options": [],
+          "query": {
+            "datasource": {
+              "name": "duckdbwasm"
+            },
+            "group": "ubica-chaski-datasource",
+            "kind": "DataQuery",
+            "version": "v0",
+            "spec": {
+              "refId": "flightFilters",
+              "kind": "filters",
+              "dataset": "$flights",
+              "filters": [
+                {
+                  "name": "delay",
+                  "type": "range",
+                  "column": "delay",
+                  "from": "$f_delay_lo",
+                  "to": "$f_delay_hi",
+                  "label": "Arrival delay (min)",
+                  "upper": "closed"
+                },
+                {
+                  "name": "time",
+                  "type": "range",
+                  "column": "time",
+                  "from": "$f_time_lo",
+                  "to": "$f_time_hi",
+                  "label": "Departure (hour)",
+                  "upper": "closed"
+                },
+                {
+                  "name": "distance",
+                  "type": "range",
+                  "column": "distance",
+                  "from": "$f_dist_lo",
+                  "to": "$f_dist_hi",
+                  "label": "Distance (miles)",
+                  "upper": "closed"
+                },
+                {
+                  "name": "area",
+                  "type": "area",
+                  "variable": "$f_area",
+                  "lng": "time",
+                  "lat": "delay",
+                  "label": "Delay × departure"
+                }
+              ]
+            }
+          },
+          "refresh": "onDashboardLoad",
+          "regex": "",
+          "regexApplyTo": "value",
+          "skipUrlSync": true,
+          "sort": "disabled"
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "allowCustomValue": true,
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "includeAll": false,
+          "multi": false,
+          "name": "weather",
+          "options": [],
+          "query": {
+            "datasource": {
+              "name": "duckdbwasm"
+            },
+            "group": "ubica-chaski-datasource",
+            "kind": "DataQuery",
+            "version": "v0",
+            "spec": {
+              "refId": "weather",
+              "kind": "dataset",
+              "name": "weather",
+              "source": {
+                "type": "sql",
+                "sql": "SELECT *, make_date(2012, month(date), day(date))::TIMESTAMP AS month_day\nFROM read_parquet('https://idl.uw.edu/mosaic/data/seattle-weather.parquet')"
+              }
+            }
+          },
+          "refresh": "onDashboardLoad",
+          "regex": "",
+          "regexApplyTo": "value",
+          "skipUrlSync": true,
+          "sort": "disabled"
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "From (day of year)",
+          "name": "w_lo",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "To (day of year)",
+          "name": "w_hi",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "Weather",
+          "name": "w_types",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "allowCustomValue": true,
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "includeAll": false,
+          "multi": false,
+          "name": "weatherFilters",
+          "options": [],
+          "query": {
+            "datasource": {
+              "name": "duckdbwasm"
+            },
+            "group": "ubica-chaski-datasource",
+            "kind": "DataQuery",
+            "version": "v0",
+            "spec": {
+              "refId": "weatherFilters",
+              "kind": "filters",
+              "dataset": "$weather",
+              "filters": [
+                {
+                  "name": "season",
+                  "type": "range",
+                  "column": "month_day",
+                  "as": "time",
+                  "from": "$w_lo",
+                  "to": "$w_hi",
+                  "label": "Days of the year",
+                  "upper": "closed"
+                },
+                {
+                  "name": "weather",
+                  "type": "in",
+                  "column": "weather",
+                  "variable": "$w_types",
+                  "label": "Weather"
+                }
+              ]
+            }
+          },
+          "refresh": "onDashboardLoad",
+          "regex": "",
+          "regexApplyTo": "value",
+          "skipUrlSync": true,
+          "sort": "disabled"
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "allowCustomValue": true,
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "includeAll": false,
+          "multi": false,
+          "name": "athletes",
+          "options": [],
+          "query": {
+            "datasource": {
+              "name": "duckdbwasm"
+            },
+            "group": "ubica-chaski-datasource",
+            "kind": "DataQuery",
+            "version": "v0",
+            "spec": {
+              "refId": "athletes",
+              "kind": "dataset",
+              "name": "athletes",
+              "source": {
+                "type": "sql",
+                "sql": "SELECT id, name, nationality, sex, height, weight, sport, gold, silver, bronze,\n  gold + silver + bronze AS medals\nFROM read_parquet('https://idl.uw.edu/mosaic/data/athletes.parquet')"
+              }
+            }
+          },
+          "refresh": "onDashboardLoad",
+          "regex": "",
+          "regexApplyTo": "value",
+          "skipUrlSync": true,
+          "sort": "disabled"
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "a_sport",
+          "name": "a_sport",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "a_sex",
+          "name": "a_sex",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "a_name",
+          "name": "a_name",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "a_area",
+          "name": "a_area",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "allowCustomValue": true,
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "includeAll": false,
+          "multi": false,
+          "name": "athleteFilters",
+          "options": [],
+          "query": {
+            "datasource": {
+              "name": "duckdbwasm"
+            },
+            "group": "ubica-chaski-datasource",
+            "kind": "DataQuery",
+            "version": "v0",
+            "spec": {
+              "refId": "athleteFilters",
+              "kind": "filters",
+              "dataset": "$athletes",
+              "filters": [
+                {
+                  "name": "sport",
+                  "type": "in",
+                  "column": "sport",
+                  "variable": "$a_sport",
+                  "label": "Sport"
+                },
+                {
+                  "name": "sex",
+                  "type": "in",
+                  "column": "sex",
+                  "variable": "$a_sex",
+                  "label": "Sex"
+                },
+                {
+                  "name": "name",
+                  "type": "search",
+                  "column": "name",
+                  "variable": "$a_name",
+                  "label": "Name"
+                },
+                {
+                  "name": "build",
+                  "type": "area",
+                  "variable": "$a_area",
+                  "lng": "weight",
+                  "lat": "height",
+                  "label": "Weight × height"
+                }
+              ]
+            }
+          },
+          "refresh": "onDashboardLoad",
+          "regex": "",
+          "regexApplyTo": "value",
+          "skipUrlSync": true,
+          "sort": "disabled"
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "allowCustomValue": true,
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "includeAll": false,
+          "multi": false,
+          "name": "wind",
+          "options": [],
+          "query": {
+            "datasource": {
+              "name": "duckdbwasm"
+            },
+            "group": "ubica-chaski-datasource",
+            "kind": "DataQuery",
+            "version": "v0",
+            "spec": {
+              "refId": "wind",
+              "kind": "dataset",
+              "name": "wind",
+              "source": {
+                "type": "sql",
+                "sql": "SELECT row_number() OVER () AS id, longitude, latitude, u, v, sqrt(u * u + v * v) AS speed\nFROM read_parquet('https://idl.uw.edu/mosaic/data/wind.parquet')"
+              }
+            }
+          },
+          "refresh": "onDashboardLoad",
+          "regex": "",
+          "regexApplyTo": "value",
+          "skipUrlSync": true,
+          "sort": "disabled"
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "allowCustomValue": true,
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "includeAll": false,
+          "multi": false,
+          "name": "quakes",
+          "options": [],
+          "query": {
+            "datasource": {
+              "name": "duckdbwasm"
+            },
+            "group": "ubica-chaski-datasource",
+            "kind": "DataQuery",
+            "version": "v0",
+            "spec": {
+              "refId": "quakes",
+              "kind": "dataset",
+              "name": "quakes",
+              "source": {
+                "type": "sql",
+                "sql": "SELECT\n  f.id AS id,\n  to_timestamp(f.properties.time / 1000) AS time,\n  f.geometry.coordinates[1]::DOUBLE AS longitude,\n  f.geometry.coordinates[2]::DOUBLE AS latitude,\n  f.geometry.coordinates[3]::DOUBLE AS depth,\n  f.properties.mag::DOUBLE AS mag,\n  f.properties.place::VARCHAR AS place,\n  f.properties.url::VARCHAR AS url\nFROM read_json('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_month.geojson'), unnest(features) AS t(f)\nWHERE f.properties.mag IS NOT NULL"
+              }
+            }
+          },
+          "refresh": "onDashboardLoad",
+          "regex": "",
+          "regexApplyTo": "value",
+          "skipUrlSync": true,
+          "sort": "disabled"
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "allowCustomValue": true,
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "includeAll": false,
+          "multi": false,
+          "name": "land",
+          "options": [],
+          "query": {
+            "datasource": {
+              "name": "duckdbwasm"
+            },
+            "group": "ubica-chaski-datasource",
+            "kind": "DataQuery",
+            "version": "v0",
+            "spec": {
+              "refId": "land",
+              "kind": "dataset",
+              "name": "land",
+              "source": {
+                "type": "sql",
+                "sql": "SELECT ST_GeomFromGeoJSON(to_json(f.geometry)) AS geom\nFROM read_json('https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_land.geojson'), unnest(features) AS t(f)"
+              }
+            }
+          },
+          "refresh": "onDashboardLoad",
+          "regex": "",
+          "regexApplyTo": "value",
+          "skipUrlSync": true,
+          "sort": "disabled"
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "q_mag_lo",
+          "name": "q_mag_lo",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "q_mag_hi",
+          "name": "q_mag_hi",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "q_t0",
+          "name": "q_t0",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "q_t1",
+          "name": "q_t1",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "allowCustomValue": true,
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "includeAll": false,
+          "multi": false,
+          "name": "quakeFilters",
+          "options": [],
+          "query": {
+            "datasource": {
+              "name": "duckdbwasm"
+            },
+            "group": "ubica-chaski-datasource",
+            "kind": "DataQuery",
+            "version": "v0",
+            "spec": {
+              "refId": "quakeFilters",
+              "kind": "filters",
+              "dataset": "$quakes",
+              "filters": [
+                {
+                  "name": "mag",
+                  "type": "range",
+                  "column": "mag",
+                  "from": "$q_mag_lo",
+                  "to": "$q_mag_hi",
+                  "label": "Magnitude",
+                  "upper": "closed"
+                },
+                {
+                  "name": "time",
+                  "type": "range",
+                  "column": "time",
+                  "as": "time",
+                  "from": "$q_t0",
+                  "to": "$q_t1",
+                  "label": "Time",
+                  "upper": "closed"
+                }
+              ]
+            }
+          },
+          "refresh": "onDashboardLoad",
+          "regex": "",
+          "regexApplyTo": "value",
+          "skipUrlSync": true,
+          "sort": "disabled"
+        }
+      }
+    ],
+    "elements": {
+      "f-count": {
+        "kind": "Panel",
+        "spec": {
+          "id": 1,
+          "title": "Flights",
+          "description": "Flights the brushes leave, counted by Chaski SQL from the variables the Mosaic panels write.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT count(*)::DOUBLE AS flights FROM $flights WHERE $__crossfilter($flightFilters)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "options": {
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "textMode": "value",
+                "orientation": "auto",
+                "wideLayout": true,
+                "showPercentChange": false
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "short",
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "#5794F2"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "f-ontime": {
+        "kind": "Panel",
+        "spec": {
+          "id": 2,
+          "title": "On time",
+          "description": "Share arriving no more than 15 minutes late.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT avg((delay <= 15)::INT)::DOUBLE AS on_time FROM $flights WHERE $__crossfilter($flightFilters)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "options": {
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "textMode": "value",
+                "orientation": "auto",
+                "wideLayout": true,
+                "showPercentChange": false
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "percentunit",
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "#73BF69"
+                  },
+                  "decimals": 1
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "f-median": {
+        "kind": "Panel",
+        "spec": {
+          "id": 3,
+          "title": "Mean delay",
+          "description": "Mean arrival delay of the selected flights; early arrivals count as negative.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT avg(delay)::DOUBLE AS delay FROM $flights WHERE $__crossfilter($flightFilters)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "options": {
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "textMode": "value",
+                "orientation": "auto",
+                "wideLayout": true,
+                "showPercentChange": false
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "m",
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "#FF9830"
+                  },
+                  "decimals": 1
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "f-distance": {
+        "kind": "Panel",
+        "spec": {
+          "id": 4,
+          "title": "Mean distance",
+          "description": "Mean distance flown by the selected flights.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT avg(distance)::DOUBLE AS distance FROM $flights WHERE $__crossfilter($flightFilters)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "options": {
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "textMode": "value",
+                "orientation": "auto",
+                "wideLayout": true,
+                "showPercentChange": false
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "lengthmi",
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "#B877D9"
+                  },
+                  "decimals": 0
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "f-delay": {
+        "kind": "Panel",
+        "spec": {
+          "id": 5,
+          "title": "Arrival delay (min)",
+          "description": "Drag to select a range. Every panel on this tab follows: the Mosaic charts in the browser, the cards above through Chaski SQL.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "ubica-chaski-mosaic-panel",
+            "spec": {
+              "options": {
+                "spec": "params:\n  fbrush: { select: crossfilter }\nplot:\n  - mark: rectY\n    data: { from: flights, filterBy: $fbrush }\n    x: { bin: delay }\n    y: { count: }\n    fill: \"#5794F2\"\n    inset: 0.5\n  - select: intervalX\n    as: $fbrush\nxDomain: Fixed\nyTickFormat: '~s'\nxLabel: null\nyLabel: null\nmarginLeft: 40\n",
+                "variables": "- param: fbrush\n  column: delay\n  from: f_delay_lo\n  to: f_delay_hi\n",
+                "preaggregate": true
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "f-time": {
+        "kind": "Panel",
+        "spec": {
+          "id": 6,
+          "title": "Departure time (hour)",
+          "description": "Drag to select a range of departure hours.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "ubica-chaski-mosaic-panel",
+            "spec": {
+              "options": {
+                "spec": "params:\n  fbrush: { select: crossfilter }\nplot:\n  - mark: rectY\n    data: { from: flights, filterBy: $fbrush }\n    x: { bin: time }\n    y: { count: }\n    fill: \"#FF9830\"\n    inset: 0.5\n  - select: intervalX\n    as: $fbrush\nxDomain: Fixed\nyTickFormat: '~s'\nxLabel: null\nyLabel: null\nmarginLeft: 40\n",
+                "variables": "- param: fbrush\n  column: time\n  from: f_time_lo\n  to: f_time_hi\n",
+                "preaggregate": true
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "f-distance-hist": {
+        "kind": "Panel",
+        "spec": {
+          "id": 7,
+          "title": "Distance (miles)",
+          "description": "Drag to select a range of distances.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "ubica-chaski-mosaic-panel",
+            "spec": {
+              "options": {
+                "spec": "params:\n  fbrush: { select: crossfilter }\nplot:\n  - mark: rectY\n    data: { from: flights, filterBy: $fbrush }\n    x: { bin: distance }\n    y: { count: }\n    fill: \"#73BF69\"\n    inset: 0.5\n  - select: intervalX\n    as: $fbrush\nxDomain: Fixed\nyTickFormat: '~s'\nxLabel: null\nyLabel: null\nmarginLeft: 40\n",
+                "variables": "- param: fbrush\n  column: distance\n  from: f_dist_lo\n  to: f_dist_hi\n",
+                "preaggregate": true
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "f-density": {
+        "kind": "Panel",
+        "spec": {
+          "id": 8,
+          "title": "Delay by departure time",
+          "description": "Density of 230 000 flights computed in DuckDB, contour lines over it. Drag a box to select a region: it joins the histograms' brushes.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "ubica-chaski-mosaic-panel",
+            "spec": {
+              "options": {
+                "spec": "params:\n  fbrush: { select: crossfilter }\nplot:\n  - mark: heatmap\n    data: { from: flights, filterBy: $fbrush }\n    x: time\n    y: delay\n    fill: density\n    bandwidth: 6\n  - mark: contour\n    data: { from: flights, filterBy: $fbrush }\n    x: time\n    y: delay\n    stroke: white\n    strokeOpacity: 0.35\n    bandwidth: 6\n    thresholds: 8\n  - select: intervalXY\n    as: $fbrush\nxDomain: [0, 24]\nyDomain: [-60, 180]\ncolorScale: sqrt\ncolorScheme: turbo\nxLabel: Departure (hour) →\nyLabel: ↑ Arrival delay (min)\nmarginLeft: 45\n",
+                "variables": "- param: fbrush\n  column: [time, delay]\n  variable: f_area\n",
+                "preaggregate": true
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "f-filters": {
+        "kind": "Panel",
+        "spec": {
+          "id": 9,
+          "title": "Active filters",
+          "description": "What the Mosaic brushes on this tab wrote to the dashboard's variables, as Chaski's cross-filters read them.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT label AS Filter, value AS Range FROM $__filters($flightFilters) WHERE active"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "table",
+            "spec": {
+              "options": {
+                "showHeader": true,
+                "cellHeight": "sm",
+                "footer": {
+                  "show": false
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {
+                    "align": "auto"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "w-days": {
+        "kind": "Panel",
+        "spec": {
+          "id": 10,
+          "title": "Days",
+          "description": "Days in 2012–2015 the selection leaves.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT count(*)::DOUBLE AS days FROM $weather WHERE $__crossfilter($weatherFilters)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "options": {
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "textMode": "value",
+                "orientation": "auto",
+                "wideLayout": true,
+                "showPercentChange": false
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "short",
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "#5794F2"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "w-high": {
+        "kind": "Panel",
+        "spec": {
+          "id": 11,
+          "title": "Mean high",
+          "description": "Mean daily maximum temperature.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT avg(temp_max)::DOUBLE AS t FROM $weather WHERE $__crossfilter($weatherFilters)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "options": {
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "textMode": "value",
+                "orientation": "auto",
+                "wideLayout": true,
+                "showPercentChange": false
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "celsius",
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "#FF9830"
+                  },
+                  "decimals": 1
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "w-rain": {
+        "kind": "Panel",
+        "spec": {
+          "id": 12,
+          "title": "Precipitation per day",
+          "description": "Mean daily precipitation.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT avg(precipitation)::DOUBLE AS p FROM $weather WHERE $__crossfilter($weatherFilters)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "options": {
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "textMode": "value",
+                "orientation": "auto",
+                "wideLayout": true,
+                "showPercentChange": false
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "lengthmm",
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "#5794F2"
+                  },
+                  "decimals": 1
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "w-sun": {
+        "kind": "Panel",
+        "spec": {
+          "id": 13,
+          "title": "Sunny days",
+          "description": "Share of the selected days whose weather was sun.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT avg((weather = 'sun')::INT)::DOUBLE AS s FROM $weather WHERE $__crossfilter($weatherFilters)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "options": {
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "textMode": "value",
+                "orientation": "auto",
+                "wideLayout": true,
+                "showPercentChange": false
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "percentunit",
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "#FADE2A"
+                  },
+                  "decimals": 0
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "w-scatter": {
+        "kind": "Panel",
+        "spec": {
+          "id": 14,
+          "title": "Seattle weather, 2012–2015",
+          "description": "Each dot is a day: its high temperature, sized by precipitation. Drag across to select days of the year; click a weather type in the legend or the bars to keep only it.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "ubica-chaski-mosaic-panel",
+            "spec": {
+              "options": {
+                "spec": "params:\n  wclick: { select: single }\n  wrange: { select: intersect }\n  wdomain: [sun, fog, drizzle, rain, snow]\n  wcolors: ['#e7ba52', '#a7a7a7', '#aec7e8', '#1f77b4', '#9467bd']\nplot:\n  - mark: dot\n    data: { from: weather, filterBy: $wclick }\n    x: { dateMonthDay: date }\n    y: temp_max\n    fill: weather\n    r: precipitation\n    fillOpacity: 0.7\n  - select: intervalX\n    as: $wrange\n    brush: { fill: none, stroke: '#888' }\n  - select: highlight\n    by: $wrange\n    fill: '#ccc'\n    fillOpacity: 0.2\n  - legend: color\n    as: $wclick\n    columns: 1\nxyDomain: Fixed\nxTickFormat: '%b'\ncolorDomain: $wdomain\ncolorRange: $wcolors\nrDomain: Fixed\nrRange: [2, 10]\nxLabel: null\nyLabel: ↑ High (°C)\n",
+                "variables": "- param: wrange\n  column: date\n  from: w_lo\n  to: w_hi\n- param: wclick\n  column: weather\n  variable: w_types\n",
+                "preaggregate": true
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "w-bars": {
+        "kind": "Panel",
+        "spec": {
+          "id": 15,
+          "title": "Days by weather",
+          "description": "Grey is every day; colour is the days the time brush leaves. Click a bar to keep only that weather.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "ubica-chaski-mosaic-panel",
+            "spec": {
+              "options": {
+                "spec": "params:\n  wclick: { select: single }\n  wrange: { select: intersect }\n  wdomain: [sun, fog, drizzle, rain, snow]\n  wcolors: ['#e7ba52', '#a7a7a7', '#aec7e8', '#1f77b4', '#9467bd']\nplot:\n  - mark: barX\n    data: { from: weather }\n    x: { count: }\n    y: weather\n    fill: '#ccc'\n    fillOpacity: 0.2\n  - mark: barX\n    data: { from: weather, filterBy: $wrange }\n    x: { count: }\n    y: weather\n    fill: weather\n  - select: toggleY\n    as: $wclick\n  - select: highlight\n    by: $wclick\nxDomain: Fixed\nyDomain: $wdomain\nyLabel: null\nxLabel: Days →\ncolorDomain: $wdomain\ncolorRange: $wcolors\nmarginLeft: 60\n",
+                "variables": "",
+                "preaggregate": true
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "w-band": {
+        "kind": "Panel",
+        "spec": {
+          "id": 16,
+          "title": "Temperature by month",
+          "description": "The plus: each month's range of daily highs and lows for the weather you picked. Grey is the record span, colour the average.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "ubica-chaski-mosaic-panel",
+            "spec": {
+              "options": {
+                "spec": "params:\n  wclick: { select: single }\nplot:\n  - mark: areaY\n    data: { from: weather, filterBy: $wclick }\n    x: { dateMonth: date }\n    y1: { max: temp_max }\n    y2: { min: temp_min }\n    fill: '#ccc'\n    fillOpacity: 0.25\n    curve: monotone-x\n  - mark: areaY\n    data: { from: weather, filterBy: $wclick }\n    x: { dateMonth: date }\n    y1: { avg: temp_max }\n    y2: { avg: temp_min }\n    fill: '#FF9830'\n    fillOpacity: 0.75\n    curve: monotone-x\nxTickFormat: '%b'\nyDomain: [-10, 40]\nxLabel: null\nyLabel: ↑ °C\n",
+                "variables": "",
+                "preaggregate": true
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "w-filters": {
+        "kind": "Panel",
+        "spec": {
+          "id": 17,
+          "title": "Active filters",
+          "description": "What the Mosaic brushes on this tab wrote to the dashboard's variables, as Chaski's cross-filters read them.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT label AS Filter, value AS Range FROM $__filters($weatherFilters) WHERE active"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "table",
+            "spec": {
+              "options": {
+                "showHeader": true,
+                "cellHeight": "sm",
+                "footer": {
+                  "show": false
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {
+                    "align": "auto"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "a-inputs": {
+        "kind": "Panel",
+        "spec": {
+          "id": 18,
+          "title": "Rio 2016 athletes",
+          "description": "The menus and the search box are filled from the data. They filter every panel on this tab.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "ubica-chaski-mosaic-panel",
+            "spec": {
+              "options": {
+                "spec": "params:\n  acategory: { select: intersect }\n  aquery: { select: intersect, include: $acategory }\n  ahover: { select: intersect, empty: true }\n\nhconcat:\n  - input: menu\n    label: Sport\n    as: $acategory\n    from: athletes\n    column: sport\n  - input: menu\n    label: Sex\n    as: $acategory\n    from: athletes\n    column: sex\n  - input: search\n    label: Name\n    filterBy: $acategory\n    as: $aquery\n    from: athletes\n    column: name\n    type: contains\n",
+                "variables": "- param: acategory\n  column: sport\n  variable: a_sport\n- param: acategory\n  column: sex\n  variable: a_sex\n- param: aquery\n  column: name\n  variable: a_name\n",
+                "preaggregate": true
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "a-count": {
+        "kind": "Panel",
+        "spec": {
+          "id": 19,
+          "title": "Athletes",
+          "description": "Athletes the menus, search and brush leave.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT count(*)::DOUBLE AS n FROM $athletes WHERE $__crossfilter($athleteFilters)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "options": {
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "textMode": "value",
+                "orientation": "auto",
+                "wideLayout": true,
+                "showPercentChange": false
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "short",
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "#5794F2"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "a-medals": {
+        "kind": "Panel",
+        "spec": {
+          "id": 20,
+          "title": "Medals",
+          "description": "Gold, silver and bronze they won.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT coalesce(sum(medals), 0)::DOUBLE AS m FROM $athletes WHERE $__crossfilter($athleteFilters)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "options": {
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "textMode": "value",
+                "orientation": "auto",
+                "wideLayout": true,
+                "showPercentChange": false
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "short",
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "#FADE2A"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "a-height": {
+        "kind": "Panel",
+        "spec": {
+          "id": 21,
+          "title": "Mean height",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT avg(height)::DOUBLE AS h FROM $athletes WHERE $__crossfilter($athleteFilters)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "options": {
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "textMode": "value",
+                "orientation": "auto",
+                "wideLayout": true,
+                "showPercentChange": false
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "lengthm",
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "#73BF69"
+                  },
+                  "decimals": 2
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "a-scatter": {
+        "kind": "Panel",
+        "spec": {
+          "id": 22,
+          "title": "Weight and height",
+          "description": "One dot per athlete, with a regression line per sex. Drag a box to select athletes by build; hover a row of the table to find them here.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "ubica-chaski-mosaic-panel",
+            "spec": {
+              "options": {
+                "spec": "params:\n  acategory: { select: intersect }\n  aquery: { select: intersect, include: $acategory }\n  ahover: { select: intersect, empty: true }\n\nplot:\n  - mark: dot\n    data: { from: athletes, filterBy: $aquery }\n    x: weight\n    y: height\n    fill: sex\n    r: 2\n    opacity: 0.15\n  - mark: regressionY\n    data: { from: athletes, filterBy: $aquery }\n    x: weight\n    y: height\n    stroke: sex\n  - select: intervalXY\n    as: $aquery\n    brush: { fillOpacity: 0, stroke: currentColor }\n  - mark: dot\n    data: { from: athletes, filterBy: $ahover }\n    x: weight\n    y: height\n    fill: sex\n    stroke: currentColor\n    strokeWidth: 1\n    r: 4\nxyDomain: Fixed\ncolorDomain: Fixed\ncolorRange: ['#FF9830', '#5794F2']\nxLabel: Weight (kg) →\nyLabel: ↑ Height (m)\n",
+                "variables": "- param: aquery\n  column: [weight, height]\n  variable: a_area\n",
+                "preaggregate": true
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "a-medals-bars": {
+        "kind": "Panel",
+        "spec": {
+          "id": 23,
+          "title": "Medals by nation",
+          "description": "The plus: the fifteen nations with the most medals among the athletes selected.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "ubica-chaski-mosaic-panel",
+            "spec": {
+              "options": {
+                "spec": "params:\n  acategory: { select: intersect }\n  aquery: { select: intersect, include: $acategory }\n  ahover: { select: intersect, empty: true }\n\nplot:\n  - mark: barX\n    data: { from: athletes, filterBy: $aquery }\n    x: { sum: medals }\n    y: nationality\n    fill: '#FADE2A'\n    sort: { y: -x, limit: 15 }\nxLabel: Medals →\nyLabel: null\nmarginLeft: 45\n",
+                "variables": "",
+                "preaggregate": true
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "a-table": {
+        "kind": "Panel",
+        "spec": {
+          "id": 24,
+          "title": "Roster",
+          "description": "Hover a row to find the athlete in the scatter plot. Sort by clicking a column.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "ubica-chaski-mosaic-panel",
+            "spec": {
+              "options": {
+                "spec": "params:\n  acategory: { select: intersect }\n  aquery: { select: intersect, include: $acategory }\n  ahover: { select: intersect, empty: true }\n\ninput: table\nfrom: athletes\nfilterBy: $aquery\nas: $ahover\ncolumns: [name, nationality, sex, height, weight, sport, gold, silver, bronze]\n",
+                "variables": "",
+                "preaggregate": true
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "wd-map": {
+        "kind": "Panel",
+        "spec": {
+          "id": 25,
+          "title": "Wind",
+          "description": "Vectors on a grid show the direction and speed of the wind, computed in DuckDB. Drag a box, or pick speeds in the legend or the histogram, to highlight vectors.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "ubica-chaski-mosaic-panel",
+            "spec": {
+              "options": {
+                "spec": "params:\n  wselected: { select: union }\n  wlength: 2\n\nvconcat:\n  - legend: color\n    for: wind-map\n    label: Speed (m/s)\n    as: $wselected\n  - name: wind-map\n    plot:\n      - mark: vector\n        data: { from: wind }\n        x: longitude\n        y: latitude\n        rotate: { sql: \"degrees(atan2(u, v))\" }\n        length: { sql: $wlength * speed }\n        stroke: speed\n        channels: { id: id }\n      - select: region\n        as: $wselected\n        channels: ['id']\n      - select: highlight\n        by: $wselected\n    lengthScale: identity\n    colorZero: true\n    colorScheme: turbo\n    inset: 10\n    xLabel: null\n    yLabel: null\n  - input: slider\n    min: 1\n    max: 7\n    step: 0.1\n    as: $wlength\n    label: Vector length\n",
+                "variables": "",
+                "preaggregate": true
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "wd-hist": {
+        "kind": "Panel",
+        "spec": {
+          "id": 26,
+          "title": "Speeds",
+          "description": "The plus: drag across the speeds to highlight their vectors on the map.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "ubica-chaski-mosaic-panel",
+            "spec": {
+              "options": {
+                "spec": "params:\n  wselected: { select: union }\n  wlength: 2\n\nplot:\n  - mark: rectY\n    data: { from: wind }\n    x: { bin: speed }\n    y: { count: }\n    fill: '#5794F2'\n    inset: 0.5\n  - select: intervalX\n    as: $wselected\n  - select: highlight\n    by: $wselected\nxLabel: Speed (m/s) →\nyLabel: null\n",
+                "variables": "",
+                "preaggregate": true
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "wd-about": {
+        "kind": "Panel",
+        "spec": {
+          "id": 27,
+          "title": "About",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "text",
+            "spec": {
+              "options": {
+                "mode": "markdown",
+                "content": "**4,800 wind vectors** on a regular grid, the [Observable Plot wind map](https://observablehq.com/@observablehq/plot-wind-map) data.\n\n- The **direction** (`atan2(u, v)`), **length** and **colour** of each arrow are computed by DuckDB in your browser.\n- The map, legend and histogram share one selection: what you pick in one is highlighted in the others.\n- The slider rescales the arrows without a new query.\n"
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "q-count": {
+        "kind": "Panel",
+        "spec": {
+          "id": 28,
+          "title": "Earthquakes",
+          "description": "Magnitude 2.5 and above in the last 30 days, from the USGS feed, left by the brushes.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT count(*)::DOUBLE AS n FROM $quakes WHERE $__crossfilter($quakeFilters)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "options": {
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "textMode": "value",
+                "orientation": "auto",
+                "wideLayout": true,
+                "showPercentChange": false
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "short",
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "#F2495C"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "q-max": {
+        "kind": "Panel",
+        "spec": {
+          "id": 29,
+          "title": "Strongest",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT max(mag)::DOUBLE AS m FROM $quakes WHERE $__crossfilter($quakeFilters)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "options": {
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "textMode": "value",
+                "orientation": "auto",
+                "wideLayout": true,
+                "showPercentChange": false
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "short",
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "#FF9830"
+                  },
+                  "decimals": 1
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "q-depth": {
+        "kind": "Panel",
+        "spec": {
+          "id": 30,
+          "title": "Median depth",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT median(depth)::DOUBLE AS d FROM $quakes WHERE $__crossfilter($quakeFilters)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "options": {
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "textMode": "value",
+                "orientation": "auto",
+                "wideLayout": true,
+                "showPercentChange": false
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "lengthkm",
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "#B877D9"
+                  },
+                  "decimals": 0
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "q-shallow": {
+        "kind": "Panel",
+        "spec": {
+          "id": 31,
+          "title": "Shallow",
+          "description": "Share shallower than 70 km, the ones felt most.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT avg((depth < 70)::INT)::DOUBLE AS s FROM $quakes WHERE $__crossfilter($quakeFilters)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "options": {
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "textMode": "value",
+                "orientation": "auto",
+                "wideLayout": true,
+                "showPercentChange": false
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "percentunit",
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "#FADE2A"
+                  },
+                  "decimals": 0
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "q-globe": {
+        "kind": "Panel",
+        "spec": {
+          "id": 32,
+          "title": "The last 30 days, live",
+          "description": "Earthquakes of magnitude 2.5 and above from the USGS real-time feed, read by your browser when the dashboard opens. Turn the globe with the sliders; brush the histograms to filter it.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "ubica-chaski-mosaic-panel",
+            "spec": {
+              "options": {
+                "spec": "params:\n  qbrush: { select: crossfilter }\n\n  qlon: 80\n  qlat: 5\n  qrotate: [$qlon, $qlat]\nvconcat:\n  - hconcat:\n      - input: slider\n        label: Longitude\n        as: $qlon\n        min: -180\n        max: 180\n        step: 1\n      - input: slider\n        label: Latitude\n        as: $qlat\n        min: -90\n        max: 90\n        step: 1\n  - plot:\n      - mark: sphere\n        fill: '#0b1d33'\n        stroke: currentColor\n        strokeOpacity: 0.3\n      - mark: graticule\n        strokeOpacity: 0.12\n      - mark: geo\n        data: { from: land }\n        geometry: { geojson: geom }\n        fill: currentColor\n        fillOpacity: 0.18\n        stroke: currentColor\n        strokeOpacity: 0.3\n      - mark: dot\n        data: { from: quakes, filterBy: $qbrush }\n        x: longitude\n        y: latitude\n        r: { sql: \"POW(10, mag)\" }\n        fill: depth\n        fillOpacity: 0.55\n        stroke: white\n        strokeWidth: 0.3\n    projectionType: orthographic\n    projectionRotate: $qrotate\n    rRange: [1, 22]\n    colorScheme: plasma\n    colorReverse: true\n    margin: 10\n",
+                "variables": "",
+                "preaggregate": true
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "q-mag": {
+        "kind": "Panel",
+        "spec": {
+          "id": 33,
+          "title": "Magnitude",
+          "description": "Drag to select a range of magnitudes.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "ubica-chaski-mosaic-panel",
+            "spec": {
+              "options": {
+                "spec": "params:\n  qbrush: { select: crossfilter }\n\nplot:\n  - mark: rectY\n    data: { from: quakes, filterBy: $qbrush }\n    x: { bin: mag, step: 0.1 }\n    y: { count: }\n    fill: '#F2495C'\n    inset: 0.5\n  - select: intervalX\n    as: $qbrush\nxDomain: Fixed\nyLabel: null\nxLabel: null\n",
+                "variables": "- param: qbrush\n  column: mag\n  from: q_mag_lo\n  to: q_mag_hi\n",
+                "preaggregate": true
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "q-time": {
+        "kind": "Panel",
+        "spec": {
+          "id": 34,
+          "title": "Per 6 hours",
+          "description": "Drag to select a stretch of time.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "ubica-chaski-mosaic-panel",
+            "spec": {
+              "options": {
+                "spec": "params:\n  qbrush: { select: crossfilter }\n\nplot:\n  - mark: rectY\n    data: { from: quakes, filterBy: $qbrush }\n    x: { bin: time, interval: hour, step: 6 }\n    y: { count: }\n    fill: '#FF9830'\n    inset: 0.5\n  - select: intervalX\n    as: $qbrush\nxDomain: Fixed\nyLabel: null\nxLabel: null\n",
+                "variables": "- param: qbrush\n  column: time\n  from: q_t0\n  to: q_t1\n",
+                "preaggregate": true
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "q-strongest": {
+        "kind": "Panel",
+        "spec": {
+          "id": 35,
+          "title": "Strongest in the selection",
+          "description": "Chaski SQL over the same data, following the brushes through the variables they write. The place links to the USGS event page.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT time AS \"Time (UTC)\", mag AS \"Magnitude\", round(depth) AS \"Depth (km)\", place AS \"Place\", url\nFROM $quakes WHERE $__crossfilter($quakeFilters)\nORDER BY mag DESC\nLIMIT 25"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "table",
+            "spec": {
+              "options": {
+                "showHeader": true,
+                "cellHeight": "sm",
+                "footer": {
+                  "show": false
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {
+                    "align": "auto"
+                  }
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Place"
+                    },
+                    "properties": [
+                      {
+                        "id": "links",
+                        "value": [
+                          {
+                            "title": "USGS event page",
+                            "url": "${__data.fields.url}",
+                            "targetBlank": true
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "url"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.hidden",
+                        "value": true
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Time (UTC)"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.width",
+                        "value": 190
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Depth (km)"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.width",
+                        "value": 110
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Magnitude"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "type": "color-background",
+                          "mode": "gradient"
+                        }
+                      },
+                      {
+                        "id": "color",
+                        "value": {
+                          "mode": "continuous-YlRd"
+                        }
+                      },
+                      {
+                        "id": "min",
+                        "value": 2.5
+                      },
+                      {
+                        "id": "max",
+                        "value": 8
+                      },
+                      {
+                        "id": "decimals",
+                        "value": 1
+                      },
+                      {
+                        "id": "custom.width",
+                        "value": 110
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "layout": {
+      "kind": "TabsLayout",
+      "spec": {
+        "tabs": [
+          {
+            "kind": "TabsLayoutTab",
+            "spec": {
+              "title": "Flights",
+              "layout": {
+                "kind": "GridLayout",
+                "spec": {
+                  "items": [
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "f-count"
+                        },
+                        "x": 0,
+                        "y": 0,
+                        "width": 6,
+                        "height": 4
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "f-ontime"
+                        },
+                        "x": 6,
+                        "y": 0,
+                        "width": 6,
+                        "height": 4
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "f-median"
+                        },
+                        "x": 12,
+                        "y": 0,
+                        "width": 6,
+                        "height": 4
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "f-distance"
+                        },
+                        "x": 18,
+                        "y": 0,
+                        "width": 6,
+                        "height": 4
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "f-delay"
+                        },
+                        "x": 0,
+                        "y": 4,
+                        "width": 8,
+                        "height": 8
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "f-time"
+                        },
+                        "x": 8,
+                        "y": 4,
+                        "width": 8,
+                        "height": 8
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "f-distance-hist"
+                        },
+                        "x": 16,
+                        "y": 4,
+                        "width": 8,
+                        "height": 8
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "f-density"
+                        },
+                        "x": 0,
+                        "y": 12,
+                        "width": 16,
+                        "height": 11
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "f-filters"
+                        },
+                        "x": 16,
+                        "y": 12,
+                        "width": 8,
+                        "height": 11
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "kind": "TabsLayoutTab",
+            "spec": {
+              "title": "Seattle weather",
+              "layout": {
+                "kind": "GridLayout",
+                "spec": {
+                  "items": [
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "w-days"
+                        },
+                        "x": 0,
+                        "y": 0,
+                        "width": 6,
+                        "height": 4
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "w-high"
+                        },
+                        "x": 6,
+                        "y": 0,
+                        "width": 6,
+                        "height": 4
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "w-rain"
+                        },
+                        "x": 12,
+                        "y": 0,
+                        "width": 6,
+                        "height": 4
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "w-sun"
+                        },
+                        "x": 18,
+                        "y": 0,
+                        "width": 6,
+                        "height": 4
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "w-scatter"
+                        },
+                        "x": 0,
+                        "y": 4,
+                        "width": 16,
+                        "height": 12
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "w-bars"
+                        },
+                        "x": 16,
+                        "y": 4,
+                        "width": 8,
+                        "height": 6
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "w-filters"
+                        },
+                        "x": 16,
+                        "y": 10,
+                        "width": 8,
+                        "height": 6
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "w-band"
+                        },
+                        "x": 0,
+                        "y": 16,
+                        "width": 24,
+                        "height": 8
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "kind": "TabsLayoutTab",
+            "spec": {
+              "title": "Athletes",
+              "layout": {
+                "kind": "GridLayout",
+                "spec": {
+                  "items": [
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "a-inputs"
+                        },
+                        "x": 0,
+                        "y": 0,
+                        "width": 24,
+                        "height": 3
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "a-count"
+                        },
+                        "x": 0,
+                        "y": 3,
+                        "width": 8,
+                        "height": 4
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "a-medals"
+                        },
+                        "x": 8,
+                        "y": 3,
+                        "width": 8,
+                        "height": 4
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "a-height"
+                        },
+                        "x": 16,
+                        "y": 3,
+                        "width": 8,
+                        "height": 4
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "a-scatter"
+                        },
+                        "x": 0,
+                        "y": 7,
+                        "width": 14,
+                        "height": 12
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "a-medals-bars"
+                        },
+                        "x": 14,
+                        "y": 7,
+                        "width": 10,
+                        "height": 12
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "a-table"
+                        },
+                        "x": 0,
+                        "y": 19,
+                        "width": 24,
+                        "height": 9
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "kind": "TabsLayoutTab",
+            "spec": {
+              "title": "Wind",
+              "layout": {
+                "kind": "GridLayout",
+                "spec": {
+                  "items": [
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "wd-map"
+                        },
+                        "x": 0,
+                        "y": 0,
+                        "width": 16,
+                        "height": 18
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "wd-hist"
+                        },
+                        "x": 16,
+                        "y": 0,
+                        "width": 8,
+                        "height": 9
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "wd-about"
+                        },
+                        "x": 16,
+                        "y": 9,
+                        "width": 8,
+                        "height": 9
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "kind": "TabsLayoutTab",
+            "spec": {
+              "title": "Earthquakes, live",
+              "layout": {
+                "kind": "GridLayout",
+                "spec": {
+                  "items": [
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "q-count"
+                        },
+                        "x": 0,
+                        "y": 0,
+                        "width": 6,
+                        "height": 4
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "q-max"
+                        },
+                        "x": 6,
+                        "y": 0,
+                        "width": 6,
+                        "height": 4
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "q-depth"
+                        },
+                        "x": 12,
+                        "y": 0,
+                        "width": 6,
+                        "height": 4
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "q-shallow"
+                        },
+                        "x": 18,
+                        "y": 0,
+                        "width": 6,
+                        "height": 4
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "q-globe"
+                        },
+                        "x": 0,
+                        "y": 4,
+                        "width": 13,
+                        "height": 19
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "q-mag"
+                        },
+                        "x": 13,
+                        "y": 4,
+                        "width": 11,
+                        "height": 9
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "q-time"
+                        },
+                        "x": 13,
+                        "y": 13,
+                        "width": 11,
+                        "height": 10
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "q-strongest"
+                        },
+                        "x": 0,
+                        "y": 23,
+                        "width": 24,
+                        "height": 10
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

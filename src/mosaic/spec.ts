@@ -57,11 +57,35 @@ const GAP = 8;
 /** A plot or a table: what takes a size from the panel. */
 const sized = (node: unknown): boolean => isObject(node) && ('plot' in node || node.input === 'table');
 
+/** Rough heights of what in a column sizes itself: a menu, search or slider, a row of them, a legend. */
+const INPUT_HEIGHT = 36;
+const LEGEND_HEIGHT = 52;
+
+const isControl = (node: unknown) => isObject(node) && typeof node.input === 'string' && node.input !== 'table';
+
+/** The height a column item takes that the panel does not size, so the plots leave room for it. */
+function selfHeight(node: unknown): number {
+  if (!isObject(node)) {
+    return 0;
+  }
+  if (typeof node.vspace === 'number') {
+    return node.vspace;
+  }
+  if ('legend' in node) {
+    return LEGEND_HEIGHT;
+  }
+  if (isControl(node) || (Array.isArray(node.hconcat) && node.hconcat.length > 0 && node.hconcat.every(isControl))) {
+    return INPUT_HEIGHT;
+  }
+  return 0;
+}
+
 /**
  * The spec sized to the panel, where it leaves a size open: a single plot
  * fills the panel; in a top-level `vconcat` or `hconcat`, the plots and tables
  * without a height (or width) share what the sized ones leave, and take the
- * panel's other dimension whole. Anything deeper keeps its own sizes.
+ * panel's other dimension whole. In a column, legends and inputs keep room for
+ * themselves. Anything deeper keeps its own sizes.
  */
 export function fitToPanel(spec: Spec, width: number, height: number): Spec {
   const w = Math.max(80, Math.floor(width));
@@ -83,7 +107,10 @@ export function fitToPanel(spec: Spec, width: number, height: number): Spec {
     const sizeOf = (item: unknown) =>
       isObject(item) && typeof item[along] === 'number' ? (item[along] as number) : undefined;
     const open = nodes.filter((item) => sized(item) && sizeOf(item) === undefined);
-    const fixed = nodes.reduce<number>((sum, item) => sum + (sizeOf(item) ?? 0), 0);
+    const fixed = nodes.reduce<number>(
+      (sum, item) => sum + (sizeOf(item) ?? (layout === 'vconcat' && !sized(item) ? selfHeight(item) : 0)),
+      0
+    );
     const share = open.length > 0 ? Math.max(40, Math.floor((total - fixed - GAP * nodes.length) / open.length)) : 0;
     return {
       ...spec,
