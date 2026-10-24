@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.2.0 (2026-10-24)
 
 - **Filters panel.** `ubica-chaski-filters-panel` shows a dataset's cross-filters and sets them, with no
   query to write: how many rows they leave, a × on each and Clear all, and a control per filter drawn
@@ -21,7 +21,9 @@
   `sharedSelection(name)`, the dashboard's Selection of that name (a crossfilter one when no panel
   made it), and Mosaic's clause builders, so a panel of another plugin takes part in it without a
   copy of Mosaic: the kepler map's filters are clauses in it, sent as they move, and its brushes
-  land on the map. These keep their shapes from now on.
+  land on the map; `clauseArea` makes the figure drawn on the map a clause on longitude and latitude
+  (a bounding box, then `ST_Contains`), and the Kepler Plus Time Brush's window is a clause on time.
+  These keep their shapes from now on.
 - **Range reads.** A datasource setting, off by default, that reads remote Parquet files by HTTP
   range requests instead of downloading them whole (DuckDB-WASM forces full reads unless told
   otherwise). Worth it for a time window of a large file sorted by time, or a few of its columns;
