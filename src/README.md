@@ -9,6 +9,11 @@ keeps working.
 A worked example, from a live feed to a map, is in the repository:
 [docs/tutorial-earthquakes.md](https://github.com/ubica-ecuador/chaski/blob/main/docs/tutorial-earthquakes.md).
 
+Live demos: [the dashboards tagged `chaski`](https://pacha.ubica.dev/dashboards?tag=chaski) on
+pacha.ubica.dev, open with no account. They run on [Pacha](https://github.com/ubica-ecuador/pacha),
+an open spatio-temporal stack for Grafana that includes Chaski, with DuckDB on the server and the
+kepler map panel: one command brings it up with these dashboards.
+
 ## Datasets
 
 A dataset is a hidden **query variable** of this datasource (kind _Dataset_). It loads when the

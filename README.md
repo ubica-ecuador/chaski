@@ -24,6 +24,10 @@ keeps working: native, catalog and the kepler map.
   file is the page Grafana shows for the plugin. For a worked example, follow
   [docs/tutorial-earthquakes.md](docs/tutorial-earthquakes.md), which builds a dashboard from a live
   feed three ways: read in the browser, fetched by another datasource, and through the data proxy.
+- **Live demos:** [the dashboards tagged `chaski`](https://pacha.ubica.dev/dashboards?tag=chaski) on
+  pacha.ubica.dev, open with no account. They run on [Pacha](https://github.com/ubica-ecuador/pacha),
+  an open spatio-temporal stack for Grafana that includes Chaski, with DuckDB on the server and the
+  kepler map panel: one command brings it up with these dashboards.
 
 ## How it works
 
