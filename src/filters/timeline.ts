@@ -53,17 +53,21 @@ const firstWidth = (domain: Window, step: number) => Math.max(1, Math.round(widt
 /**
  * Where play starts: the window held, unless it already reached the end;
  * then, or with none held, the axis's start. A slide keeps the held width or
- * takes a tenth of the axis; a grow starts one step wide.
+ * takes a tenth of the axis; a grow starts one step wide. A window held wider
+ * than half the axis is no window to slide: a kepler map publishing its whole
+ * time window leaves one, a little narrower or wider than the axis's bins. A
+ * slide then starts over a tenth wide.
  */
 export function startWindow(domain: Window, step: number, mode: PlayMode, held?: Window): Window {
   const [d0, d1] = domain;
-  if (held && held[1] < d1 - step * EPSILON) {
-    return held;
+  const kept = held && (mode === 'grow' || width(held) <= width(domain) / 2) ? held : undefined;
+  if (kept && kept[1] < d1 - step * EPSILON) {
+    return kept;
   }
   if (mode === 'grow') {
     return [d0, Math.min(d1, d0 + step)];
   }
-  return [d0, Math.min(d1, d0 + (held ? width(held) : firstWidth(domain, step)))];
+  return [d0, Math.min(d1, d0 + (kept ? width(kept) : firstWidth(domain, step)))];
 }
 
 /** The window a step later, the last one clamped to the axis's end; undefined once it is there. */

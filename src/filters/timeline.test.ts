@@ -64,6 +64,15 @@ describe('play steps', () => {
     expect(startWindow(domain, 5, 'grow', [80, 100])).toEqual([0, 5]);
   });
 
+  it('starts a slide over a tenth of the axis when the window held is wider than half of it', () => {
+    // A kepler map publishes its whole time window: the dashboard's range, a little inside the axis's bins.
+    expect(startWindow(domain, 5, 'slide', [0, 100])).toEqual([0, 10]);
+    expect(startWindow(domain, 5, 'slide', [2, 98])).toEqual([0, 10]);
+    expect(startWindow(domain, 5, 'slide', [1, 97])).toEqual([0, 10]);
+    expect(startWindow(domain, 5, 'slide', [10, 60])).toEqual([10, 60]);
+    expect(startWindow(domain, 5, 'grow', [2, 98])).toEqual([2, 98]);
+  });
+
   it('starts a slide a tenth of the axis wide, in whole steps, and a grow one step wide', () => {
     expect(startWindow(domain, 3, 'slide')).toEqual([0, 9]);
     expect(startWindow(domain, 40, 'slide')).toEqual([0, 40]);
