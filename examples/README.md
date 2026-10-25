@@ -1,15 +1,16 @@
 # Examples
 
-Dashboards that show what Chaski and its Mosaic panel do together. They need **Grafana 13** (they use
+Dashboards that show what Chaski, its Mosaic panel and its filters panel do together. They need **Grafana 13** (they use
 dashboard tabs) and the Chaski app, and they read public data from the network in the viewer's
 browser.
 
-| Dashboard                         | uid               | What it shows                                                                                                                                                                                                             |
-| --------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Mosaic gallery                    | `mosaic-gallery`  | Five tabs on [Mosaic's examples](https://idl.uw.edu/mosaic/examples/), each with something only Grafana adds (below). About 3 MB of data in all.                                                                          |
-| Mosaic density                    | `mosaic-density`  | Mosaic's density visualizations in three tabs: penguins, flights and stocks. About 7.5 MB of data.                                                                                                                        |
-| NYC taxi rides, Mosaic and kepler | `mosaic-nyc-taxi` | A million rides with Mosaic rasters and histograms and a kepler map of the trips, each driving the other. 49 MB of data. Needs the [kepler panel](https://github.com/ubica-ecuador/keplergl-grafana-panel), 1.4 or later. |
-| Gaia, 5 million stars             | `mosaic-gaia`     | The Milky Way and a Hertzsprung–Russell diagram from 5 million stars, with brushes that drive stat panels. About 100 MB of data.                                                                                          |
+| Dashboard                         | uid                   | What it shows                                                                                                                                                                                                                                                            |
+| --------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Mosaic gallery                    | `mosaic-gallery`      | Five tabs on [Mosaic's examples](https://idl.uw.edu/mosaic/examples/), each with something only Grafana adds (below). About 3 MB of data in all.                                                                                                                         |
+| Mosaic density                    | `mosaic-density`      | Mosaic's density visualizations in three tabs: penguins, flights and stocks. About 7.5 MB of data.                                                                                                                                                                       |
+| NYC taxi rides, Mosaic and kepler | `mosaic-nyc-taxi`     | A million rides with Mosaic rasters and histograms and a kepler map of the trips, each driving the other. 49 MB of data. Needs the [kepler panel](https://github.com/ubica-ecuador/keplergl-grafana-panel), 1.4 or later.                                                |
+| Gaia, 5 million stars             | `mosaic-gaia`         | The Milky Way and a Hertzsprung–Russell diagram from 5 million stars, with brushes that drive stat panels. About 100 MB of data.                                                                                                                                         |
+| Earthquakes, filtered             | `filters-earthquakes` | A month of USGS earthquakes, every magnitude, cross-filtered by two filters panels, a timeline that plays and a sidebar, driving a kepler map, cards and a table. About 1 MB of data. Needs the [kepler panel](https://github.com/ubica-ecuador/keplergl-grafana-panel). |
 
 **Mosaic gallery**, tab by tab:
 
@@ -50,6 +51,16 @@ coordinates (the Milky Way, the Magellanic Clouds) and a Hertzsprung–Russell d
 of brightness and parallax. Select the high parallaxes and the HR diagram sharpens into the main
 sequence, giants and white dwarfs. Every brush writes ranges that stat panels follow: stars, those
 within 100 parsecs, median distance and colour.
+
+**Earthquakes, filtered.** The filters panel twice over the month of USGS earthquakes, with no
+query and no Mosaic spec to write: every control comes from the cross-filters one `filters` variable
+declares (time, magnitude, depth, kind, network, place, and the area drawn on the map).
+
+- A **timeline** across the top: press play and a window of three days slides along the month, and
+  the map, the cards and the table follow each step. The other filters wait in pills beside it.
+- A **sidebar** on the left with every filter, each control counted under the others. Its time
+  histogram and the timeline are one brush: move either and the other shows its range.
+- Draw an area on the kepler map and the controls count only the quakes inside it.
 
 ## Data
 

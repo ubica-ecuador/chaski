@@ -182,7 +182,8 @@ others and following each other live as a brush moves. Values to
 pick for `in` and `equals`, a histogram to brush for `range`, a text box for `search`; a map's area
 shows as set, with a ×. It writes the same variables the filters read, so every panel follows it. Tall,
 it is a sidebar; low, a strip of pills. See
-[docs/filters.md](https://github.com/ubica-ecuador/chaski/blob/main/docs/filters.md).
+[docs/filters.md](https://github.com/ubica-ecuador/chaski/blob/main/docs/filters.md), and
+[a live example](https://pacha.ubica.dev/d/filters-earthquakes) that plays a month of earthquakes on a map.
 
 ## Mosaic panel
 

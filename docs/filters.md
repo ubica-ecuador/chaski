@@ -34,6 +34,10 @@ the map and every Chaski query follow it; and it follows them: a variable set el
 a chip's ×, another panel) moves its brush or its picks. A Mosaic panel whose spec uses the same
 selection name follows it live, and drives it live.
 
+A worked example, a timeline and a sidebar over a month of USGS earthquakes driving a kepler map, is
+[examples/dashboards/filters-earthquakes.json](../examples/dashboards/filters-earthquakes.json), live on
+[pacha.ubica.dev](https://pacha.ubica.dev/d/filters-earthquakes).
+
 ## Options
 
 | Option           | Default | What it does                                                                                                                                                       |

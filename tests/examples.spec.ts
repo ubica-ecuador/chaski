@@ -9,7 +9,7 @@ test.use({ viewport: { width: 1600, height: 1300 } });
 // One worker: the dashboards are created once, not by two workers racing.
 test.describe.configure({ mode: 'serial' });
 
-const DASHBOARDS = ['mosaic-gallery', 'mosaic-density', 'mosaic-nyc-taxi', 'mosaic-gaia'];
+const DASHBOARDS = ['mosaic-gallery', 'mosaic-density', 'mosaic-nyc-taxi', 'mosaic-gaia', 'filters-earthquakes'];
 
 test.beforeAll(async ({ request }) => {
   const health = await (await request.get('/api/health')).json();
@@ -156,4 +156,21 @@ test('Gaia: 5 million stars load, and the nearby ones sharpen the HR diagram', a
   await expect(page).toHaveURL(/var-g_par_lo=\d/);
   await expect(stars).not.toContainText('3.71', { timeout: 120_000 });
   await expect(panel(page, 'Active filters')).toContainText('Parallax');
+});
+
+test('the filters example: play slides the timeline, and the sidebar and the cards follow it', async ({ page }) => {
+  test.setTimeout(240_000);
+  await open(page, 'filters-earthquakes', 1);
+  await expect(page.getByTestId('filters-panel')).toHaveCount(2, { timeout: 60_000 });
+  const quakes = panel(page, 'Quakes');
+  await expect(quakes).toContainText(/\d/);
+  const all = await quakes.innerText();
+  await page.getByRole('button', { name: 'Play' }).click();
+  await expect(page).toHaveURL(/var-t0=\d{4}-/, { timeout: 30_000 });
+  await page.getByRole('button', { name: 'Pause' }).click();
+  await expect(quakes).not.toHaveText(all);
+  // The sidebar's time histogram is linked to the timeline: it shows the same window, with its ×.
+  await expect(panel(page, 'Filters').getByRole('button', { name: 'Clear Time' })).toBeVisible();
+  await expect(page.getByTestId('filters-error')).toHaveCount(0);
+  await expect(page.getByTestId('data-testid Panel status error')).toHaveCount(0);
 });

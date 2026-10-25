@@ -1,0 +1,1109 @@
+{
+  "apiVersion": "dashboard.grafana.app/v2",
+  "kind": "Dashboard",
+  "metadata": {
+    "name": "filters-earthquakes"
+  },
+  "spec": {
+    "title": "Earthquakes, filtered: the Chaski filters panel",
+    "description": "A month of USGS earthquakes cross-filtered in the browser by two Chaski filters panels, a timeline that plays and a sidebar, driving a kepler map, cards and a table.",
+    "tags": ["chaski", "kepler", "examples"],
+    "editable": true,
+    "cursorSync": "Off",
+    "liveNow": false,
+    "preload": false,
+    "links": [],
+    "annotations": [
+      {
+        "kind": "AnnotationQuery",
+        "spec": {
+          "builtIn": true,
+          "enable": true,
+          "hide": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name": "Annotations & Alerts",
+          "query": {
+            "datasource": {
+              "name": "-- Grafana --"
+            },
+            "group": "grafana",
+            "kind": "DataQuery",
+            "spec": {},
+            "version": "v0"
+          }
+        }
+      }
+    ],
+    "timeSettings": {
+      "autoRefresh": "",
+      "autoRefreshIntervals": ["1m", "5m", "15m", "1h"],
+      "fiscalYearStartMonth": 0,
+      "from": "now-30d",
+      "to": "now",
+      "hideTimepicker": true,
+      "timezone": "utc"
+    },
+    "variables": [
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "allowCustomValue": true,
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "includeAll": false,
+          "multi": false,
+          "name": "quakes",
+          "options": [],
+          "query": {
+            "datasource": {
+              "name": "duckdbwasm"
+            },
+            "group": "ubica-chaski-datasource",
+            "kind": "DataQuery",
+            "version": "v0",
+            "spec": {
+              "refId": "quakes",
+              "kind": "dataset",
+              "name": "quakes",
+              "source": {
+                "type": "sql",
+                "sql": "SELECT\n  f.id AS id,\n  to_timestamp(f.properties.time / 1000) AS time,\n  f.geometry.coordinates[1]::DOUBLE AS longitude,\n  f.geometry.coordinates[2]::DOUBLE AS latitude,\n  f.geometry.coordinates[3]::DOUBLE AS depth,\n  f.properties.mag::DOUBLE AS mag,\n  f.properties.type::VARCHAR AS kind,\n  f.properties.net::VARCHAR AS net,\n  f.properties.place::VARCHAR AS place,\n  coalesce(f.properties.felt::INTEGER, 0) AS felt,\n  f.properties.url::VARCHAR AS url\nFROM read_json('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_month.geojson'), unnest(features) AS t(f)\nWHERE f.properties.mag IS NOT NULL AND f.geometry.coordinates[1] IS NOT NULL"
+              }
+            }
+          },
+          "refresh": "onDashboardLoad",
+          "regex": "",
+          "regexApplyTo": "value",
+          "skipUrlSync": true,
+          "sort": "disabled"
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "t0",
+          "name": "t0",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "t1",
+          "name": "t1",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "mag_lo",
+          "name": "mag_lo",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "mag_hi",
+          "name": "mag_hi",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "depth_lo",
+          "name": "depth_lo",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "depth_hi",
+          "name": "depth_hi",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "CustomVariable",
+        "spec": {
+          "allowCustomValue": true,
+          "current": {
+            "text": ["All"],
+            "value": ["$__all"]
+          },
+          "hide": "hideVariable",
+          "includeAll": true,
+          "label": "kinds",
+          "multi": true,
+          "name": "kinds",
+          "options": [],
+          "query": "earthquake, quarry blast, explosion, ice quake, mining explosion, chemical explosion, landslide, rock burst, sonic boom, volcanic eruption, other event",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "net",
+          "name": "net",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "q",
+          "name": "q",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "label": "map_area",
+          "name": "map_area",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "allowCustomValue": true,
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "hideVariable",
+          "includeAll": false,
+          "multi": false,
+          "name": "quakeFilters",
+          "options": [],
+          "query": {
+            "datasource": {
+              "name": "duckdbwasm"
+            },
+            "group": "ubica-chaski-datasource",
+            "kind": "DataQuery",
+            "version": "v0",
+            "spec": {
+              "refId": "quakeFilters",
+              "kind": "filters",
+              "dataset": "$quakes",
+              "filters": [
+                {
+                  "name": "time",
+                  "type": "range",
+                  "column": "time",
+                  "as": "time",
+                  "from": "$t0",
+                  "to": "$t1",
+                  "label": "Time",
+                  "upper": "closed"
+                },
+                {
+                  "name": "mag",
+                  "type": "range",
+                  "column": "mag",
+                  "from": "$mag_lo",
+                  "to": "$mag_hi",
+                  "label": "Magnitude",
+                  "upper": "closed"
+                },
+                {
+                  "name": "depth",
+                  "type": "range",
+                  "column": "depth",
+                  "from": "$depth_lo",
+                  "to": "$depth_hi",
+                  "label": "Depth (km)",
+                  "upper": "closed"
+                },
+                {
+                  "name": "kind",
+                  "type": "in",
+                  "column": "kind",
+                  "variable": "$kinds",
+                  "label": "Kind"
+                },
+                {
+                  "name": "net",
+                  "type": "equals",
+                  "column": "net",
+                  "variable": "$net",
+                  "label": "Network"
+                },
+                {
+                  "name": "place",
+                  "type": "search",
+                  "column": "place",
+                  "variable": "$q",
+                  "label": "Place"
+                },
+                {
+                  "name": "area",
+                  "type": "area",
+                  "variable": "$map_area",
+                  "lat": "latitude",
+                  "lng": "longitude",
+                  "label": "Area"
+                }
+              ]
+            }
+          },
+          "refresh": "onDashboardLoad",
+          "regex": "",
+          "regexApplyTo": "value",
+          "skipUrlSync": true,
+          "sort": "disabled"
+        }
+      }
+    ],
+    "elements": {
+      "f-timeline": {
+        "kind": "Panel",
+        "spec": {
+          "id": 1,
+          "title": "Timeline",
+          "description": "The month of quakes as a histogram over time. Drag across it, or press play: a window slides along and every panel follows. The pills open the other filters.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "ubica-chaski-filters-panel",
+            "spec": {
+              "options": {
+                "filters": "quakeFilters",
+                "timeColumn": "",
+                "noun": "quakes",
+                "maxValues": 8,
+                "layout": "timeline",
+                "timeline": "time",
+                "playMode": "slide",
+                "stepMs": 800,
+                "bins": 60
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "f-sidebar": {
+        "kind": "Panel",
+        "spec": {
+          "id": 2,
+          "title": "Filters",
+          "description": "Every cross-filter of the dataset, each counted under the others.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "ubica-chaski-filters-panel",
+            "spec": {
+              "options": {
+                "filters": "quakeFilters",
+                "timeColumn": "",
+                "noun": "quakes",
+                "maxValues": 8,
+                "layout": "auto",
+                "bins": 40
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "f-map": {
+        "kind": "Panel",
+        "spec": {
+          "id": 3,
+          "title": "Earthquakes",
+          "description": "The quakes every filter leaves, coloured and sized by magnitude. Draw a polygon to keep the quakes inside it.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT id, strftime(time AT TIME ZONE 'UTC', '%d %b %H:%M UTC') AS \"when\", latitude, longitude, mag, depth, kind, place\nFROM $quakes\n-- No time column: the timeline filters time, and kepler would add a time widget of its own.\nWHERE $__crossfilter($quakeFilters, -area)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "ubica-keplergl-panel",
+            "spec": {
+              "options": {
+                "areaVariable": "map_area",
+                "basemap": "dark-matter",
+                "followGrafanaTheme": true,
+                "showSidePanel": false,
+                "mapConfig": {
+                  "version": "v1",
+                  "config": {
+                    "mapState": {
+                      "bearing": 0,
+                      "dragRotate": false,
+                      "latitude": 15,
+                      "longitude": -160,
+                      "pitch": 0,
+                      "zoom": 0.9
+                    },
+                    "mapStyle": {
+                      "styleType": "dark-matter"
+                    },
+                    "visState": {
+                      "filters": [],
+                      "layerBlending": "normal",
+                      "interactionConfig": {
+                        "tooltip": {
+                          "enabled": true,
+                          "config": {
+                            "compareMode": false,
+                            "compareType": "absolute",
+                            "fieldsToShow": {
+                              "grafana-A": [
+                                {
+                                  "name": "place"
+                                },
+                                {
+                                  "name": "mag"
+                                },
+                                {
+                                  "name": "depth"
+                                },
+                                {
+                                  "name": "when"
+                                },
+                                {
+                                  "name": "kind"
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      "layers": [
+                        {
+                          "id": "quakes",
+                          "type": "point",
+                          "config": {
+                            "dataId": "grafana-A",
+                            "label": "Earthquakes",
+                            "columnMode": "points",
+                            "columns": {
+                              "lat": "latitude",
+                              "lng": "longitude"
+                            },
+                            "isVisible": true,
+                            "color": [231, 29, 37],
+                            "visConfig": {
+                              "colorRange": {
+                                "category": "Uber",
+                                "name": "Global Warming",
+                                "type": "sequential",
+                                "colors": ["#4C0035", "#880030", "#B72F15", "#D6610A", "#EF9100", "#FFC300"]
+                              },
+                              "filled": true,
+                              "fixedRadius": false,
+                              "opacity": 0.8,
+                              "outline": false,
+                              "radius": 10,
+                              "radiusRange": [0.5, 10]
+                            }
+                          },
+                          "visualChannels": {
+                            "colorField": {
+                              "name": "mag",
+                              "type": "real"
+                            },
+                            "colorScale": "quantile",
+                            "sizeField": {
+                              "name": "mag",
+                              "type": "real"
+                            },
+                            "sizeScale": "sqrt"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "f-count": {
+        "kind": "Panel",
+        "spec": {
+          "id": 4,
+          "title": "Quakes",
+          "description": "Quakes left by every filter.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT count(*)::DOUBLE AS n FROM $quakes WHERE $__crossfilter($quakeFilters)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "options": {
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "textMode": "value",
+                "orientation": "auto",
+                "wideLayout": true,
+                "showPercentChange": false
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "short",
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "#5794F2"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "f-strongest": {
+        "kind": "Panel",
+        "spec": {
+          "id": 5,
+          "title": "Strongest",
+          "description": "The largest magnitude left.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT max(mag) AS mag FROM $quakes WHERE $__crossfilter($quakeFilters)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "options": {
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "textMode": "value",
+                "orientation": "auto",
+                "wideLayout": true,
+                "showPercentChange": false
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "none",
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "#F2495C"
+                  },
+                  "decimals": 1
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "f-felt": {
+        "kind": "Panel",
+        "spec": {
+          "id": 6,
+          "title": "Felt",
+          "description": "Quakes that people reported feeling to USGS (\"Did You Feel It?\").",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT count(*) FILTER (WHERE felt > 0)::DOUBLE AS n FROM $quakes WHERE $__crossfilter($quakeFilters)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "options": {
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "textMode": "value",
+                "orientation": "auto",
+                "wideLayout": true,
+                "showPercentChange": false
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "short",
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "#FF9830"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "f-depth": {
+        "kind": "Panel",
+        "spec": {
+          "id": 7,
+          "title": "Median depth",
+          "description": "Median depth of the quakes left, in km.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT median(depth) AS depth FROM $quakes WHERE $__crossfilter($quakeFilters)"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "spec": {
+              "options": {
+                "reduceOptions": {
+                  "calcs": ["lastNotNull"],
+                  "fields": "",
+                  "values": false
+                },
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "center",
+                "textMode": "value",
+                "orientation": "auto",
+                "wideLayout": true,
+                "showPercentChange": false
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "lengthkm",
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "#B877D9"
+                  },
+                  "decimals": 0
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "f-table": {
+        "kind": "Panel",
+        "spec": {
+          "id": 8,
+          "title": "Strongest quakes",
+          "description": "The 50 strongest quakes left; the place opens its USGS page.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "duckdbwasm"
+                      },
+                      "group": "ubica-chaski-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "rawSql": "SELECT strftime(time AT TIME ZONE 'UTC', '%d %b %H:%M') AS \"Time (UTC)\",\n       round(mag, 1) AS \"Mag\", round(depth) AS \"Depth (km)\", place AS \"Place\",\n       kind AS \"Kind\", net AS \"Network\", url\nFROM $quakes\nWHERE $__crossfilter($quakeFilters)\nORDER BY mag DESC\nLIMIT 50"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "table",
+            "spec": {
+              "options": {
+                "showHeader": true,
+                "cellHeight": "sm",
+                "footer": {
+                  "show": false
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {
+                    "align": "auto"
+                  }
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Time (UTC)"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.width",
+                        "value": 110
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Mag"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.width",
+                        "value": 60
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Depth (km)"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.width",
+                        "value": 90
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Kind"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.width",
+                        "value": 110
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Network"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.width",
+                        "value": 80
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "url"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.hidden",
+                        "value": true
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Place"
+                    },
+                    "properties": [
+                      {
+                        "id": "links",
+                        "value": [
+                          {
+                            "title": "USGS event page",
+                            "url": "${__data.fields.url}",
+                            "targetBlank": true
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "f-about": {
+        "kind": "Panel",
+        "spec": {
+          "id": 9,
+          "title": "About",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "text",
+            "spec": {
+              "options": {
+                "mode": "markdown",
+                "content": "Two Chaski filters panels, and nothing to write for them: every control comes from the cross-filters the `quakeFilters` variable declares.\n\n- **Timeline**: press play and a window of a few days slides across the month; the map, the cards and the table follow each step.\n- **Filters**: the same filters as a sidebar, each control counted under the others.\n- The two time histograms are **one brush**: move either and the other follows.\n- **Draw an area** on the map and the controls count only the quakes inside it.\n\nAnswered by DuckDB in your browser. **Data**: the [USGS real-time feed](https://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.php) of the last 30 days, every magnitude. Public domain."
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "layout": {
+      "kind": "GridLayout",
+      "spec": {
+        "items": [
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "kind": "ElementReference",
+                "name": "f-timeline"
+              },
+              "x": 0,
+              "y": 0,
+              "width": 24,
+              "height": 7
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "kind": "ElementReference",
+                "name": "f-sidebar"
+              },
+              "x": 0,
+              "y": 7,
+              "width": 5,
+              "height": 28
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "kind": "ElementReference",
+                "name": "f-map"
+              },
+              "x": 5,
+              "y": 7,
+              "width": 13,
+              "height": 17
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "kind": "ElementReference",
+                "name": "f-count"
+              },
+              "x": 18,
+              "y": 7,
+              "width": 6,
+              "height": 3
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "kind": "ElementReference",
+                "name": "f-strongest"
+              },
+              "x": 18,
+              "y": 10,
+              "width": 6,
+              "height": 3
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "kind": "ElementReference",
+                "name": "f-felt"
+              },
+              "x": 18,
+              "y": 13,
+              "width": 6,
+              "height": 3
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "kind": "ElementReference",
+                "name": "f-depth"
+              },
+              "x": 18,
+              "y": 16,
+              "width": 6,
+              "height": 3
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "kind": "ElementReference",
+                "name": "f-about"
+              },
+              "x": 18,
+              "y": 19,
+              "width": 6,
+              "height": 16
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "kind": "ElementReference",
+                "name": "f-table"
+              },
+              "x": 5,
+              "y": 24,
+              "width": 13,
+              "height": 11
+            }
+          }
+        ]
+      }
+    }
+  }
+}
