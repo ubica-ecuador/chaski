@@ -96,8 +96,10 @@ Time Brush panel does the same over any query.
   would keep two sets of selections that never meet. The Mosaic panel's module carries Mosaic and
   hands it out on its plugin object (`src/mosaic/runtime.ts`); the filters panel loads that module
   through Grafana (`importPanelPlugin`) and bundles no Mosaic of its own.
-- **The coloured layer** filters on `<selection>__all`, an intersect selection the panel keeps holding
-  every clause of the crossfilter one, its own included.
+- **The coloured layer** draws the same bars as the grey one, from the same query, and the page cuts
+  it down to the control's own picks (`src/filters/paint.ts`): a range clips it to the range its brush
+  holds, a list hides the bars of the values not picked. It follows the brush as it moves, with no query
+  of its own: one per move used to queue behind the others, and the colour fell behind the brush.
 - **To the variables** through the Mosaic panel's bridge, once a control rests; a range's ends are
   rounded to what one pixel of its axis tells apart: to the minute, hour or day for times (as UTC ISO
   strings), to a pixel's decimal for numbers.

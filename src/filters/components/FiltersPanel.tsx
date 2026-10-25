@@ -15,7 +15,8 @@ import { waitForEngine } from '../../mosaic/connector';
 import type { VariableRead } from '../../mosaic/inbound';
 import { crossfilterSource, filtersVariables, pickVariable, urlFirst, type ValueOf } from '../model';
 import { countSql, timeCondition } from '../queries';
-import { allOf, controlLinks, labelWidth, rangeSpec, type ValueFilter, valuesSpec } from '../specs';
+import { paintRange, paintValues } from '../paint';
+import { controlLinks, labelWidth, rangeSpec, type ValueFilter, valuesSpec } from '../specs';
 import type { IntervalInteractor, ToggleInteractor } from '../sync';
 import { loadMosaic } from '../runtime';
 import {
@@ -350,8 +351,7 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
         linkVariables,
         linkReads,
       } = mosaic;
-      const { applyRange, applyValues, heldElsewhere, mirrorClauses, pixelOf, rangeMatches, searchClause } =
-        mosaic.sync;
+      const { applyRange, applyValues, heldElsewhere, pixelOf, rangeMatches, searchClause } = mosaic.sync;
       const { spanOf, timeClause, valuesMatch, binAt, linkBrush, clearColumn } = mosaic.sync;
       const page = pageFor(dashboardKey(), engine);
       defer(page.subscribe(() => setRebuild((n) => n + 1)));
@@ -414,10 +414,6 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
       };
       const isObject = (i: unknown): i is object => typeof i === 'object' && i !== null;
 
-      // The coloured layers filter on a mirror of the crossfilter Selection that keeps every clause.
-      if (!page.params.has(allOf(selection))) {
-        page.params.set(allOf(selection), Selection.intersect());
-      }
       const widthOf = (filter: unknown) => (filter === timeline ? controlWidth : popoverWidth);
       const lookOf = (index: number, axis: 'x' | 'y', width: number) => {
         const colour = colourKey.split(',')[index % HUES.length];
@@ -433,6 +429,9 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
       const intervals = new Map<string, IntervalInteractor>();
       const toggles = new Map<string, ToggleInteractor[]>();
       const searches = new Map<string, { source: object; text: string }>();
+      // The coloured layers, cut down in the page to each control's picks.
+      const painters: Array<ReturnType<typeof paintRange>> = [];
+      defer(() => painters.forEach((p) => p.stop()));
       for (const [index, filter] of dataset.filters.entries()) {
         if (filter.type === 'range') {
           const look = lookOf(index, 'y', widthOf(filter));
@@ -445,6 +444,7 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
           let player: Player | undefined;
           if (interval) {
             intervals.set(filter.name, interval);
+            painters.push(paintRange(element, interval));
             const asTime = filter.as === 'time';
             if (filter === timeline) {
               const ends = (values: unknown[] | undefined): Window | undefined => {
@@ -497,10 +497,11 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
             lookOf(index, 'x', widthOf(filter))
           );
           const { element, interactors } = await draw(spec);
-          toggles.set(
-            filter.name,
-            interactors.filter((i): i is ToggleInteractor => isObject(i) && 'fields' in i && 'listMatch' in i)
+          const picks = interactors.filter(
+            (i): i is ToggleInteractor => isObject(i) && 'fields' in i && 'listMatch' in i
           );
+          toggles.set(filter.name, picks);
+          painters.push(paintValues(element, picks));
           controls.set(filter.name, { kind: 'mosaic', element });
         } else if (filter.type === 'search') {
           const source = { filter: filter.name };
@@ -524,11 +525,9 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
       page.read([dataset.name], engine.datasets());
 
       const shared = page.params.get(selection);
-      const all = page.params.get(allOf(selection));
-      if (!shared || !isSelection(shared) || !all || !isSelection(all)) {
+      if (!shared || !isSelection(shared)) {
         throw new Error(`The filters panel's selection ${selection} is a param elsewhere on this dashboard`);
       }
-      defer(mirrorClauses(shared, all));
       // Brushes on the same column elsewhere (a Mosaic panel's histogram) and these move together.
       for (const filter of dataset.filters) {
         const interval = filter.type === 'range' ? intervals.get(filter.name) : undefined;
@@ -536,6 +535,11 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
           defer(linkBrush(shared, interval, filter.column));
         }
       }
+      // After the linked brushes moved to the new clauses (their listener came first): a brush set from a
+      // variable, a linked one or a cleared filter changes no drawing of its own control.
+      const repaint = () => painters.forEach((p) => p.paint());
+      shared.addEventListener('value', repaint);
+      defer(() => shared.removeEventListener('value', repaint));
 
       // The rows left, live: a client of the Selection like the controls, but owning no clause.
       const counter = makeClient({

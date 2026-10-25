@@ -35,17 +35,15 @@ const brushStyle = (look: ControlLook) => ({
 });
 
 /*
- * Each control is two layers of the same bars. Behind, in grey, what the other
- * filters leave: the crossfilter Selection leaves a control's own clause out.
- * In front, in the filter's colour, what every filter leaves, its own picks
- * included: the same bars filtered by `allOf(selection)`, an intersect
- * Selection the panel keeps holding every clause of the crossfilter one. So
- * picks and brushes show in colour and the rest greys out. The coloured layer
- * lets pointers through to the grey one, which takes the clicks, drags and tips.
+ * Each control is two layers of the same bars, from the same query. Behind, in
+ * grey, what the other filters leave: the crossfilter Selection leaves a
+ * control's own clause out. In front, in the filter's colour, those bars cut
+ * down in the page to what the control's own picks keep (see paint.ts): a
+ * range clips them to its brush, a list hides the values not picked. So picks
+ * and brushes show in colour and the rest greys out, and a brush paints at the
+ * pointer's pace: its own bars need no query. The coloured layer lets pointers
+ * through to the grey one, which takes the clicks, drags and tips.
  */
-
-/** The intersect Selection that mirrors the crossfilter one, own clauses and all. */
-export const allOf = (selection: string) => `${selection}__all`;
 
 /** A histogram of the column under the other filters; drag across it to pick a range. */
 export function rangeSpec(dataset: string, filter: RangeFilter, selection: string, bins: number, look: ControlLook) {
@@ -57,17 +55,12 @@ export function rangeSpec(dataset: string, filter: RangeFilter, selection: strin
     inset: 0.5,
   };
   return {
-    params: { [selection]: { select: 'crossfilter' }, [allOf(selection)]: { select: 'intersect' } },
+    params: { [selection]: { select: 'crossfilter' } },
     plot: [
       // No tip: on a short histogram it covers the brush. The panel shows the bin under the pointer instead.
       { ...layer, fill: look.muted },
       { select: 'intervalX', as: `$${selection}`, brush: brushStyle(look) },
-      {
-        ...layer,
-        data: { from: dataset, filterBy: `$${allOf(selection)}` },
-        fill: look.paint,
-        pointerEvents: 'none',
-      },
+      { ...layer, fill: look.paint, pointerEvents: 'none' },
     ],
     xDomain: 'Fixed',
     yAxis: null,
@@ -99,16 +92,11 @@ export function valuesSpec(
   const data = { from: dataset, filterBy: `$${selection}` };
   const layer = { mark: 'barX', data, x: { count: null }, y: filter.column, insetTop: 2, insetBottom: 2 };
   return {
-    params: { [selection]: { select: 'crossfilter' }, [allOf(selection)]: { select: 'intersect' } },
+    params: { [selection]: { select: 'crossfilter' } },
     plot: [
       { ...layer, fill: look.muted },
       { select: 'toggleY', as: `$${selection}` },
-      {
-        ...layer,
-        data: { from: dataset, filterBy: `$${allOf(selection)}` },
-        fill: look.paint,
-        pointerEvents: 'none',
-      },
+      { ...layer, fill: look.paint, pointerEvents: 'none' },
       {
         mark: 'text',
         data,

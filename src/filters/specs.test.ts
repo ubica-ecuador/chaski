@@ -2,7 +2,7 @@ import { parseSpec } from '@uwdata/mosaic-spec';
 
 import type { FilterDeclaration, RangeFilter } from '../engine/crossfilter';
 import { datasetNames } from '../mosaic/spec';
-import { allOf, controlLinks, labelWidth, rangeSpec, valuesSpec } from './specs';
+import { controlLinks, labelWidth, rangeSpec, valuesSpec } from './specs';
 
 const look = { colour: '#3d71d9', paint: 'url(#g)', muted: '#444', text: '#ccc', width: 280 };
 const mag: RangeFilter = { name: 'mag', type: 'range', column: 'mag', from: 'mag_lo', to: 'mag_hi' };
@@ -21,15 +21,9 @@ describe('rangeSpec', () => {
     });
     expect(grey).not.toHaveProperty('tip');
     expect(brush).toMatchObject({ select: 'intervalX', as: '$quakeFilters' });
-    expect(colour).toMatchObject({
-      data: { filterBy: `$${allOf('quakeFilters')}` },
-      fill: 'url(#g)',
-      pointerEvents: 'none',
-    });
-    expect(spec.params).toEqual({
-      quakeFilters: { select: 'crossfilter' },
-      quakeFilters__all: { select: 'intersect' },
-    });
+    // The same bars as the grey layer, from the same query: the page cuts them down to the brush.
+    expect(colour).toMatchObject({ data: { filterBy: '$quakeFilters' }, fill: 'url(#g)', pointerEvents: 'none' });
+    expect(spec.params).toEqual({ quakeFilters: { select: 'crossfilter' } });
   });
 
   it('keeps its x axis and fits its y axis to the rows left', () => {
@@ -46,7 +40,7 @@ describe('valuesSpec', () => {
     expect(() => parseSpec(spec as never)).not.toThrow();
     expect(spec.yDomain).toEqual(['earthquake', 'explosion']);
     expect(spec.plot.map((p) => ('mark' in p ? p.mark : p.select))).toEqual(['barX', 'toggleY', 'barX', 'text']);
-    expect(spec.plot[2]).toMatchObject({ data: { filterBy: '$quakeFilters__all' }, pointerEvents: 'none' });
+    expect(spec.plot[2]).toMatchObject({ data: { filterBy: '$quakeFilters' }, pointerEvents: 'none' });
     expect(spec.plot[3]).toMatchObject({ data: { filterBy: '$quakeFilters' }, text: { count: null } });
     expect(spec.height).toBe(2 * 20 + 8);
   });
