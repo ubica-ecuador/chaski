@@ -190,29 +190,6 @@ export function spanOf(interactor: IntervalInteractor): number {
   return domain.length >= 2 ? Math.abs(domain[domain.length - 1] - domain[0]) : 0;
 }
 
-/**
- * Keeps `mirror` holding every clause of `source`, the same clause objects:
- * set when set there, taken out when taken out there. Returns the function
- * that stops it.
- */
-export function mirrorClauses(source: Selection, mirror: Selection): () => void {
-  const copy = () => {
-    const sources = new Set(source.clauses.map((c) => c.source));
-    // Taken out with an empty clause, not mirror.reset: that would also reset the brushes they came from.
-    for (const clause of mirror.clauses.filter((c) => !sources.has(c.source))) {
-      mirror.update({ ...clause, value: null, predicate: null } as SelectionClause);
-    }
-    for (const clause of source.clauses) {
-      if (!mirror.clauses.includes(clause)) {
-        mirror.update(clause);
-      }
-    }
-  };
-  copy();
-  source.addEventListener('value', copy);
-  return () => source.removeEventListener('value', copy);
-}
-
 /** What the panel needs of a Mosaic mark: its channels and the columns of its last result. */
 export interface BinnedMark {
   channels: Array<{ channel: string; as?: string }>;
