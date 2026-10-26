@@ -40,7 +40,7 @@ browser.
 
 - Mosaic draws the pickups and dropoffs as rasters computed in DuckDB, and histograms of the hour
   and fare, plus cash or card.
-- Its brushes write variables: the kepler map draws 12,000 of the trips they leave as arcs, and stat
+- Its brushes write variables: the kepler map draws 12,000 of the trips they leave as flow lines, and stat
   panels (trips, fare, tip, distance) follow.
 - The other way, the map publishes its viewport and drawn area, which the Mosaic panels read: pan and
   zoom, and the rasters, histograms and cards follow what the map shows. The map leaves its own view

@@ -403,7 +403,8 @@
                 "textMode": "value",
                 "orientation": "auto",
                 "wideLayout": true,
-                "showPercentChange": false
+                "showPercentChange": false,
+                "percentChangeColorMode": "standard"
               },
               "fieldConfig": {
                 "defaults": {
@@ -411,11 +412,25 @@
                   "color": {
                     "mode": "fixed",
                     "fixedColor": "#5794F2"
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": 0,
+                        "color": "green"
+                      },
+                      {
+                        "value": 80,
+                        "color": "red"
+                      }
+                    ]
                   }
                 },
                 "overrides": []
               }
-            }
+            },
+            "version": "13.2.1"
           }
         }
       },
@@ -469,7 +484,8 @@
                 "textMode": "value",
                 "orientation": "auto",
                 "wideLayout": true,
-                "showPercentChange": false
+                "showPercentChange": false,
+                "percentChangeColorMode": "standard"
               },
               "fieldConfig": {
                 "defaults": {
@@ -478,11 +494,25 @@
                     "mode": "fixed",
                     "fixedColor": "#FF9830"
                   },
-                  "decimals": 2
+                  "decimals": 2,
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": 0,
+                        "color": "green"
+                      },
+                      {
+                        "value": 80,
+                        "color": "red"
+                      }
+                    ]
+                  }
                 },
                 "overrides": []
               }
-            }
+            },
+            "version": "13.2.1"
           }
         }
       },
@@ -536,7 +566,8 @@
                 "textMode": "value",
                 "orientation": "auto",
                 "wideLayout": true,
-                "showPercentChange": false
+                "showPercentChange": false,
+                "percentChangeColorMode": "standard"
               },
               "fieldConfig": {
                 "defaults": {
@@ -545,11 +576,27 @@
                     "mode": "fixed",
                     "fixedColor": "#73BF69"
                   },
-                  "decimals": 1
+                  "decimals": 1,
+                  "min": 0,
+                  "max": 1,
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": 0,
+                        "color": "green"
+                      },
+                      {
+                        "value": 80,
+                        "color": "red"
+                      }
+                    ]
+                  }
                 },
                 "overrides": []
               }
-            }
+            },
+            "version": "13.2.1"
           }
         }
       },
@@ -603,7 +650,8 @@
                 "textMode": "value",
                 "orientation": "auto",
                 "wideLayout": true,
-                "showPercentChange": false
+                "showPercentChange": false,
+                "percentChangeColorMode": "standard"
               },
               "fieldConfig": {
                 "defaults": {
@@ -612,11 +660,25 @@
                     "mode": "fixed",
                     "fixedColor": "#B877D9"
                   },
-                  "decimals": 1
+                  "decimals": 1,
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": 0,
+                        "color": "green"
+                      },
+                      {
+                        "value": 80,
+                        "color": "red"
+                      }
+                    ]
+                  }
                 },
                 "overrides": []
               }
-            }
+            },
+            "version": "13.2.1"
           }
         }
       },
@@ -649,7 +711,8 @@
                 "defaults": {},
                 "overrides": []
               }
-            }
+            },
+            "version": "2.2.0"
           }
         }
       },
@@ -675,13 +738,15 @@
               "options": {
                 "spec": "params:\n  tbrush: { select: crossfilter }\n\nplot:\n  - mark: raster\n    data: { from: rides, filterBy: $tbrush }\n    x: dx\n    y: dy\n    bandwidth: 0\n    pixelSize: 1\n  - select: intervalXY\n    as: $tbrush\n  - mark: text\n    data: [{ label: Dropoffs }]\n    dx: 8\n    dy: 8\n    text: label\n    fill: currentColor\n    fontSize: 1.1em\n    frameAnchor: top-left\ncolorScheme: viridis\nxDomain: [-74.05, -73.75]\nyDomain: [40.6, 40.9]\nmargin: 0\nxAxis: null\nyAxis: null\ncolorScale: symlog\n",
                 "variables": "- param: tbrush\n  column: [dx, dy]\n  variable: dropoff_area\n",
-                "preaggregate": true
+                "preaggregate": true,
+                "reads": ""
               },
               "fieldConfig": {
                 "defaults": {},
                 "overrides": []
               }
-            }
+            },
+            "version": "2.2.0"
           }
         }
       },
@@ -707,13 +772,15 @@
               "options": {
                 "spec": "params:\n  tbrush: { select: crossfilter }\n\nplot:\n  - mark: rectY\n    data: { from: rides, filterBy: $tbrush }\n    x: { bin: hour }\n    y: { count: }\n    fill: \"#5794F2\"\n    inset: 0.5\n  - select: intervalX\n    as: $tbrush\nxDomain: [0, 24]\nyTickFormat: '~s'\nxLabel: null\nyLabel: null\n",
                 "variables": "- param: tbrush\n  column: hour\n  from: t_hour_lo\n  to: t_hour_hi\n",
-                "preaggregate": true
+                "preaggregate": true,
+                "reads": ""
               },
               "fieldConfig": {
                 "defaults": {},
                 "overrides": []
               }
-            }
+            },
+            "version": "2.2.0"
           }
         }
       },
@@ -739,13 +806,15 @@
               "options": {
                 "spec": "params:\n  tbrush: { select: crossfilter }\n\nplot:\n  - mark: rectY\n    data: { from: rides, filterBy: $tbrush }\n    x: { bin: fare }\n    y: { count: }\n    fill: \"#FF9830\"\n    inset: 0.5\n  - select: intervalX\n    as: $tbrush\nxDomain: [0, 60]\nyTickFormat: '~s'\nxLabel: null\nyLabel: null\n",
                 "variables": "- param: tbrush\n  column: fare\n  from: t_fare_lo\n  to: t_fare_hi\n",
-                "preaggregate": true
+                "preaggregate": true,
+                "reads": ""
               },
               "fieldConfig": {
                 "defaults": {},
                 "overrides": []
               }
-            }
+            },
+            "version": "2.2.0"
           }
         }
       },
@@ -771,13 +840,15 @@
               "options": {
                 "spec": "params:\n  tbrush: { select: crossfilter }\n\nplot:\n  - mark: barX\n    data: { from: rides, filterBy: $tbrush }\n    x: { count: }\n    y: paid\n    fill: paid\n  - select: toggleY\n    as: $tbrush\nyDomain: [Card, Cash, Other]\ncolorDomain: [Card, Cash, Other]\ncolorRange: ['#5794F2', '#73BF69', '#8E8E8E']\nxTickFormat: '~s'\nxLabel: null\nyLabel: null\nmarginLeft: 45\n",
                 "variables": "- param: tbrush\n  column: paid\n  variable: t_paid\n",
-                "preaggregate": true
+                "preaggregate": true,
+                "reads": ""
               },
               "fieldConfig": {
                 "defaults": {},
                 "overrides": []
               }
-            }
+            },
+            "version": "2.2.0"
           }
         }
       },
@@ -821,20 +892,38 @@
             "spec": {
               "options": {
                 "showHeader": true,
-                "cellHeight": "sm",
-                "footer": {
-                  "show": false
-                }
+                "cellHeight": "sm"
               },
               "fieldConfig": {
                 "defaults": {
                   "custom": {
-                    "align": "auto"
+                    "align": "auto",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
+                    "footer": {
+                      "reducers": []
+                    },
+                    "inspect": false
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": 0,
+                        "color": "green"
+                      },
+                      {
+                        "value": 80,
+                        "color": "red"
+                      }
+                    ]
                   }
                 },
                 "overrides": []
               }
-            }
+            },
+            "version": "13.2.1"
           }
         }
       },
@@ -893,13 +982,58 @@
                     "mapState": {
                       "bearing": 0,
                       "dragRotate": false,
-                      "latitude": 40.745,
-                      "longitude": -73.955,
+                      "latitude": 40.79311819371623,
+                      "longitude": -73.95097193525123,
                       "pitch": 0,
-                      "zoom": 11.4
+                      "zoom": 10.940750413386157,
+                      "globe": {
+                        "config": {
+                          "adminLines": true,
+                          "adminLinesColor": [40, 63, 93],
+                          "atmosphere": true,
+                          "azimuth": false,
+                          "azimuthAngle": 45,
+                          "backgroundColor": [4, 9, 17],
+                          "basemap": true,
+                          "hugeHalo": true,
+                          "hugeHaloOpacity": 0.2,
+                          "hugeHaloRadius": 3.5,
+                          "labels": false,
+                          "labelsColor": [114.75, 114.75, 114.75],
+                          "stars": true,
+                          "surface": true,
+                          "surfaceColor": [9, 16, 29],
+                          "terminator": true,
+                          "terminatorOpacity": 0.35,
+                          "water": true,
+                          "waterColor": [17, 35, 48]
+                        },
+                        "enabled": false
+                      },
+                      "isSplit": false,
+                      "isViewportSynced": true,
+                      "isZoomLocked": false,
+                      "mapSplitMode": "SINGLE_MAP",
+                      "mapViewMode": "MODE_2D",
+                      "maxPitch": 85,
+                      "splitMapViewports": [],
+                      "swipeComparePercentage": 50
                     },
                     "mapStyle": {
-                      "styleType": "dark-matter"
+                      "styleType": "openfreemap-fiord",
+                      "backgroundColor": [0, 0, 0],
+                      "mapStyles": {},
+                      "threeDBuildingColor": [15.035172933000911, 15.035172933000911, 15.035172933000911],
+                      "topLayerGroups": {},
+                      "visibleLayerGroups": {
+                        "border": false,
+                        "building": true,
+                        "label": true,
+                        "land": true,
+                        "poi": true,
+                        "road": true,
+                        "water": true
+                      }
                     },
                     "visState": {
                       "filters": [],
@@ -926,17 +1060,61 @@
                                 }
                               ]
                             }
+                          },
+                          "compareMode": false,
+                          "compareType": "absolute",
+                          "fieldsToShow": {
+                            "grafana-A": [
+                              {
+                                "name": "lng0"
+                              },
+                              {
+                                "name": "lat0"
+                              },
+                              {
+                                "name": "lng1"
+                              },
+                              {
+                                "name": "lat1"
+                              },
+                              {
+                                "name": "fare"
+                              }
+                            ]
                           }
+                        },
+                        "annotation": {
+                          "enabled": false
+                        },
+                        "brush": {
+                          "enabled": false,
+                          "size": 2.5
+                        },
+                        "coordinate": {
+                          "enabled": false
+                        },
+                        "geocoder": {
+                          "color": [255, 0, 0],
+                          "enabled": false,
+                          "limitSearch": false
+                        },
+                        "legend": {
+                          "enabled": false,
+                          "hideInvisibleLayers": false
+                        },
+                        "zoomOpacity": {
+                          "controllers": [],
+                          "enabled": false
                         }
                       },
                       "layers": [
                         {
-                          "id": "trips",
-                          "type": "arc",
+                          "id": "glkh4cm",
+                          "type": "flow",
                           "config": {
                             "dataId": "grafana-A",
                             "label": "Trips",
-                            "columnMode": "points",
+                            "columnMode": "LAT_LNG",
                             "isVisible": true,
                             "columns": {
                               "lat0": "lat0",
@@ -948,26 +1126,105 @@
                             "highlightColor": [252, 242, 26, 255],
                             "visConfig": {
                               "opacity": 0.25,
-                              "thickness": 1,
-                              "targetColor": [63, 182, 178],
-                              "sizeRange": [0, 4]
-                            }
+                              "colorRange": {
+                                "category": "D3",
+                                "colors": ["#6E40AA", "#4C6EDB", "#23ABD8", "#1DDFA3", "#52F667", "#AFF05B"],
+                                "name": "Cool",
+                                "type": "sequential"
+                              },
+                              "darkBaseMapEnabled": true,
+                              "flowAdaptiveScalesEnabled": true,
+                              "flowClusteringEnabled": true,
+                              "flowFadeAmount": 50,
+                              "flowFadeEnabled": false,
+                              "flowLineCurviness": 1,
+                              "flowLineThicknessScale": 2.1,
+                              "flowLinesRenderingMode": "straight",
+                              "flowLocationTotalsEnabled": true,
+                              "maxTopFlowsDisplayNum": 5068
+                            },
+                            "hidden": false,
+                            "textLabel": [
+                              {
+                                "alignment": "center",
+                                "anchor": "start",
+                                "background": false,
+                                "backgroundColor": [0, 0, 200, 255],
+                                "collisionEnabled": false,
+                                "color": [255, 255, 255],
+                                "offset": [0, 0],
+                                "outlineColor": [255, 0, 0, 255],
+                                "outlineWidth": 0,
+                                "size": 18,
+                                "weight": 400
+                              }
+                            ]
                           },
                           "visualChannels": {
                             "colorScale": "quantile",
                             "sizeScale": "linear"
                           }
                         }
-                      ]
+                      ],
+                      "animationConfig": {
+                        "speed": 1
+                      },
+                      "annotations": [],
+                      "editor": {
+                        "features": [],
+                        "visible": true
+                      },
+                      "effects": [],
+                      "groupBys": [],
+                      "joins": [],
+                      "layerOrder": ["glkh4cm"],
+                      "overlayBlending": "normal",
+                      "splitMaps": []
+                    },
+                    "uiState": {
+                      "locale": "en",
+                      "mapControls": {
+                        "chart": {
+                          "active": false
+                        },
+                        "mapInfo": {
+                          "active": true,
+                          "show": true
+                        },
+                        "mapLegend": {
+                          "active": false
+                        }
+                      },
+                      "theme": "dark"
                     }
                   }
-                }
+                },
+                "clickArea": false,
+                "clickAreaSizeMetres": 6000,
+                "clickConfirm": false,
+                "dimUnselected": false,
+                "flowRenderMode": "straight",
+                "haloStyle": "auto",
+                "hoverMaxAgeSeconds": 60,
+                "hoverPublishSpike": false,
+                "hoverSync": false,
+                "mosaicArea": true,
+                "mosaicViewport": false,
+                "peerTimeSync": false,
+                "publishIntervalMs": 1500,
+                "publishWhilePlaying": false,
+                "rasterBands": "",
+                "rasterColormap": "",
+                "rasterPainted": false,
+                "timeSync": "toMap",
+                "tripLayerMode": "table"
               },
               "fieldConfig": {
                 "defaults": {},
                 "overrides": []
               }
-            }
+            },
+            "version": "1.5.0"
           }
         }
       }
