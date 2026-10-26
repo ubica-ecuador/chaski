@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { GrafanaTheme2, PanelProps } from '@grafana/data';
 import { getAppEvents, getTemplateSrv, locationService } from '@grafana/runtime';
-import { IconButton, Toggletip, useStyles2, useTheme2 } from '@grafana/ui';
+import { IconButton, Spinner, Toggletip, useStyles2, useTheme2 } from '@grafana/ui';
 import type { Logger } from '@uwdata/mosaic-core';
 import { tableFromIPC } from 'apache-arrow';
 
@@ -693,7 +693,11 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
   ]);
 
   if (build.kind === 'starting') {
-    return <div className={styles.message}>Waiting for Chaski…</div>;
+    return (
+      <div className={styles.loading} role="status" aria-label="Waiting for Chaski" title="Waiting for Chaski…">
+        <Spinner size="xl" />
+      </div>
+    );
   }
   if (build.kind === 'message') {
     return <div className={styles.message}>{build.text}</div>;
