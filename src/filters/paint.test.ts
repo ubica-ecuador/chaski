@@ -28,24 +28,29 @@ const coloured = (element: HTMLElement) => element.querySelector('g[pointer-even
 const nextTick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 function brushed(value?: number[]) {
-  const listeners = new Map<string, ((event: { selection: [number, number] | null }) => void) | null>();
   const interactor = {
     value,
     scale: { apply: (v: unknown) => Number(v) * 10 },
-    brush: {
-      moveSilent: undefined,
-      on: (type: string, listener: ((event: { selection: [number, number] | null }) => void) | null) =>
-        type.split(' ').forEach((t) => listeners.set(t, listener)),
-    },
+    brush: { moveSilent: undefined },
   } as unknown as IntervalInteractor;
-  const move = (selection: [number, number] | null) => {
-    for (const [type, listener] of listeners) {
-      if (type.startsWith('brush.')) {
-        listener?.({ selection });
-      }
+  return { interactor };
+}
+
+/** A brush's selection rect, where d3 draws it: a drag and a silent move alike set its attributes. */
+function selectionRect(svg: Element) {
+  const rect = document.createElementNS(SVG_NS, 'rect');
+  rect.setAttribute('class', 'selection');
+  rect.setAttribute('display', 'none');
+  svg.appendChild(rect);
+  return (selection: [number, number] | null) => {
+    if (selection) {
+      rect.removeAttribute('display');
+      rect.setAttribute('x', String(selection[0]));
+      rect.setAttribute('width', String(selection[1] - selection[0]));
+    } else {
+      rect.setAttribute('display', 'none');
     }
   };
-  return { interactor, listeners, move };
 }
 
 describe('paintRange', () => {
@@ -64,19 +69,25 @@ describe('paintRange', () => {
     painter.stop();
   });
 
-  it('follows the brush as it moves, from the pixels it reports, and stops listening when stopped', () => {
+  it('follows the brush as it is drawn, played as well as dragged, and stops when stopped', async () => {
     const element = document.createElement('div');
-    element.appendChild(plot([{ x: 0 }]));
-    const { interactor, listeners, move } = brushed();
+    const svg = plot([{ x: 0 }]);
+    element.appendChild(svg);
+    const move = selectionRect(svg);
+    const { interactor } = brushed();
     const painter = paintRange(element, interactor);
-    move([70, 40]);
+    move([40, 70]);
+    await nextTick();
     const id = coloured(element).getAttribute('clip-path')!.slice(5, -1);
     const rect = element.querySelector(`#${id} rect`)!;
     expect([rect.getAttribute('x'), rect.getAttribute('width')]).toEqual(['40', '30']);
     move(null);
+    await nextTick();
     expect(coloured(element).hasAttribute('clip-path')).toBe(false);
     painter.stop();
-    expect([...listeners.values()].every((l) => l === null)).toBe(true);
+    move([10, 20]);
+    await nextTick();
+    expect(coloured(element).hasAttribute('clip-path')).toBe(false);
   });
 
   it('paints again when Mosaic draws the plot again', async () => {

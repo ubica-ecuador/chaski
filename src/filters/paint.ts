@@ -52,7 +52,12 @@ function heldPixels(interactor: IntervalInteractor): [number, number] | undefine
 /** A range control: its coloured bars clipped to the range its brush holds, or whole when it holds none. */
 export function paintRange(element: HTMLElement, interactor: IntervalInteractor): Painter {
   const id = `chaski-paint-${++clips}`;
-  const paint = (pixels = heldPixels(interactor)) => {
+  // Where the brush is drawn, when it is; its value before d3 has drawn it.
+  const held = () => {
+    const rect = plotOf(element)?.querySelector('.selection');
+    return rect ? selectionPixels(rect) : heldPixels(interactor);
+  };
+  const paint = (pixels = held()) => {
     const svg = plotOf(element);
     const layer = svg?.querySelector(COLOURED);
     if (!svg || !layer) {
@@ -76,21 +81,36 @@ export function paintRange(element: HTMLElement, interactor: IntervalInteractor)
     rect.setAttribute('width', String(Math.max(0, pixels[1] - pixels[0])));
     layer.setAttribute('clip-path', `url(#${id})`);
   };
-  // As the brush moves, from the pixels it reports: after Mosaic's own listener, which keeps its value.
-  const brush = interactor.brush as unknown as {
-    on(type: string, listener: ((event: { selection: [number, number] | null }) => void) | null): unknown;
-  };
-  brush.on(`brush.${id} end.${id}`, ({ selection }) =>
-    paint(selection ? [Math.min(...selection), Math.max(...selection)] : undefined)
-  );
-  const stopRedraw = onRedraw(element, () => paint());
-  return {
-    paint: () => paint(),
-    stop: () => {
-      brush.on(`brush.${id} end.${id}`, null);
-      stopRedraw();
-    },
-  };
+  // As the brush is drawn, from its selection rect: a drag, play (which moves the brush silently, with no brush
+  // event) and a linked brush showing another's range all move it, and the clip follows in the same frame. Painted
+  // on the Selection's value instead, play's colour fell behind the brush: Mosaic emits a value once the queries of
+  // the one before are done. A new drawing of the plot, or the clip's own, is painted from the rect as it is.
+  const observer = new MutationObserver((records) => {
+    const moved = [...records]
+      .reverse()
+      .find((r) => r.type === 'attributes' && (r.target as Element).classList?.contains('selection'));
+    if (moved) {
+      paint(selectionPixels(moved.target as Element));
+    } else if (records.some((r) => r.type === 'childList')) {
+      paint();
+    }
+  });
+  observer.observe(element, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['x', 'width', 'display'],
+  });
+  return { paint: () => paint(), stop: () => observer.disconnect() };
+}
+
+/** The pixels a brush's selection rect covers: undefined when it is hidden, as d3 hides a cleared brush. */
+function selectionPixels(rect: Element): [number, number] | undefined {
+  const x = Number(rect.getAttribute('x'));
+  const width = Number(rect.getAttribute('width'));
+  return rect.getAttribute('display') === 'none' || !Number.isFinite(x) || !Number.isFinite(width)
+    ? undefined
+    : [x, x + width];
 }
 
 /** A list of values: the coloured bars of the values picked, or all of them when none is. */
