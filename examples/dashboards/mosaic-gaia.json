@@ -350,56 +350,22 @@
           "data": {
             "kind": "QueryGroup",
             "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "hidden": false,
-                    "refId": "A",
-                    "query": {
-                      "datasource": {
-                        "name": "duckdbwasm"
-                      },
-                      "group": "ubica-chaski-datasource",
-                      "kind": "DataQuery",
-                      "version": "v0",
-                      "spec": {
-                        "rawSql": "SELECT count(*)::DOUBLE AS n FROM $gaia WHERE $__crossfilter($gaiaFilters)"
-                      }
-                    }
-                  }
-                }
-              ],
+              "queries": [],
               "queryOptions": {},
               "transformations": []
             }
           },
           "vizConfig": {
             "kind": "VizConfig",
-            "group": "stat",
+            "group": "ubica-chaski-mosaic-panel",
             "spec": {
               "options": {
-                "reduceOptions": {
-                  "calcs": ["lastNotNull"],
-                  "fields": "",
-                  "values": false
-                },
-                "colorMode": "value",
-                "graphMode": "none",
-                "justifyMode": "center",
-                "textMode": "value",
-                "orientation": "auto",
-                "wideLayout": true,
-                "showPercentChange": false
+                "spec": "params:\n  gbrush: { select: crossfilter }\n  gbandwidth: 0\n  gpixel: 2\n  gscale: sqrt\n\nplot:\n  - mark: text\n    data: { from: gaia, filterBy: $gbrush }\n    text: { count: }\n    frameAnchor: middle\n    fill: \"#5794F2\"\n    fontSize: 40\n    fontWeight: 500\nxAxis: null\nyAxis: null\nmargin: 0\n",
+                "variables": "",
+                "preaggregate": true
               },
               "fieldConfig": {
-                "defaults": {
-                  "unit": "short",
-                  "color": {
-                    "mode": "fixed",
-                    "fixedColor": "#5794F2"
-                  }
-                },
+                "defaults": {},
                 "overrides": []
               }
             }
@@ -416,56 +382,22 @@
           "data": {
             "kind": "QueryGroup",
             "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "hidden": false,
-                    "refId": "A",
-                    "query": {
-                      "datasource": {
-                        "name": "duckdbwasm"
-                      },
-                      "group": "ubica-chaski-datasource",
-                      "kind": "DataQuery",
-                      "version": "v0",
-                      "spec": {
-                        "rawSql": "SELECT count(*) FILTER (WHERE parallax >= 10)::DOUBLE AS n FROM $gaia WHERE $__crossfilter($gaiaFilters)"
-                      }
-                    }
-                  }
-                }
-              ],
+              "queries": [],
               "queryOptions": {},
               "transformations": []
             }
           },
           "vizConfig": {
             "kind": "VizConfig",
-            "group": "stat",
+            "group": "ubica-chaski-mosaic-panel",
             "spec": {
               "options": {
-                "reduceOptions": {
-                  "calcs": ["lastNotNull"],
-                  "fields": "",
-                  "values": false
-                },
-                "colorMode": "value",
-                "graphMode": "none",
-                "justifyMode": "center",
-                "textMode": "value",
-                "orientation": "auto",
-                "wideLayout": true,
-                "showPercentChange": false
+                "spec": "params:\n  gbrush: { select: crossfilter }\n  gbandwidth: 0\n  gpixel: 2\n  gscale: sqrt\n\nplot:\n  - mark: text\n    data: { from: gaia, filterBy: $gbrush }\n    text: { sum: { sql: \"(parallax >= 10)::INTEGER\" } }\n    frameAnchor: middle\n    fill: \"#FADE2A\"\n    fontSize: 40\n    fontWeight: 500\nxAxis: null\nyAxis: null\nmargin: 0\n",
+                "variables": "",
+                "preaggregate": true
               },
               "fieldConfig": {
-                "defaults": {
-                  "unit": "short",
-                  "color": {
-                    "mode": "fixed",
-                    "fixedColor": "#FADE2A"
-                  }
-                },
+                "defaults": {},
                 "overrides": []
               }
             }
@@ -755,7 +687,7 @@
             "spec": {
               "options": {
                 "mode": "markdown",
-                "content": "**5 million stars**, a sample of the 1.8 billion in ESA's Gaia catalogue, loaded into DuckDB in your browser.\n\n- The **sky map** projects galactic longitude and latitude, so the Milky Way's disc runs across the middle with its centre in the middle; the two bright patches below it are the Large and Small Magellanic Clouds, galaxies of their own. Dark lanes are dust.\n- **Try this:** in *Parallax*, select from about 5 mas up. Only nearby stars remain, and the **HR diagram** sharpens into the main sequence, the red giants above it and the white dwarfs below.\n- The cards above are Grafana panels on Chaski SQL; they follow every brush through the dashboard's variables.\n\nData: [ESA Gaia](https://www.cosmos.esa.int/gaia) DR2 sample from [Mosaic's examples](https://idl.uw.edu/mosaic/examples/gaia.html), CC BY-SA 3.0 IGO. About 100 MB: it takes a moment to load.\n"
+                "content": "**5 million stars**, a sample of the 1.8 billion in ESA's Gaia catalogue, loaded into DuckDB in your browser.\n\n- The **sky map** projects galactic longitude and latitude, so the Milky Way's disc runs across the middle with its centre in the middle; the two bright patches below it are the Large and Small Magellanic Clouds, galaxies of their own. Dark lanes are dust.\n- **Try this:** in *Parallax*, select from about 5 mas up. Only nearby stars remain, and the **HR diagram** sharpens into the main sequence, the red giants above it and the white dwarfs below.\n- **Stars** and **Within 100 parsecs** are Mosaic panels and follow a brush as it moves; the medians, which Mosaic cannot pre-aggregate, are Grafana panels that update when it stops.\n\nData: [ESA Gaia](https://www.cosmos.esa.int/gaia) DR2 sample from [Mosaic's examples](https://idl.uw.edu/mosaic/examples/gaia.html), CC BY-SA 3.0 IGO. About 100 MB: it takes a moment to load.\n"
               },
               "fieldConfig": {
                 "defaults": {},
@@ -941,7 +873,7 @@
               "x": 0,
               "y": 26,
               "width": 16,
-              "height": 7
+              "height": 9
             }
           },
           {
@@ -954,7 +886,7 @@
               "x": 16,
               "y": 26,
               "width": 8,
-              "height": 7
+              "height": 9
             }
           }
         ]
