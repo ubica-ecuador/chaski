@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { PanelProps } from '@grafana/data';
-import { useStyles2 } from '@grafana/ui';
+import { Spinner, useStyles2 } from '@grafana/ui';
 import { Coordinator, isSelection, type Logger } from '@uwdata/mosaic-core';
 import { astToDOM, parseSpec } from '@uwdata/mosaic-spec';
 import { createAPIContext } from '@uwdata/vgplot';
@@ -212,7 +212,7 @@ export function MosaicPanel({ options, width, height }: PanelProps<MosaicOptions
 
   return (
     <div className={styles.root} data-testid="mosaic-panel">
-      {status.kind !== 'ready' && <Message status={status} className={styles.message} errorClass={styles.error} />}
+      {status.kind !== 'ready' && <Message status={status} className={styles.message} errorClass={styles.error} loadingClass={styles.loading} />}
       {status.kind === 'ready' && problem && (
         <div className={styles.problem} data-testid="mosaic-error">
           {problem}
@@ -230,13 +230,28 @@ const isInteractorClause = (clause: { source?: unknown; meta?: unknown }) =>
   clause.source !== null &&
   'selection' in clause.source;
 
-function Message({ status, className, errorClass }: { status: Status; className: string; errorClass: string }) {
+function Message({
+  status,
+  className,
+  errorClass,
+  loadingClass,
+}: {
+  status: Status;
+  className: string;
+  errorClass: string;
+  loadingClass: string;
+}) {
   const list = (names: string[]) => (names.length > 0 ? names.map((n) => `\`${n}\``).join(', ') : 'none yet');
   switch (status.kind) {
     case 'starting':
       return (
-        <div className={className}>
-          Waiting for Chaski. A Chaski dataset on this dashboard starts its engine; this panel reads from it.
+        <div
+          className={loadingClass}
+          role="status"
+          aria-label="Waiting for Chaski"
+          title="Waiting for Chaski. A Chaski dataset on this dashboard starts its engine; this panel reads from it."
+        >
+          <Spinner size="xl" />
         </div>
       );
     case 'empty':

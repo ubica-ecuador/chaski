@@ -230,6 +230,13 @@ export const getStyles = (theme: GrafanaTheme2) => ({
     borderColor: theme.colors.primary.border,
   }),
   popover: css({ width: 300, maxHeight: 420, overflow: 'auto', ...mosaicRules(theme) }),
+  loading: css({
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: '100%',
+    color: theme.colors.text.secondary,
+  }),
   message: css({ color: theme.colors.text.secondary, padding: theme.spacing(1) }),
   error: css({ color: theme.colors.error.text, padding: theme.spacing(1), whiteSpace: 'pre-wrap' }),
 });

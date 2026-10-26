@@ -70,6 +70,13 @@ export const getStyles = (theme: GrafanaTheme2) => ({
     },
     'tbody tr:hover': { background: theme.colors.action.hover },
   }),
+  loading: css({
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: '100%',
+    color: theme.colors.text.secondary,
+  }),
   message: css({
     display: 'flex',
     flexDirection: 'column',
