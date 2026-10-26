@@ -91,11 +91,22 @@ export function clauseColumns(clause: SelectionClause): string[] {
   return clause.fields.map((field) => collectColumns(field)[0]?.column ?? String(field));
 }
 
+/**
+ * A Selection's clauses as they are now. `clauses` is the value Mosaic last emitted, and an emit waits for the
+ * queries the one before set off: on a busy page it lags a moving brush, and a write read from it put the
+ * brush back where it was a moment before, once its echo came back through the URL.
+ */
+export function clausesNow(selection: Selection): SelectionClause[] & { active?: SelectionClause } {
+  return (selection as unknown as { _resolved?: SelectionClause[] })._resolved ?? selection.clauses;
+}
+
 function pickClause(selection: Selection, column: VariableLink['column']): SelectionClause | undefined {
+  const now = clausesNow(selection);
   // A clause read from a variable (inbound.ts) is that variable's, not this panel's to write back.
-  const clauses = selection.clauses.filter((c) => (c.meta as { type?: string } | undefined)?.type !== 'variable');
+  const clauses = now.filter((c) => (c.meta as { type?: string } | undefined)?.type !== 'variable');
   if (column === undefined) {
-    return selection.active && clauses.includes(selection.active) ? selection.active : clauses[clauses.length - 1];
+    const active = now.active ?? selection.active;
+    return active && clauses.includes(active) ? active : clauses[clauses.length - 1];
   }
   const wanted = Array.isArray(column) ? column : [column];
   return clauses.find((clause) => {
@@ -181,6 +192,39 @@ export function writesFor(
 /** How long a brush rests before its variables are written; each write runs every panel that reads them. */
 export const PUBLISH_DELAY_MS = 300;
 
+/** How long a write is known as this page's own when it comes back through the URL. */
+export const ECHO_MS = 15_000;
+
+/**
+ * What the panels of this page wrote lately, and when. Kept for the page, not per panel: a brush is linked to
+ * the brushes on its column in the other filters and Mosaic panels, and one of those, reading the URL, took
+ * another panel's write coming back late for a value set elsewhere, moved its brush there, and the link
+ * pulled the brush being dragged back with it. The panels of a page follow each other through the Selection;
+ * the URL brings them only what comes from elsewhere.
+ */
+let recentWrites: Array<{ at: number; writes: Writes }> = [];
+
+/** Whether variables hold what a panel of this page wrote lately: its write coming back, not a new value. */
+export function echoesThisPage(values: Record<string, string | string[]>): boolean {
+  const at = Date.now();
+  recentWrites = recentWrites.filter((r) => at - r.at < ECHO_MS);
+  const names = Object.keys(values);
+  return (
+    names.length > 0 &&
+    recentWrites.some((r) => names.every((name) => name in r.writes && sameValue(r.writes[name], values[name])))
+  );
+}
+
+/**
+ * Stops a {@link linkVariables}; `write` writes what waits now, for a play that never lets the brush rest;
+ * `echoes` is {@link echoesThisPage}.
+ */
+export interface Unlink {
+  (flush?: boolean): void;
+  write(): void;
+  echoes(values: Record<string, string | string[]>): boolean;
+}
+
 const sameValue = (a: string | string[] | undefined, b: string | string[]) =>
   JSON.stringify(a ?? '') === JSON.stringify(b);
 
@@ -192,16 +236,19 @@ const sameValue = (a: string | string[] | undefined, b: string | string[]) =>
  * The returned function stops it. With `flush`, a write still waiting goes out
  * first: a panel rebuilt on the same dashboard has just cleared its brushes,
  * and the variables must say so. Without it the write is dropped, as when the
- * dashboard is left: the URL is already another dashboard's.
+ * dashboard is left: the URL is already another dashboard's. Its `write`
+ * writes a change still waiting without waiting for the rest, and nothing once
+ * stopped.
  */
 export function linkVariables(
   links: VariableLink[],
   params: Map<string, Param<unknown> | Selection>,
   owns?: (clause: SelectionClause) => boolean
-): (flush?: boolean) => void {
+): Unlink {
   if (links.length === 0) {
-    return () => {};
+    return Object.assign(() => {}, { write: () => {}, echoes: echoesThisPage });
   }
+  let stopped = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let last = writesFor(links, params, owns);
   const publish = () => {
@@ -215,6 +262,9 @@ export function linkVariables(
     }
     last = next;
     if (Object.keys(changed).length > 0) {
+      // A brush that rests twice in one drag writes twice, and both come back.
+      const at = Date.now();
+      recentWrites = [...recentWrites.filter((r) => at - r.at < ECHO_MS), { at, writes: next }];
       locationService.partial(changed, true);
     }
   };
@@ -226,7 +276,8 @@ export function linkVariables(
     links.map((link) => params.get(link.param)).filter((p): p is Param<unknown> => p !== undefined)
   );
   watched.forEach((param) => param.addEventListener('value', schedule));
-  return (flush = false) => {
+  const stop = (flush = false) => {
+    stopped = true;
     watched.forEach((param) => param.removeEventListener('value', schedule));
     if (timer !== undefined) {
       clearTimeout(timer);
@@ -235,4 +286,11 @@ export function linkVariables(
       }
     }
   };
+  const write = () => {
+    if (!stopped && timer !== undefined) {
+      clearTimeout(timer);
+      publish();
+    }
+  };
+  return Object.assign(stop, { write, echoes: echoesThisPage });
 }

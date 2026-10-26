@@ -204,7 +204,8 @@ export function MosaicPanel({ options, width, height }: PanelProps<MosaicOptions
     });
     return () => {
       abort.abort();
-      cleanups.forEach((cleanup) => cleanup());
+      // Last set up, first undone: the listeners go before the clauses are released, which writes variables.
+      [...cleanups].reverse().forEach((cleanup) => cleanup());
       // The next build starts clean; this one's error went with it.
       setProblem(undefined);
     };

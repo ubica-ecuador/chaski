@@ -1,6 +1,7 @@
-import { isSelection, type MosaicClient, type Param, type Selection } from '@uwdata/mosaic-core';
+import { isSelection, type MosaicClient, type Param, type Selection, type SelectionClause } from '@uwdata/mosaic-core';
 
 import type { ChaskiEngineApi, DatasetInfo } from '../grafana/publicApi';
+import { clauseColumns } from './bridge';
 
 /*
  * What the Mosaic panels of one dashboard share. Each panel has its own
@@ -58,6 +59,48 @@ class PageState implements Page {
   }
 }
 
+/**
+ * Clause sources of panels of other plugins (a kepler map, a Kepler Plus Time
+ * Brush), which build their clauses through the runtime's builders. Their
+ * values are times, places and picks, not the bins of data that reloaded, so
+ * a reload keeps them: resetting them made a Time Brush open its window to the
+ * whole range and write it, losing the reader's window on every refresh.
+ */
+const outside = new WeakSet<object>();
+
+/** Notes a clause source as another plugin's (see `outside`). */
+export function markOutside(source: unknown): void {
+  if (typeof source === 'object' && source !== null) {
+    outside.add(source);
+  }
+}
+
+/**
+ * Sources of the clauses that hold a range through a reload in place of a brush drawn over the old data, until
+ * the panels built again show it (filters/sync.ts `reannounce`) and the next brush on its column replaces it.
+ */
+const holders = new WeakSet<object>();
+
+/** Whether a clause source holds a range through a reload (see `holders`). */
+export function isHolder(source: unknown): boolean {
+  return typeof source === 'object' && source !== null && holders.has(source);
+}
+
+/** A copy of an interval clause with a value, held by no panel; undefined for any other clause. */
+function holdRange(clause: SelectionClause): SelectionClause | undefined {
+  if ((clause.meta as { type?: string } | undefined)?.type !== 'interval' || clause.value == null) {
+    return undefined;
+  }
+  const source = { reset() {} };
+  holders.add(source);
+  return { ...clause, source, clients: new Set() } as SelectionClause;
+}
+
+/** The clauses a reload clears: those of this app's own panels, whose brushes were drawn over the old data. */
+export function staleClauses(selection: Selection): Selection['clauses'] {
+  return selection.clauses.filter((clause) => !outside.has(clause.source as object));
+}
+
 let current: PageState | undefined;
 let engineWatched: ChaskiEngineApi | undefined;
 let reloadTimer: ReturnType<typeof setTimeout> | undefined;
@@ -92,6 +135,9 @@ export function pageFor(key: string, engine: ChaskiEngineApi): Page {
  * Only a new version of a dataset some panel read counts. Chaski also reports
  * a dataset when its view first points at the version just loaded, often after
  * the panels have read it: that one changes nothing.
+ *
+ * The clauses of other plugins' panels stay (`outside`): the panels built
+ * again apply them as they apply a clause landing from elsewhere.
  */
 function watch(engine: ChaskiEngineApi) {
   if (engineWatched === engine) {
@@ -113,8 +159,25 @@ function watch(engine: ChaskiEngineApi) {
     reloadTimer = setTimeout(async () => {
       await dropPreaggregates(engine);
       for (const param of page.params.values()) {
-        if (isSelection(param)) {
-          param.reset();
+        if (!isSelection(param)) {
+          continue;
+        }
+        const stale = staleClauses(param);
+        // A range a brush held stays, held by no panel, before its brush's clause goes: the Selection never
+        // goes without it. Taken out, a Time Brush linked to its column opened its window to the whole range
+        // and wrote it, and the panels built again read that from the URL. Not on a column another plugin's
+        // clause holds (a Time Brush moved during the reload): that one is the newer.
+        const kept = new Set(
+          param.clauses.filter((clause) => !stale.includes(clause)).flatMap((clause) => clauseColumns(clause))
+        );
+        for (const clause of stale) {
+          const held = clauseColumns(clause).some((name) => kept.has(name)) ? undefined : holdRange(clause);
+          if (held) {
+            param.update(held);
+          }
+        }
+        if (stale.length > 0) {
+          param.reset(stale);
         }
       }
       page.bump();
@@ -131,6 +194,12 @@ function dropPreaggregates(engine: ChaskiEngineApi): Promise<void> {
 /**
  * Takes out of every shared selection the clauses a panel's clients made, as
  * the panel goes away: nothing would be left on screen to clear them with.
+ *
+ * Another plugin's clause stays (`outside`: a Time Brush's window), and so
+ * does a range held through a reload (`holders`), even when the panel's
+ * linked brushes widened them to their marks (filters/sync.ts `linkBrush`):
+ * they only forget those clients. Taken out, they made a Time Brush open its
+ * window each time a filters panel built itself again.
  */
 export function releaseClauses(page: Page, clients: Iterable<MosaicClient>) {
   const mine = new Set<unknown>(clients);
@@ -138,11 +207,19 @@ export function releaseClauses(page: Page, clients: Iterable<MosaicClient>) {
     if (!isSelection(param)) {
       continue;
     }
+    const stays = (clause: SelectionClause) => outside.has(clause.source as object) || isHolder(clause.source);
     const owned = param.clauses.filter(
-      (clause) => mine.has(clause.source) || [...(clause.clients ?? [])].some((client) => mine.has(client))
+      (clause) =>
+        !stays(clause) && (mine.has(clause.source) || [...(clause.clients ?? [])].some((client) => mine.has(client)))
     );
     if (owned.length > 0) {
       param.reset(owned);
+    }
+    for (const clause of param.clauses) {
+      const widened = clause.clients ? [...clause.clients] : [];
+      if (stays(clause) && widened.some((client) => mine.has(client))) {
+        clause.clients = new Set(widened.filter((client) => !mine.has(client)));
+      }
     }
   }
 }

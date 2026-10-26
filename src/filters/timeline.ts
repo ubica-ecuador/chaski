@@ -3,15 +3,20 @@ import { type ControlLook, rangeSpec } from './specs';
 
 /*
  * The timeline: one range filter over times drawn the width of the panel, with
- * a play button that moves its brush a bin at a time. Each step is a brush
- * like one drawn by hand: the other controls and any Mosaic panel on the
- * Selection follow it live, and its variables are written once it rests, so a
- * map reading them as its time window follows too. Play waits for the panels
- * the write set off before it steps again.
+ * a play button that moves its brush along. Each move is a brush like one
+ * drawn by hand: the other controls and any Mosaic panel on the Selection
+ * follow it live, and its variables are written too, so a map reading them as
+ * its time window follows. A smooth play glides, a little each frame, as a drag
+ * would, and writes the variables on a beat of its own; a play by steps moves a
+ * bin at a time and waits for the panels the write set off before it steps
+ * again.
  */
 
 /** `slide` moves a window of fixed width; `grow` keeps the start and moves the end. */
 export type PlayMode = 'slide' | 'grow';
+
+/** `smooth` glides a little each frame; `steps` jumps a bin at a time. */
+export type PlayMotion = 'smooth' | 'steps';
 
 export type Window = [number, number];
 
@@ -82,6 +87,16 @@ export function nextWindow(domain: Window, window: Window, step: number, mode: P
   }
   const shift = Math.min(step, end - hi);
   return [lo + shift, hi + shift];
+}
+
+/** The window `by` further along than `from`, as `nextWindow` moves it, but by any amount; never past the end. */
+export function glide(domain: Window, from: Window, by: number, mode: PlayMode): Window {
+  const end = domain[1];
+  if (mode === 'grow') {
+    return [from[0], Math.min(end, from[1] + by)];
+  }
+  const shift = Math.max(0, Math.min(by, end - from[1]));
+  return [from[0] + shift, from[1] + shift];
 }
 
 /** The window a step earlier, the first one clamped to the axis's start; undefined once it is there. */
@@ -185,7 +200,19 @@ export interface Player {
   set(window: Window): void;
   /** Resolves once the controls drew what the last move left. */
   settled(): Promise<void>;
+  /** Writes the variables of the window held now, without waiting for the brush to rest. */
+  write?(): void;
+  /** Told when a smooth play starts and stops moving the brush: the URL is not to move it back meanwhile. */
+  gliding?(on: boolean): void;
 }
+
+/** Animation frames: calls back on the next one with its time, and returns a cancel. */
+export type Frames = (callback: (now: number) => void) => () => void;
+
+const animationFrames: Frames = (callback) => {
+  const id = requestAnimationFrame(callback);
+  return () => cancelAnimationFrame(id);
+};
 
 /** The longest a step waits for the panels it set off, past its own time. */
 const STEP_CAP_MS = 5000;
@@ -216,6 +243,80 @@ export async function play(
     }
     window = next;
     player.set(window);
+  }
+}
+
+const same = (a: Window | undefined, b: Window | undefined) => a?.[0] === b?.[0] && a?.[1] === b?.[1];
+
+/**
+ * Plays the brush to the axis's end as a glide: a step's way every `ms`, a
+ * little each frame, as a drag moves it, so the controls, the Mosaic panels and
+ * a map on the Selection follow as they can (Mosaic drops the moves it had no
+ * time for). The variables, which run every panel reading them, are written
+ * every `ms` or once those panels caught up, whichever is later, and where it
+ * stops. A brush moved by another hand (a linked brush) glides on from there,
+ * and one cleared stops it. Resolves at the end or once aborted.
+ */
+export async function glidePlay(
+  player: Player,
+  mode: PlayMode,
+  ms: number,
+  listen: (listener: (state: ActivityState) => void) => () => void,
+  signal: AbortSignal,
+  frames: Frames = animationFrames
+): Promise<void> {
+  let from = startWindow(player.domain(), player.step(), mode, player.held());
+  player.set(from);
+  let left = player.held();
+  if (!left || !(player.step() > 0) || signal.aborted) {
+    return;
+  }
+  const done = new AbortController();
+  const stop = () => done.abort();
+  signal.addEventListener('abort', stop);
+  player.gliding?.(true);
+  const writes = (async () => {
+    while (!done.signal.aborted) {
+      await paced(ms, STEP_CAP_MS, listen, done.signal);
+      if (!done.signal.aborted) {
+        player.write?.();
+      }
+    }
+  })();
+  try {
+    await new Promise<void>((resolve) => {
+      let cancel = () => {};
+      let start: number | undefined;
+      done.signal.addEventListener('abort', () => {
+        cancel();
+        resolve();
+      });
+      const frame = (now: number) => {
+        const held = player.held();
+        if (!held) {
+          stop();
+          return;
+        }
+        if (start === undefined || !same(held, left)) {
+          [from, start] = [held, now];
+        }
+        const [domain, step] = [player.domain(), player.step()];
+        const next = glide(domain, from, ((now - start) / ms) * step, mode);
+        player.set(next);
+        left = player.held();
+        if (next[1] >= domain[1] - step * EPSILON) {
+          stop();
+          return;
+        }
+        cancel = frames(frame);
+      };
+      cancel = frames(frame);
+    });
+  } finally {
+    signal.removeEventListener('abort', stop);
+    await writes;
+    player.gliding?.(false);
+    player.write?.();
   }
 }
 

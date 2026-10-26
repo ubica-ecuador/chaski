@@ -1,7 +1,8 @@
 import type { Selection, SelectionClause } from '@uwdata/mosaic-core';
 import { column, literal, sql } from '@uwdata/mosaic-sql';
 
-import { clauseColumns } from '../mosaic/bridge';
+import { clauseColumns, clausesNow } from '../mosaic/bridge';
+import { isHolder } from '../mosaic/page';
 
 /*
  * From the URL to the controls. The panel's controls write their variables
@@ -295,6 +296,9 @@ function registryOf(selection: Selection): BrushRegistry {
     }
     return clause;
   };
+  // The brush whose clause is going in while the stale ones go out: the value Mosaic emits between the two has
+  // no clause on its column, and is not to clear the range that brush already holds.
+  let taking: unknown;
   const update = selection.update.bind(selection);
   selection.update = (clause: SelectionClause) => {
     // A brush taking its column from another brush: that one's clause goes first, so no client, pre-aggregate
@@ -303,7 +307,10 @@ function registryOf(selection: Selection): BrushRegistry {
     const set = column ? made.get(column) : undefined;
     if (column && set?.has(clause.source as IntervalInteractor)) {
       const stale = selection.clauses.filter(
-        (c) => c.source !== clause.source && intervalColumn(c) === column && set.has(c.source as IntervalInteractor)
+        (c) =>
+          c.source !== clause.source &&
+          intervalColumn(c) === column &&
+          (set.has(c.source as IntervalInteractor) || isHolder(c.source))
       );
       if (stale.length > 0) {
         // Mosaic pre-aggregated for this brush as the pointer entered it, with the stale clause still in:
@@ -311,7 +318,12 @@ function registryOf(selection: Selection): BrushRegistry {
         for (const coordinator of coordinatorsOf(set)) {
           coordinator.preaggregator?.clear();
         }
-        selection.reset(stale);
+        taking = clause.source;
+        try {
+          selection.reset(stale);
+        } finally {
+          taking = undefined;
+        }
       }
     }
     return update(widen(clause));
@@ -324,7 +336,10 @@ function registryOf(selection: Selection): BrushRegistry {
     for (const [column, set] of made) {
       const onColumn = selection.clauses.filter((c) => intervalColumn(c) === column);
       const latest = onColumn[onColumn.length - 1];
-      const stale = onColumn.filter((c) => c !== latest && set.has(c.source as IntervalInteractor));
+      // A range held through a reload (page.ts `holders`) goes too, as a brush's would.
+      const stale = onColumn.filter(
+        (c) => c !== latest && (set.has(c.source as IntervalInteractor) || isHolder(c.source))
+      );
       if (stale.length > 0) {
         // Mosaic pre-aggregated for the winning brush with the stale clauses in, and keeps those tables while
         // that brush stays active: drop them first, so the update the reset makes plans them again.
@@ -333,7 +348,13 @@ function registryOf(selection: Selection): BrushRegistry {
         }
         selection.reset(stale);
       }
+      // An emit waits for the queries of the one before: the brush that holds the column now keeps its range,
+      // whatever an older value says (play reads it on the next frame, and stops on a cleared one).
+      const holding = [taking, clausesNow(selection).filter((c) => intervalColumn(c) === column).at(-1)?.source];
       for (const interactor of set) {
+        if (holding.includes(interactor)) {
+          continue;
+        }
         if (latest && latest.source !== interactor) {
           if (Array.isArray(latest.value)) {
             showRange(interactor, latest.value);
@@ -359,6 +380,21 @@ export function linkBrush(selection: Selection, interactor: IntervalInteractor, 
   return () => {
     registry.get(column)?.delete(interactor);
   };
+}
+
+/**
+ * Lands again the interval clauses a Selection already holds on these columns that no control of this panel made
+ * (a Time Brush's window, kept through a dataset reload): the brushes linked on those columns widen them to their
+ * marks, so each histogram leaves itself out as it does for a clause landing now, and show their range.
+ */
+export function reannounce(selection: Selection, columns: string[], own: Set<unknown>): void {
+  for (const clause of [...selection.clauses]) {
+    const column = intervalColumn(clause);
+    if (column !== undefined && columns.includes(column) && !own.has(clause.source) && clause.value != null) {
+      // A copy: the same clause again leaves the resolved list equal, and Mosaic emits nothing for it.
+      selection.update({ ...clause });
+    }
+  }
 }
 
 /** Takes every brush's clause on a column out of the Selection: a chip's × clears them wherever they were drawn. */

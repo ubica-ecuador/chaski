@@ -46,7 +46,8 @@ A worked example, a timeline and a sidebar over a month of USGS earthquakes driv
 | Layout           | Auto    | Auto: a sidebar of sections when the panel is 160 px tall or more, a row of pills (each opening its control) when lower. Timeline: see below; Auto never picks it. |
 | Timeline filter  | empty   | With the Timeline layout, the range filter it draws. Empty takes the first range filter over times.                                                                |
 | Play             | Slide   | Slide: a window of fixed width moves along. Grow: the start stays and the end moves.                                                                               |
-| Step duration    | 800     | The least time a step of play lasts, in ms (at least 400); longer while the panels the step set off still run.                                                     |
+| Motion           | Smooth  | Smooth: play glides a little each frame. By step: it jumps a bar at a time.                                                                                        |
+| Step duration    | 800     | The least time a step of play lasts, in ms (at least 400); longer while the panels the step set off still run. A smooth play glides a bar's way in that time.      |
 | Time column      | empty   | When set, every count keeps to the dashboard's time range over that column.                                                                                        |
 | Rows are         | rows    | The noun in "N of M rows".                                                                                                                                         |
 | Values shown     | 8       | How many values a list shows before "more"; longer lists get a box to find one.                                                                                    |
@@ -71,12 +72,16 @@ back, play or pause, and step forward, one bar of the histogram at a time (Mosai
 a nice size: an hour, half a day, a day). Beside them, the window the brush holds.
 
 Play starts from the window held, or, with none, from the axis's start: a tenth of the axis wide when
-it slides, one bar wide when it grows. Each step is a brush like one drawn by hand: the other controls,
-the count and Mosaic panels on the selection follow it live, and its variables are written once it
-rests, so a kepler map reading them as its time window follows too. A step lasts at least the Step
-duration, and longer while the Chaski queries it set off still run (up to 5 s more): the panel listens
-to the same `ubica-duckdbwasm-activity` event kepler paces its playback on. Play stops at the axis's
-end, and a drag on the histogram pauses it.
+it slides, one bar wide when it grows. A **smooth** play (the default) glides: the brush moves a
+little each frame, a bar's way every Step duration, as a drag would, and the other controls, the count,
+Mosaic panels and a kepler map on the selection (`mosaicSelection`) follow it live, as fast as they can
+answer. Its variables, which run every query that reads them, are written on a beat of their own: every
+Step duration, or once the Chaski queries the last write set off have settled (up to 5 s more), and
+where play stops. A map that reads the variables rather than the selection follows on that beat. Play
+**by step** jumps a bar at a time instead: each step is a brush like one drawn by hand, its variables
+written once it rests, and the next waits the Step duration, and longer while the queries it set off
+still run. Both listen to the same `ubica-duckdbwasm-activity` event kepler paces its playback on. Play
+stops at the axis's end, and a drag on the histogram pauses it.
 
 ```json
 {

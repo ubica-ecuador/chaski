@@ -21,10 +21,12 @@ import type { IntervalInteractor, ToggleInteractor } from '../sync';
 import { loadMosaic } from '../runtime';
 import {
   type ActivityState,
+  glidePlay,
   nextWindow,
   play,
   type Player,
   type PlayMode,
+  type PlayMotion,
   previousWindow,
   startWindow,
   stepOf,
@@ -93,6 +95,10 @@ export function resolveFilters(engine: ChaskiEngineApi, variableName: string): R
 }
 
 /** The variables a filter reads, which the panel writes for it. */
+/** Whether variables hold no filter at all: empty, or All. */
+const clearsAll = (values: Array<string | string[]>): boolean =>
+  values.every((v) => (Array.isArray(v) ? v.every((x) => x === '' || x === '$__all') : v === '' || v === '$__all'));
+
 const variablesOf = (filter: FilterDeclaration): string[] =>
   filter.type === 'range' ? [filter.from, filter.to] : filter.type === 'link' ? [] : [filter.variable];
 
@@ -110,6 +116,8 @@ const TIMELINE_BAR_HEIGHT = 32;
 const TIMELINE_GAP = 4;
 /** A step of play outlasts the bridge's rest, or the URL it writes would pull the brush back a step. */
 const MIN_STEP_MS = 400;
+/** How often a smooth play draws the panel again for the bar's readout and buttons: the brush moves every frame. */
+const GLIDE_REDRAW_MS = 100;
 
 /** Chaski's busy and settled, from Grafana's event bus. */
 const listenActivity = (listener: (state: ActivityState) => void) => {
@@ -118,7 +126,7 @@ const listenActivity = (listener: (state: ActivityState) => void) => {
 };
 
 /** Play, pause and a step either way, on the timeline's brush; each step draws the panel again. */
-function usePlayback(player: Player | undefined, mode: PlayMode, ms: number) {
+function usePlayback(player: Player | undefined, mode: PlayMode, ms: number, motion: PlayMotion) {
   const [playing, setPlaying] = useState(false);
   const [, setMoves] = useState(0);
   const abort = useRef<AbortController | undefined>(undefined);
@@ -149,15 +157,31 @@ function usePlayback(player: Player | undefined, mode: PlayMode, ms: number) {
     const controller = new AbortController();
     abort.current = controller;
     setPlaying(true);
-    play({ ...player, set: moving }, mode, Math.max(MIN_STEP_MS, ms), listenActivity, controller.signal)
+    const step = Math.max(MIN_STEP_MS, ms);
+    let drawnAt = -Infinity;
+    // A glide moves the brush every frame, and draws the panel no more often than the readout needs.
+    const gliding = (window: Window) => {
+      player.set(window);
+      const now = performance.now();
+      if (now - drawnAt >= GLIDE_REDRAW_MS) {
+        drawnAt = now;
+        setMoves((n) => n + 1);
+      }
+    };
+    const run =
+      motion === 'smooth'
+        ? glidePlay({ ...player, set: gliding }, mode, step, listenActivity, controller.signal)
+        : play({ ...player, set: moving }, mode, step, listenActivity, controller.signal);
+    run
       .catch((error: unknown) => console.warn('Chaski filters: play stopped', error))
       .finally(() => {
+        setMoves((n) => n + 1);
         if (abort.current === controller) {
           abort.current = undefined;
           setPlaying(false);
         }
       });
-  }, [player, mode, ms, moving, pause]);
+  }, [player, mode, ms, motion, moving, pause]);
   const forward = useCallback(() => {
     if (!player) {
       return;
@@ -319,6 +343,9 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
     const cleanups: Array<() => void> = [];
     const defer = (cleanup: () => void) => (alive() ? cleanups.push(cleanup) : cleanup());
     let drawn = false;
+    // While a smooth play moves the timeline, the URL catching up with it is not to move it back.
+    let gliding = false;
+    let writeLinks = () => {};
     const reportError = (message: string) => {
       if (!alive()) {
         return;
@@ -352,7 +379,7 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
         linkReads,
       } = mosaic;
       const { applyRange, applyValues, heldElsewhere, pixelOf, rangeMatches, searchClause } = mosaic.sync;
-      const { spanOf, timeClause, valuesMatch, binAt, linkBrush, clearColumn } = mosaic.sync;
+      const { spanOf, timeClause, valuesMatch, binAt, linkBrush, clearColumn, reannounce } = mosaic.sync;
       const page = pageFor(dashboardKey(), engine);
       defer(page.subscribe(() => setRebuild((n) => n + 1)));
       let waiting = false;
@@ -460,6 +487,10 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
                 set: (window) => void applyRange(interval, window),
                 settled: async () => {
                   await Promise.all([...coordinator.clients].map((c) => c.pending));
+                },
+                write: () => writeLinks(),
+                gliding: (on) => {
+                  gliding = on;
                 },
               };
             }
@@ -571,14 +602,31 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
       // Only a filter whose own variables changed in the URL is applied: another variable changing must not
       // undo a brush or a search still within its rest, not yet written.
       const seen = new Map<string, string>();
+      // Writes of this page's panels coming back, late: a brush that rested mid-drag wrote its range then, and on
+      // a busy page the URL brought it back once the brush had moved on; applied here, to this panel's brush on
+      // that column, the link pulled the brush being dragged back. A clear always applies.
+      let ownEcho: (values: Record<string, string | string[]>) => boolean = () => false;
       const sync = () => {
+        // A panel going away (its cleanups run after the abort) touches no control: a URL change made by its own
+        // clauses being released would otherwise set a brush of a panel no longer there, a clause nothing clears.
+        if (!alive()) {
+          return;
+        }
         const value = currentValues();
         for (const filter of dataset.filters) {
-          const key = JSON.stringify(variablesOf(filter).map((name) => value(name) ?? ''));
+          const names = variablesOf(filter);
+          const key = JSON.stringify(names.map((name) => value(name) ?? ''));
           if (seen.get(filter.name) === key) {
             continue;
           }
           seen.set(filter.name, key);
+          if (gliding && filter === timeline) {
+            continue;
+          }
+          const values = Object.fromEntries(names.map((name) => [name, value(name) ?? ''] as const));
+          if (!clearsAll(Object.values(values)) && ownEcho(values)) {
+            continue;
+          }
           if (filter.type === 'range') {
             const interval = intervals.get(filter.name);
             if (!interval) {
@@ -635,6 +683,13 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
           shared.reset(shared.clauses.filter((clause) => clause.source === source));
         });
       }
+      // A window another plugin holds on a range column (kept through a reload) lands on the brushes built now.
+      // Optional: a Mosaic panel module from before this has no reannounce.
+      reannounce?.(
+        shared,
+        dataset.filters.flatMap((f) => (f.type === 'range' && intervals.has(f.name) ? [f.column] : [])),
+        own
+      );
       sync();
 
       // From the controls to the variables, once they rest; a range's ends rounded to a pixel of its axis.
@@ -657,6 +712,8 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
       });
       // This panel writes what its own controls did; a brush drawn in another panel is that panel's to write.
       const unlink = linkVariables(links, page.params, (clause) => own.has(clause.source));
+      writeLinks = unlink.write;
+      ownEcho = unlink.echoes;
       defer(() => unlink(false));
       defer(locationService.getHistory().listen(sync));
 
@@ -672,7 +729,8 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
     });
     return () => {
       abort.abort();
-      cleanups.forEach((cleanup) => cleanup());
+      // Last set up, first undone: the listeners go before the clauses are released, which writes variables.
+      [...cleanups].reverse().forEach((cleanup) => cleanup());
       setProblem(undefined);
     };
   }, [
@@ -1039,7 +1097,12 @@ function Timeline(view: ViewProps) {
   const filter = dataset.filters[index];
   const control = view.controls.get(filter.name);
   const player = control?.kind === 'mosaic' ? control.player : undefined;
-  const { playing, toggle, pause, forward, back } = usePlayback(player, options.playMode, options.stepMs);
+  const { playing, toggle, pause, forward, back } = usePlayback(
+    player,
+    options.playMode,
+    options.stepMs,
+    options.playMotion
+  );
   const state = states.find((s) => s.name === filter.name);
   const held = player?.held();
   const domain = player?.domain();

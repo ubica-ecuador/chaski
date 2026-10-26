@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+- **Smooth play on the timeline.** Play glides instead of jumping a bar at a time: the brush moves a
+  little each frame, a bar's way every Step duration, and the controls, Mosaic panels and a kepler map
+  on the selection follow it as they follow a drag. The variables are written on their own beat, every
+  Step duration or once the queries they set off have settled, so panels reading them keep the pace
+  they had. A new Motion option (Smooth, By step) keeps the old play.
+- **Play from a window another panel holds.** The timeline plays from a window the sidebar's brush
+  holds (set from the URL or by a kepler map): taking the column from a linked brush no longer clears
+  the timeline's own range, which stopped play at once.
+- **Brushes stay where they are let go.** On a busy page a range written mid-drag no longer comes back
+  through the URL and pulls a linked brush back; the coloured bars follow a gliding play.
+- **A reload keeps the window.** A dataset reloading (auto-refresh, Refresh, a range change) keeps the
+  range a brush held and other plugins' clauses (a Kepler Plus Time Brush's window, a kepler map's
+  filters) instead of opening them to the whole range.
+
 ## 2.2.0 (2026-10-24)
 
 - **Filters panel.** `ubica-chaski-filters-panel` shows a dataset's cross-filters and sets them, with no
