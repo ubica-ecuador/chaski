@@ -58,6 +58,27 @@ class PageState implements Page {
   }
 }
 
+/**
+ * Clause sources of panels of other plugins (a kepler map, a Kepler Plus Time
+ * Brush), which build their clauses through the runtime's builders. Their
+ * values are times, places and picks, not the bins of data that reloaded, so
+ * a reload keeps them: resetting them made a Time Brush open its window to the
+ * whole range and write it, losing the reader's window on every refresh.
+ */
+const outside = new WeakSet<object>();
+
+/** Notes a clause source as another plugin's (see `outside`). */
+export function markOutside(source: unknown): void {
+  if (typeof source === 'object' && source !== null) {
+    outside.add(source);
+  }
+}
+
+/** The clauses a reload clears: those of this app's own panels, whose brushes were drawn over the old data. */
+export function staleClauses(selection: Selection): Selection['clauses'] {
+  return selection.clauses.filter((clause) => !outside.has(clause.source as object));
+}
+
 let current: PageState | undefined;
 let engineWatched: ChaskiEngineApi | undefined;
 let reloadTimer: ReturnType<typeof setTimeout> | undefined;
@@ -92,6 +113,9 @@ export function pageFor(key: string, engine: ChaskiEngineApi): Page {
  * Only a new version of a dataset some panel read counts. Chaski also reports
  * a dataset when its view first points at the version just loaded, often after
  * the panels have read it: that one changes nothing.
+ *
+ * The clauses of other plugins' panels stay (`outside`): the panels built
+ * again apply them as they apply a clause landing from elsewhere.
  */
 function watch(engine: ChaskiEngineApi) {
   if (engineWatched === engine) {
@@ -113,8 +137,9 @@ function watch(engine: ChaskiEngineApi) {
     reloadTimer = setTimeout(async () => {
       await dropPreaggregates(engine);
       for (const param of page.params.values()) {
-        if (isSelection(param)) {
-          param.reset();
+        const stale = isSelection(param) ? staleClauses(param) : [];
+        if (stale.length > 0) {
+          (param as Selection).reset(stale);
         }
       }
       page.bump();

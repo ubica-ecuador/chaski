@@ -91,3 +91,28 @@ it('releases only the clauses a panel’s clients made', () => {
   expect(brush.clauses).toHaveLength(1);
   expect(brush.clauses[0].clients?.has(theirs)).toBe(true);
 });
+
+it('keeps through a reload the clauses of other plugins’ panels, made with the runtime’s builders', async () => {
+  jest.useFakeTimers();
+  const { mosaicRuntime } = await import('./runtime');
+  const { e, emit, loaded } = engine();
+  const page = pageFor('a', e);
+  const brush = Selection.crossfilter();
+  page.params.set('brush', brush);
+  // A Time Brush's window: its source's reset would open the window and write it.
+  const timeBrush = { reset: jest.fn() };
+  const ownBrush = { reset: jest.fn() };
+  brush.update(mosaicRuntime.clauseInterval('t', [new Date(1), new Date(2)], { source: timeBrush }));
+  brush.update(clauseInterval('jam', [10, 20], { source: ownBrush }));
+  loaded.set('traffic', 1);
+  page.read(['traffic'], e.datasets());
+
+  emit('traffic', 2);
+  await jest.advanceTimersByTimeAsync(100);
+
+  expect(page.generation).toBe(1);
+  expect(brush.clauses.map((c) => c.source)).toEqual([timeBrush]);
+  expect(timeBrush.reset).not.toHaveBeenCalled();
+  expect(ownBrush.reset).toHaveBeenCalled();
+  jest.useRealTimers();
+});

@@ -15,7 +15,7 @@ import * as sync from '../filters/sync';
 import { clauseColumns, linkVariables } from './bridge';
 import { ChaskiConnector, unreadable } from './connector';
 import { linkReads } from './inbound';
-import { dashboardKey, pageFor, PREAGG_SCHEMA, releaseClauses } from './page';
+import { dashboardKey, markOutside, pageFor, PREAGG_SCHEMA, releaseClauses } from './page';
 import { clauseArea, sharedSelection } from './shared';
 
 /*
@@ -30,7 +30,19 @@ import { clauseArea, sharedSelection } from './shared';
  * contract: `sharedSelection`, the clause builders (`clauseArea` among them)
  * and `clauseColumns` keep
  * their shapes, or a kepler map linked to a Selection breaks with no error.
+ * The builders note their clause's source as another plugin's, so a dataset
+ * reloading keeps that clause (page.ts `outside`).
  */
+/** A clause builder that notes the source in its options as another plugin's. */
+function outsider<A extends unknown[], O extends { source?: unknown }, R>(
+  build: (...args: [...A, O]) => R
+): (...args: [...A, O]) => R {
+  return (...args) => {
+    markOutside((args[args.length - 1] as O | undefined)?.source);
+    return build(...args);
+  };
+}
+
 export const mosaicRuntime = {
   Coordinator,
   Selection,
@@ -51,10 +63,10 @@ export const mosaicRuntime = {
   linkReads,
   sync,
   sharedSelection,
-  clauseInterval,
-  clauseIntervals,
-  clausePoints,
-  clauseArea,
+  clauseInterval: outsider(clauseInterval),
+  clauseIntervals: outsider(clauseIntervals),
+  clausePoints: outsider(clausePoints),
+  clauseArea: outsider(clauseArea),
   clauseColumns,
 };
 
