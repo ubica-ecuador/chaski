@@ -195,6 +195,28 @@ describe('linkBrush', () => {
     stopB();
   });
 
+  it('keeps the range of a brush taking its column from another brush, as play takes a window the sidebar holds', async () => {
+    const selection = Selection.crossfilter();
+    const a = brushOn(selection);
+    const b = brushOn(selection);
+    const stopA = linkBrush(selection, a.brush, 'mag');
+    const stopB = linkBrush(selection, b.brush, 'mag');
+    selection.update(a.brush.clause([2, 4]));
+    await settle();
+    expect(b.brush.value).toEqual([2, 4]);
+
+    // As applyRange or a drag: the brush holds its range, then its clause goes in; play's next frame reads it.
+    b.brush.value = [3, 5];
+    selection.update(b.brush.clause([3, 5]));
+    expect(b.brush.value).toEqual([3, 5]);
+    await settle();
+    expect(selection.clauses.map((c) => c.source)).toEqual([b.brush]);
+    expect(b.brush.value).toEqual([3, 5]);
+    expect(a.brush.value).toEqual([3, 5]);
+    stopA();
+    stopB();
+  });
+
   it('lands a window another plugin already holds on a brush linked after it: widened, and shown', async () => {
     const selection = Selection.crossfilter();
     // A Time Brush's window, kept through a reload, before the panel built again links its brush.

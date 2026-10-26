@@ -96,7 +96,7 @@ export function clauseColumns(clause: SelectionClause): string[] {
  * queries the one before set off: on a busy page it lags a moving brush, and a write read from it put the
  * brush back where it was a moment before, once its echo came back through the URL.
  */
-function clausesNow(selection: Selection): SelectionClause[] & { active?: SelectionClause } {
+export function clausesNow(selection: Selection): SelectionClause[] & { active?: SelectionClause } {
   return (selection as unknown as { _resolved?: SelectionClause[] })._resolved ?? selection.clauses;
 }
 

@@ -1,7 +1,7 @@
 import type { Selection, SelectionClause } from '@uwdata/mosaic-core';
 import { column, literal, sql } from '@uwdata/mosaic-sql';
 
-import { clauseColumns } from '../mosaic/bridge';
+import { clauseColumns, clausesNow } from '../mosaic/bridge';
 import { isHolder } from '../mosaic/page';
 
 /*
@@ -296,6 +296,9 @@ function registryOf(selection: Selection): BrushRegistry {
     }
     return clause;
   };
+  // The brush whose clause is going in while the stale ones go out: the value Mosaic emits between the two has
+  // no clause on its column, and is not to clear the range that brush already holds.
+  let taking: unknown;
   const update = selection.update.bind(selection);
   selection.update = (clause: SelectionClause) => {
     // A brush taking its column from another brush: that one's clause goes first, so no client, pre-aggregate
@@ -315,7 +318,12 @@ function registryOf(selection: Selection): BrushRegistry {
         for (const coordinator of coordinatorsOf(set)) {
           coordinator.preaggregator?.clear();
         }
-        selection.reset(stale);
+        taking = clause.source;
+        try {
+          selection.reset(stale);
+        } finally {
+          taking = undefined;
+        }
       }
     }
     return update(widen(clause));
@@ -340,7 +348,13 @@ function registryOf(selection: Selection): BrushRegistry {
         }
         selection.reset(stale);
       }
+      // An emit waits for the queries of the one before: the brush that holds the column now keeps its range,
+      // whatever an older value says (play reads it on the next frame, and stops on a cleared one).
+      const holding = [taking, clausesNow(selection).filter((c) => intervalColumn(c) === column).at(-1)?.source];
       for (const interactor of set) {
+        if (holding.includes(interactor)) {
+          continue;
+        }
         if (latest && latest.source !== interactor) {
           if (Array.isArray(latest.value)) {
             showRange(interactor, latest.value);
