@@ -416,7 +416,7 @@
                       "kind": "DataQuery",
                       "version": "v0",
                       "spec": {
-                        "rawSql": "SELECT id, strftime(time AT TIME ZONE 'UTC', '%d %b %H:%M UTC') AS \"when\", latitude, longitude, mag, depth, kind, place\nFROM $quakes\n-- No time column: the timeline filters time, and kepler would add a time widget of its own.\nWHERE $__crossfilter($quakeFilters, -area)"
+                        "rawSql": "SELECT id, time, strftime(time AT TIME ZONE 'UTC', '%d %b %H:%M UTC') AS \"when\", latitude, longitude, mag, depth, kind, net, place\nFROM $quakes\n-- The whole month, once: time, magnitude, depth, kind and network are filtered in the map, on the GPU,\n-- where the filters panels' clauses on the quakeFilters Mosaic selection land. Only the place search runs here.\nWHERE contains(lower(place), lower(${q:sqlstring}))"
                       }
                     }
                   }
@@ -435,6 +435,8 @@
                 "basemap": "dark-matter",
                 "followGrafanaTheme": true,
                 "showSidePanel": false,
+                "timeSync": "off",
+                "mosaicSelection": "quakeFilters",
                 "mapConfig": {
                   "version": "v1",
                   "config": {
@@ -450,7 +452,22 @@
                       "styleType": "dark-matter"
                     },
                     "visState": {
-                      "filters": [],
+                      "filters": [
+                        {
+                          "animationWindow": "free",
+                          "dataId": ["grafana-A"],
+                          "enabled": true,
+                          "id": "time",
+                          "name": ["time"],
+                          "plotType": {
+                            "type": "histogram"
+                          },
+                          "speed": 1,
+                          "type": "timeRange",
+                          "value": [0, 4102444800000],
+                          "view": "side"
+                        }
+                      ],
                       "layerBlending": "normal",
                       "interactionConfig": {
                         "tooltip": {
@@ -970,7 +987,7 @@
             "spec": {
               "options": {
                 "mode": "markdown",
-                "content": "Two Chaski filters panels, and nothing to write for them: every control comes from the cross-filters the `quakeFilters` variable declares.\n\n- **Timeline**: press play and a window of a few days slides across the month; the map, the cards and the table follow each step.\n- **Filters**: the same filters as a sidebar, each control counted under the others.\n- The two time histograms are **one brush**: move either and the other follows.\n- **Draw an area** on the map and the controls count only the quakes inside it.\n\nAnswered by DuckDB in your browser. **Data**: the [USGS real-time feed](https://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.php) of the last 30 days, every magnitude. Public domain."
+                "content": "Two Chaski filters panels, and nothing to write for them: every control comes from the cross-filters the `quakeFilters` variable declares.\n\n- **Timeline**: press play and a window of a few days slides across the month; the map, the cards and the table follow each step.\n- **The map** loads the month once and filters it on the GPU: the controls reach it through their Mosaic selection, with no query in between.\n- **Filters**: the same filters as a sidebar, each control counted under the others.\n- The two time histograms are **one brush**: move either and the other follows.\n- **Draw an area** on the map and the controls count only the quakes inside it.\n\nAnswered by DuckDB in your browser. **Data**: the [USGS real-time feed](https://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.php) of the last 30 days, every magnitude. Public domain."
               },
               "fieldConfig": {
                 "defaults": {},
