@@ -15,10 +15,10 @@ import type { ChaskiEngineApi, ChaskiGlobal } from '../grafana/publicApi';
 
 type ChaskiWindow = { __chaski?: ChaskiGlobal };
 
-const sleep = (ms: number, signal: AbortSignal) =>
+const sleep = (ms: number, signal?: AbortSignal) =>
   new Promise<void>((resolve, reject) => {
     const timer = setTimeout(resolve, ms);
-    signal.addEventListener(
+    signal?.addEventListener(
       'abort',
       () => {
         clearTimeout(timer);
@@ -65,6 +65,34 @@ export async function unreadable(engine: ChaskiEngineApi, names: string[], signa
   return missing;
 }
 
+/**
+ * DuckDB refuses the second of two transactions that create the same catalog
+ * entry at once. Mosaic's preaggregator does exactly that when two clients
+ * share a preaggregated table: each sends CREATE TABLE IF NOT EXISTS on its
+ * own connection, and the slower commit fails. Run again, the statement finds
+ * the table the first one made and does nothing.
+ */
+const CATALOG_CONFLICT = /write-write conflict/i;
+const CONFLICT_RETRIES = [50, 250, 1000];
+
+async function execRetryingConflicts(
+  engine: ChaskiEngineApi,
+  sql: string,
+  opts: { signal?: AbortSignal }
+): Promise<void> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await engine.exec(sql, opts);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (attempt >= CONFLICT_RETRIES.length || !CATALOG_CONFLICT.test(message) || opts.signal?.aborted) {
+        throw error;
+      }
+      await sleep(CONFLICT_RETRIES[attempt], opts.signal);
+    }
+  }
+}
+
 export interface ConnectorHooks {
   /** A query answered; `startedAt` is when it was sent, by `performance.now()`. */
   onAnswer?: (startedAt: number) => void;
@@ -87,7 +115,9 @@ export class ChaskiConnector {
     const opts = { signal: options?.signal };
     const startedAt = performance.now();
     const result =
-      query.type === 'exec' ? await this.engine.exec(query.sql, opts) : await this.engine.queryIPC(query.sql, opts);
+      query.type === 'exec'
+        ? await execRetryingConflicts(this.engine, query.sql, opts)
+        : await this.engine.queryIPC(query.sql, opts);
     this.hooks.onAnswer?.(startedAt);
     return result;
   }
