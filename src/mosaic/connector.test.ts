@@ -38,6 +38,36 @@ describe('ChaskiConnector', () => {
   });
 });
 
+describe('ChaskiConnector catalog conflicts', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  const conflict = () => new Error('TransactionContext Error: Catalog write-write conflict on create with "mosaic"');
+
+  it('runs an exec again when another connection created the same entry first', async () => {
+    const e = engine();
+    (e.exec as jest.Mock).mockRejectedValueOnce(conflict());
+    const done = new ChaskiConnector(e).query({ type: 'exec', sql: 'CREATE TABLE IF NOT EXISTS mosaic.p AS SELECT 1' });
+    await jest.advanceTimersByTimeAsync(50);
+    await expect(done).resolves.toBeUndefined();
+    expect(e.exec).toHaveBeenCalledTimes(2);
+  });
+
+  it('gives up after three retries, and never retries other errors', async () => {
+    const e = engine();
+    (e.exec as jest.Mock).mockRejectedValue(conflict());
+    const done = new ChaskiConnector(e).query({ type: 'exec', sql: 'CREATE TABLE x AS SELECT 1' });
+    const settled = expect(done).rejects.toThrow('write-write conflict');
+    await jest.advanceTimersByTimeAsync(2000);
+    await settled;
+    expect(e.exec).toHaveBeenCalledTimes(4);
+
+    (e.exec as jest.Mock).mockReset().mockRejectedValue(new Error('Binder Error'));
+    await expect(new ChaskiConnector(e).query({ type: 'exec', sql: 'SELECT nope' })).rejects.toThrow('Binder Error');
+    expect(e.exec).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('waitForEngine', () => {
   beforeEach(() => jest.useFakeTimers());
   afterEach(() => jest.useRealTimers());
