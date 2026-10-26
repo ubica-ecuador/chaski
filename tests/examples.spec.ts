@@ -146,7 +146,7 @@ test('Gaia: 5 million stars load, and the nearby ones sharpen the HR diagram', a
   // About 100 MB, read by the browser.
   await open(page, 'mosaic-gaia', 1);
   const stars = panel(page, 'Stars');
-  await expect(stars).toContainText('3.71', { timeout: 120_000 });
+  await expect(stars).toContainText('3,713,731', { timeout: 120_000 });
   await expect(page.getByTestId('mosaic-error')).toHaveCount(0);
   await expect(page.getByTestId('data-testid Panel status error')).toHaveCount(0);
   await expect(panel(page, 'Parallax (mas)').getByTestId('mosaic-panel').locator('svg rect').nth(10)).toBeAttached({
@@ -154,7 +154,7 @@ test('Gaia: 5 million stars load, and the nearby ones sharpen the HR diagram', a
   });
   await drag(page, await plotBox(page, 'Parallax (mas)'), [0.45, 0.97], [0.5, 0.5]);
   await expect(page).toHaveURL(/var-g_par_lo=\d/);
-  await expect(stars).not.toContainText('3.71', { timeout: 120_000 });
+  await expect(stars).not.toContainText('3,713,731', { timeout: 120_000 });
   await expect(panel(page, 'Active filters')).toContainText('Parallax');
 });
 
