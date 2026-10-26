@@ -95,6 +95,10 @@ export function resolveFilters(engine: ChaskiEngineApi, variableName: string): R
 }
 
 /** The variables a filter reads, which the panel writes for it. */
+/** Whether variables hold no filter at all: empty, or All. */
+const clearsAll = (values: Array<string | string[]>): boolean =>
+  values.every((v) => (Array.isArray(v) ? v.every((x) => x === '' || x === '$__all') : v === '' || v === '$__all'));
+
 const variablesOf = (filter: FilterDeclaration): string[] =>
   filter.type === 'range' ? [filter.from, filter.to] : filter.type === 'link' ? [] : [filter.variable];
 
@@ -598,15 +602,24 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
       // Only a filter whose own variables changed in the URL is applied: another variable changing must not
       // undo a brush or a search still within its rest, not yet written.
       const seen = new Map<string, string>();
+      // Writes of this page's panels coming back, late: a brush that rested mid-drag wrote its range then, and on
+      // a busy page the URL brought it back once the brush had moved on; applied here, to this panel's brush on
+      // that column, the link pulled the brush being dragged back. A clear always applies.
+      let ownEcho: (values: Record<string, string | string[]>) => boolean = () => false;
       const sync = () => {
         const value = currentValues();
         for (const filter of dataset.filters) {
-          const key = JSON.stringify(variablesOf(filter).map((name) => value(name) ?? ''));
+          const names = variablesOf(filter);
+          const key = JSON.stringify(names.map((name) => value(name) ?? ''));
           if (seen.get(filter.name) === key) {
             continue;
           }
           seen.set(filter.name, key);
           if (gliding && filter === timeline) {
+            continue;
+          }
+          const values = Object.fromEntries(names.map((name) => [name, value(name) ?? ''] as const));
+          if (!clearsAll(Object.values(values)) && ownEcho(values)) {
             continue;
           }
           if (filter.type === 'range') {
@@ -688,6 +701,7 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
       // This panel writes what its own controls did; a brush drawn in another panel is that panel's to write.
       const unlink = linkVariables(links, page.params, (clause) => own.has(clause.source));
       writeLinks = unlink.write;
+      ownEcho = unlink.echoes;
       defer(() => unlink(false));
       defer(locationService.getHistory().listen(sync));
 

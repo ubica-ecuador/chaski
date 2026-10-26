@@ -1,7 +1,7 @@
 import { locationService } from '@grafana/runtime';
 import { Param, Selection, clauseInterval, clauseIntervals, clauseMatch, clausePoints } from '@uwdata/mosaic-core';
 
-import { extentToWkt, formatValue, linkVariables, parseLinks, PUBLISH_DELAY_MS, writesFor } from './bridge';
+import { ECHO_MS, extentToWkt, formatValue, linkVariables, parseLinks, PUBLISH_DELAY_MS, writesFor } from './bridge';
 
 jest.mock('@grafana/runtime', () => ({ locationService: { partial: jest.fn() } }));
 const partial = locationService.partial as jest.Mock;
@@ -179,6 +179,37 @@ describe('linkVariables', () => {
     unlink(false);
     await jest.advanceTimersByTimeAsync(PUBLISH_DELAY_MS);
     expect(partial).not.toHaveBeenCalled();
+  });
+
+  it('knows the page’s writes when the URL brings them back, for a while', async () => {
+    const { brush, unlink, mag } = setup();
+    brush.update(clauseInterval('mag', [1, 2], { source: mag }));
+    await jest.advanceTimersByTimeAsync(PUBLISH_DELAY_MS);
+    brush.update(clauseInterval('mag', [1, 3], { source: mag }));
+    await jest.advanceTimersByTimeAsync(PUBLISH_DELAY_MS);
+    // A brush that rested mid-drag: the first write can come back after the second.
+    expect(unlink.echoes({ lo: '1', hi: '2' })).toBe(true);
+    expect(unlink.echoes({ lo: '1', hi: '3' })).toBe(true);
+    expect(unlink.echoes({ lo: '1', hi: '5' })).toBe(false);
+    // Another panel of the page, with a brush linked on the same column, knows them too.
+    const other = linkVariables([{ param: 'brush', column: 'mag', from: 'lo', to: 'hi' }], new Map([['brush', brush]]));
+    expect(other.echoes({ lo: '1', hi: '2' })).toBe(true);
+    await jest.advanceTimersByTimeAsync(ECHO_MS);
+    expect(unlink.echoes({ lo: '1', hi: '2' })).toBe(false);
+    other();
+  });
+
+  it('writes the brush as it is, not the value Mosaic has yet to emit', async () => {
+    const { brush, mag } = setup();
+    // A listener still busy with the last value, as panels running its queries are: Mosaic queues the next.
+    let release = () => {};
+    brush.addEventListener('value', () => new Promise<void>((resolve) => (release = resolve)));
+    brush.update(clauseInterval('mag', [1, 2], { source: mag }));
+    brush.update(clauseInterval('mag', [1, 3], { source: mag }));
+    expect(brush.clauses[0].value).toEqual([1, 2]);
+    await jest.advanceTimersByTimeAsync(PUBLISH_DELAY_MS);
+    expect(partial).toHaveBeenLastCalledWith({ 'var-lo': '1', 'var-hi': '3' }, true);
+    release();
   });
 
   it('writes a change at once when asked, with no rest, and nothing once stopped', async () => {
