@@ -21,10 +21,12 @@ import type { IntervalInteractor, ToggleInteractor } from '../sync';
 import { loadMosaic } from '../runtime';
 import {
   type ActivityState,
+  glidePlay,
   nextWindow,
   play,
   type Player,
   type PlayMode,
+  type PlayMotion,
   previousWindow,
   startWindow,
   stepOf,
@@ -110,6 +112,8 @@ const TIMELINE_BAR_HEIGHT = 32;
 const TIMELINE_GAP = 4;
 /** A step of play outlasts the bridge's rest, or the URL it writes would pull the brush back a step. */
 const MIN_STEP_MS = 400;
+/** How often a smooth play draws the panel again for the bar's readout and buttons: the brush moves every frame. */
+const GLIDE_REDRAW_MS = 100;
 
 /** Chaski's busy and settled, from Grafana's event bus. */
 const listenActivity = (listener: (state: ActivityState) => void) => {
@@ -118,7 +122,7 @@ const listenActivity = (listener: (state: ActivityState) => void) => {
 };
 
 /** Play, pause and a step either way, on the timeline's brush; each step draws the panel again. */
-function usePlayback(player: Player | undefined, mode: PlayMode, ms: number) {
+function usePlayback(player: Player | undefined, mode: PlayMode, ms: number, motion: PlayMotion) {
   const [playing, setPlaying] = useState(false);
   const [, setMoves] = useState(0);
   const abort = useRef<AbortController | undefined>(undefined);
@@ -149,15 +153,31 @@ function usePlayback(player: Player | undefined, mode: PlayMode, ms: number) {
     const controller = new AbortController();
     abort.current = controller;
     setPlaying(true);
-    play({ ...player, set: moving }, mode, Math.max(MIN_STEP_MS, ms), listenActivity, controller.signal)
+    const step = Math.max(MIN_STEP_MS, ms);
+    let drawnAt = -Infinity;
+    // A glide moves the brush every frame, and draws the panel no more often than the readout needs.
+    const gliding = (window: Window) => {
+      player.set(window);
+      const now = performance.now();
+      if (now - drawnAt >= GLIDE_REDRAW_MS) {
+        drawnAt = now;
+        setMoves((n) => n + 1);
+      }
+    };
+    const run =
+      motion === 'smooth'
+        ? glidePlay({ ...player, set: gliding }, mode, step, listenActivity, controller.signal)
+        : play({ ...player, set: moving }, mode, step, listenActivity, controller.signal);
+    run
       .catch((error: unknown) => console.warn('Chaski filters: play stopped', error))
       .finally(() => {
+        setMoves((n) => n + 1);
         if (abort.current === controller) {
           abort.current = undefined;
           setPlaying(false);
         }
       });
-  }, [player, mode, ms, moving, pause]);
+  }, [player, mode, ms, motion, moving, pause]);
   const forward = useCallback(() => {
     if (!player) {
       return;
@@ -319,6 +339,9 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
     const cleanups: Array<() => void> = [];
     const defer = (cleanup: () => void) => (alive() ? cleanups.push(cleanup) : cleanup());
     let drawn = false;
+    // While a smooth play moves the timeline, the URL catching up with it is not to move it back.
+    let gliding = false;
+    let writeLinks = () => {};
     const reportError = (message: string) => {
       if (!alive()) {
         return;
@@ -461,6 +484,10 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
                 settled: async () => {
                   await Promise.all([...coordinator.clients].map((c) => c.pending));
                 },
+                write: () => writeLinks(),
+                gliding: (on) => {
+                  gliding = on;
+                },
               };
             }
             const read = (event: PointerEvent) => {
@@ -579,6 +606,9 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
             continue;
           }
           seen.set(filter.name, key);
+          if (gliding && filter === timeline) {
+            continue;
+          }
           if (filter.type === 'range') {
             const interval = intervals.get(filter.name);
             if (!interval) {
@@ -657,6 +687,7 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
       });
       // This panel writes what its own controls did; a brush drawn in another panel is that panel's to write.
       const unlink = linkVariables(links, page.params, (clause) => own.has(clause.source));
+      writeLinks = unlink.write;
       defer(() => unlink(false));
       defer(locationService.getHistory().listen(sync));
 
@@ -1039,7 +1070,12 @@ function Timeline(view: ViewProps) {
   const filter = dataset.filters[index];
   const control = view.controls.get(filter.name);
   const player = control?.kind === 'mosaic' ? control.player : undefined;
-  const { playing, toggle, pause, forward, back } = usePlayback(player, options.playMode, options.stepMs);
+  const { playing, toggle, pause, forward, back } = usePlayback(
+    player,
+    options.playMode,
+    options.stepMs,
+    options.playMotion
+  );
   const state = states.find((s) => s.name === filter.name);
   const held = player?.held();
   const domain = player?.domain();

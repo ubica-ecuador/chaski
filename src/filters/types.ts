@@ -1,4 +1,4 @@
-import type { PlayMode } from './timeline';
+import type { PlayMode, PlayMotion } from './timeline';
 
 export interface FiltersOptions {
   /** The filters variable to show, by name; empty for the dashboard's only one. */
@@ -17,7 +17,12 @@ export interface FiltersOptions {
   timeline: string;
   /** How play moves the timeline's brush: a window of fixed width, or one whose end moves. */
   playMode: PlayMode;
-  /** The least time a step of play lasts, in milliseconds; longer while the panels it set off still run. */
+  /** Whether play glides a little each frame or jumps a bin at a time. */
+  playMotion: PlayMotion;
+  /**
+   * The least time a step of play lasts, in milliseconds; longer while the panels it set off still run. A
+   * smooth play glides a bin's way in that time and writes the variables as often.
+   */
   stepMs: number;
   /** A time column: when set, every count keeps to the dashboard's time range. */
   timeColumn: string;
@@ -35,6 +40,7 @@ export const DEFAULT_OPTIONS: FiltersOptions = {
   layout: 'auto',
   timeline: '',
   playMode: 'slide',
+  playMotion: 'smooth',
   stepMs: 800,
   timeColumn: '',
   noun: 'rows',

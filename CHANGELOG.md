@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- **Smooth play on the timeline.** Play glides instead of jumping a bar at a time: the brush moves a
+  little each frame, a bar's way every Step duration, and the controls, Mosaic panels and a kepler map
+  on the selection follow it as they follow a drag. The variables are written on their own beat, every
+  Step duration or once the queries they set off have settled, so panels reading them keep the pace
+  they had. A new Motion option (Smooth, By step) keeps the old play.
+
 ## 2.2.0 (2026-10-24)
 
 - **Filters panel.** `ubica-chaski-filters-panel` shows a dataset's cross-filters and sets them, with no

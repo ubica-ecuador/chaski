@@ -4,6 +4,9 @@ import type { FilterDeclaration } from '../engine/crossfilter';
 import {
   type ActivityState,
   formatWindow,
+  type Frames,
+  glide,
+  glidePlay,
   nextWindow,
   paced,
   play,
@@ -244,6 +247,114 @@ describe('play', () => {
     await jest.advanceTimersByTimeAsync(0);
     expect(player.moves).toHaveLength(2);
     abort.abort();
+  });
+});
+
+describe('glide', () => {
+  const domain: [number, number] = [0, 100];
+
+  it('moves a slide by any amount, and stops at the end', () => {
+    expect(glide(domain, [20, 40], 2.5, 'slide')).toEqual([22.5, 42.5]);
+    expect(glide(domain, [70, 90], 30, 'slide')).toEqual([80, 100]);
+  });
+
+  it('moves a grow by its end', () => {
+    expect(glide(domain, [0, 5], 0.25, 'grow')).toEqual([0, 5.25]);
+    expect(glide(domain, [0, 95], 10, 'grow')).toEqual([0, 100]);
+  });
+});
+
+describe('glidePlay', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  const quiet = () => () => {};
+  /** Frames called one at a time, at the times given. */
+  const clock = () => {
+    let waiting: ((now: number) => void) | undefined;
+    const frames: Frames = (callback) => {
+      waiting = callback;
+      return () => (waiting = undefined);
+    };
+    const at = (now: number) => {
+      const callback = waiting;
+      waiting = undefined;
+      callback?.(now);
+    };
+    return { frames, at, pending: () => waiting !== undefined };
+  };
+  const brush = (held?: [number, number]) => {
+    let window = held;
+    const moves: Array<[number, number]> = [];
+    const gliding: boolean[] = [];
+    const player: Player = {
+      domain: () => [0, 10],
+      step: () => 2,
+      held: () => window,
+      set: (next) => {
+        window = next;
+        moves.push(next);
+      },
+      settled: () => Promise.resolve(),
+      write: jest.fn(),
+      gliding: (on) => gliding.push(on),
+    };
+    return { player, moves, gliding, move: (next?: [number, number]) => (window = next) };
+  };
+
+  it('moves the brush a step every ms, a little each frame, to the end', async () => {
+    const { player, moves, gliding } = brush([0, 4]);
+    const { frames, at, pending } = clock();
+    const done = glidePlay(player, 'slide', 500, quiet, new AbortController().signal, frames);
+    at(1000);
+    at(1125);
+    at(1250);
+    expect(moves).toEqual([
+      [0, 4],
+      [0, 4],
+      [0.5, 4.5],
+      [1, 5],
+    ]);
+    at(3000);
+    expect(moves[moves.length - 1]).toEqual([6, 10]);
+    expect(pending()).toBe(false);
+    await done;
+    expect(gliding).toEqual([true, false]);
+    expect(player.write).toHaveBeenCalledTimes(1);
+  });
+
+  it('writes the variables every ms while it glides, and where it stops', async () => {
+    const { player } = brush([0, 4]);
+    const { frames, at } = clock();
+    const abort = new AbortController();
+    const done = glidePlay(player, 'grow', 500, quiet, abort.signal, frames);
+    at(0);
+    await jest.advanceTimersByTimeAsync(1100);
+    expect(player.write).toHaveBeenCalledTimes(2);
+    at(100);
+    abort.abort();
+    await done;
+    expect(player.write).toHaveBeenCalledTimes(3);
+    expect(player.held()).toEqual([0, 4.4]);
+  });
+
+  it('glides on from where another brush moved it, and stops once it is cleared', async () => {
+    const { player, moves, move } = brush([0, 4]);
+    const { frames, at, pending } = clock();
+    const done = glidePlay(player, 'slide', 500, quiet, new AbortController().signal, frames);
+    at(0);
+    at(250);
+    move([3, 7]);
+    at(300);
+    at(550);
+    expect(moves.slice(-2)).toEqual([
+      [3, 7],
+      [4, 8],
+    ]);
+    move(undefined);
+    at(600);
+    expect(pending()).toBe(false);
+    await done;
   });
 });
 

@@ -180,4 +180,21 @@ describe('linkVariables', () => {
     await jest.advanceTimersByTimeAsync(PUBLISH_DELAY_MS);
     expect(partial).not.toHaveBeenCalled();
   });
+
+  it('writes a change at once when asked, with no rest, and nothing once stopped', async () => {
+    const { brush, unlink, mag } = setup();
+    brush.update(clauseInterval('mag', [1, 2], { source: mag }));
+    await jest.advanceTimersByTimeAsync(10);
+    unlink.write();
+    expect(partial).toHaveBeenCalledWith({ 'var-lo': '1', 'var-hi': '2' }, true);
+    unlink.write();
+    expect(partial).toHaveBeenCalledTimes(1);
+
+    brush.update(clauseInterval('mag', [1, 3], { source: mag }));
+    await jest.advanceTimersByTimeAsync(10);
+    unlink(false);
+    unlink.write();
+    await jest.advanceTimersByTimeAsync(PUBLISH_DELAY_MS);
+    expect(partial).toHaveBeenCalledTimes(1);
+  });
 });

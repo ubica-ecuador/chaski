@@ -181,6 +181,12 @@ export function writesFor(
 /** How long a brush rests before its variables are written; each write runs every panel that reads them. */
 export const PUBLISH_DELAY_MS = 300;
 
+/** Stops a {@link linkVariables}; `write` writes what waits now, for a play that never lets the brush rest. */
+export interface Unlink {
+  (flush?: boolean): void;
+  write(): void;
+}
+
 const sameValue = (a: string | string[] | undefined, b: string | string[]) =>
   JSON.stringify(a ?? '') === JSON.stringify(b);
 
@@ -192,16 +198,19 @@ const sameValue = (a: string | string[] | undefined, b: string | string[]) =>
  * The returned function stops it. With `flush`, a write still waiting goes out
  * first: a panel rebuilt on the same dashboard has just cleared its brushes,
  * and the variables must say so. Without it the write is dropped, as when the
- * dashboard is left: the URL is already another dashboard's.
+ * dashboard is left: the URL is already another dashboard's. Its `write`
+ * writes a change still waiting without waiting for the rest, and nothing once
+ * stopped.
  */
 export function linkVariables(
   links: VariableLink[],
   params: Map<string, Param<unknown> | Selection>,
   owns?: (clause: SelectionClause) => boolean
-): (flush?: boolean) => void {
+): Unlink {
   if (links.length === 0) {
-    return () => {};
+    return Object.assign(() => {}, { write: () => {} });
   }
+  let stopped = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let last = writesFor(links, params, owns);
   const publish = () => {
@@ -226,7 +235,8 @@ export function linkVariables(
     links.map((link) => params.get(link.param)).filter((p): p is Param<unknown> => p !== undefined)
   );
   watched.forEach((param) => param.addEventListener('value', schedule));
-  return (flush = false) => {
+  const stop = (flush = false) => {
+    stopped = true;
     watched.forEach((param) => param.removeEventListener('value', schedule));
     if (timer !== undefined) {
       clearTimeout(timer);
@@ -235,4 +245,11 @@ export function linkVariables(
       }
     }
   };
+  const write = () => {
+    if (!stopped && timer !== undefined) {
+      clearTimeout(timer);
+      publish();
+    }
+  };
+  return Object.assign(stop, { write });
 }

@@ -66,11 +66,25 @@ export const plugin = new PanelPlugin<FiltersOptions>(FiltersPanel).setPanelOpti
       },
       showIf: (options) => options.layout === 'timeline',
     })
+    .addRadio({
+      path: 'playMotion',
+      name: 'Motion',
+      description:
+        'Smooth: the brush glides, and the controls, Mosaic panels and maps on the Selection follow it as a drag. By step: it jumps a bin at a time.',
+      defaultValue: DEFAULT_OPTIONS.playMotion,
+      settings: {
+        options: [
+          { value: 'smooth', label: 'Smooth' },
+          { value: 'steps', label: 'By step' },
+        ],
+      },
+      showIf: (options) => options.layout === 'timeline',
+    })
     .addNumberInput({
       path: 'stepMs',
       name: 'Step duration (ms)',
       description:
-        'The least time a step of play lasts; longer while the panels it set off still run. At least 400: each step’s variables are written a moment after it.',
+        'The least time a step of play lasts; longer while the panels it set off still run. A smooth play glides a bin’s way in that time and writes the variables as often. At least 400: each step’s variables are written a moment after it.',
       defaultValue: DEFAULT_OPTIONS.stepMs,
       settings: { min: 400, integer: true },
       showIf: (options) => options.layout === 'timeline',
