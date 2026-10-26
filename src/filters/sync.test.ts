@@ -12,6 +12,7 @@ import {
   type IntervalInteractor,
   pixelOf,
   rangeMatches,
+  reannounce,
   searchClause,
   timeClause,
   type ToggleInteractor,
@@ -192,5 +193,67 @@ describe('linkBrush', () => {
     expect(a.brush.value).toBeUndefined();
     stopA();
     stopB();
+  });
+
+  it('lands a window another plugin already holds on a brush linked after it: widened, and shown', async () => {
+    const selection = Selection.crossfilter();
+    // A Time Brush's window, kept through a reload, before the panel built again links its brush.
+    const timeBrush = {};
+    selection.update(clauseInterval('mag', [2, 4], { source: timeBrush }));
+    const a = brushOn(selection);
+    const stop = linkBrush(selection, a.brush, 'mag');
+
+    reannounce(selection, ['mag'], new Set([a.brush]));
+    await settle();
+    expect(selection.clauses.map((c) => c.source)).toEqual([timeBrush]);
+    expect([...selection.clauses[0].clients!]).toEqual([a.mark]);
+    expect(a.brush.value).toEqual([2, 4]);
+
+    // Its own clause, or one on another column, is not landed again.
+    const [before] = selection.clauses;
+    reannounce(selection, ['depth'], new Set([a.brush]));
+    reannounce(selection, ['mag'], new Set([a.brush, timeBrush]));
+    expect(selection.clauses[0]).toBe(before);
+    stop();
+  });
+
+  it('replaces a range held through a reload when a brush on its column moves', async () => {
+    const { mosaicRuntime } = await import('../mosaic/runtime');
+    const { pageFor, resetPages, isHolder } = await import('../mosaic/page');
+    resetPages();
+    jest.useFakeTimers();
+    let loadedAt = 1;
+    let emit: (() => void) | undefined;
+    const engine = {
+      duckdbVersion: 'v1.4.3',
+      queryIPC: jest.fn(),
+      exec: jest.fn(async () => {}),
+      datasets: () => [{ name: 'quakes', view: 'v', table: 'quakes', rows: 1, loadedAt }],
+      onChange: (listener: (event: { kind: string; name: string; view: string }) => void) => {
+        emit = () => {
+          loadedAt = 2;
+          listener({ kind: 'dataset', name: 'quakes', view: 'v' });
+        };
+        return () => {};
+      },
+      releaseScratch: async () => {},
+    };
+    const page = mosaicRuntime.pageFor('a', engine as never);
+    expect(page).toBe(pageFor('a', engine as never));
+    const selection = Selection.crossfilter();
+    page.params.set('brush', selection);
+    const a = brushOn(selection);
+    const stop = linkBrush(selection, a.brush, 'mag');
+    page.read(['quakes'], engine.datasets() as never);
+    selection.update(a.brush.clause([2, 4]));
+    emit!();
+    await jest.advanceTimersByTimeAsync(100);
+    jest.useRealTimers();
+    expect(isHolder(selection.clauses[0].source)).toBe(true);
+
+    selection.update(a.brush.clause([5, 6]));
+    await settle();
+    expect(selection.clauses.map((c) => c.source)).toEqual([a.brush]);
+    stop();
   });
 });

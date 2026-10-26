@@ -379,7 +379,7 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
         linkReads,
       } = mosaic;
       const { applyRange, applyValues, heldElsewhere, pixelOf, rangeMatches, searchClause } = mosaic.sync;
-      const { spanOf, timeClause, valuesMatch, binAt, linkBrush, clearColumn } = mosaic.sync;
+      const { spanOf, timeClause, valuesMatch, binAt, linkBrush, clearColumn, reannounce } = mosaic.sync;
       const page = pageFor(dashboardKey(), engine);
       defer(page.subscribe(() => setRebuild((n) => n + 1)));
       let waiting = false;
@@ -607,6 +607,11 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
       // that column, the link pulled the brush being dragged back. A clear always applies.
       let ownEcho: (values: Record<string, string | string[]>) => boolean = () => false;
       const sync = () => {
+        // A panel going away (its cleanups run after the abort) touches no control: a URL change made by its own
+        // clauses being released would otherwise set a brush of a panel no longer there, a clause nothing clears.
+        if (!alive()) {
+          return;
+        }
         const value = currentValues();
         for (const filter of dataset.filters) {
           const names = variablesOf(filter);
@@ -678,6 +683,13 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
           shared.reset(shared.clauses.filter((clause) => clause.source === source));
         });
       }
+      // A window another plugin holds on a range column (kept through a reload) lands on the brushes built now.
+      // Optional: a Mosaic panel module from before this has no reannounce.
+      reannounce?.(
+        shared,
+        dataset.filters.flatMap((f) => (f.type === 'range' && intervals.has(f.name) ? [f.column] : [])),
+        own
+      );
       sync();
 
       // From the controls to the variables, once they rest; a range's ends rounded to a pixel of its axis.
@@ -717,7 +729,8 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
     });
     return () => {
       abort.abort();
-      cleanups.forEach((cleanup) => cleanup());
+      // Last set up, first undone: the listeners go before the clauses are released, which writes variables.
+      [...cleanups].reverse().forEach((cleanup) => cleanup());
       setProblem(undefined);
     };
   }, [
