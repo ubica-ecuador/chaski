@@ -41,6 +41,22 @@
     ],
     "screenshots": [
       {
+        "name": "Delivery drone flights: a Mosaic panel of height, speed, power and voltage beside the replay",
+        "path": "img/screenshots/drone-flights.jpg"
+      },
+      {
+        "name": "Active fires since 2000: map, ranking and a Mosaic calendar on one dataset in the browser",
+        "path": "img/screenshots/time-brush.jpg"
+      },
+      {
+        "name": "Air quality in Amsterdam: every panel answered in the browser as the hours move",
+        "path": "img/screenshots/air-quality-amsterdam.jpg"
+      },
+      {
+        "name": "A GPS truck track: two maps, cards and Mosaic charts from one dataset",
+        "path": "img/screenshots/gps-truck.jpg"
+      },
+      {
         "name": "One dataset loaded once, answering a stat, a table, a time series and a map in the browser",
         "path": "img/screenshots/dashboard.png"
       },

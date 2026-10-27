@@ -16,6 +16,7 @@
   - Histograms with no brush show their colour, and their whole range after a reload.
   - Several Mosaic panels sharing a pre-aggregated table no longer fail with a DuckDB write conflict.
   - A panel waiting for the engine shows a spinner.
+- **The catalog page shows Chaski at work** in four live dashboards on pacha.ubica.dev.
 - **Examples**: a month of USGS earthquakes with the filters panel driving a kepler map, Gaia cards
   that follow the brushes, and New York taxi trips as flows.
 
