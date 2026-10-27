@@ -196,13 +196,13 @@ jobs:
       # docker-compose.yaml publishes Grafana on 3005, not 3000: :3000 belongs
       # to the kepler-grafana bench, and playwright.config.ts defaults to 3005.
       - name: Wait for grafana server
-        uses: grafana/plugin-actions/wait-for-grafana@wait-for-grafana/v1.0.4
+        uses: grafana/plugin-actions/wait-for-grafana@wait-for-grafana/v1.0.5
         with:
           url: http://localhost:3005/login
 
       # grafana-cdn serves the plugin from a CDN, as Grafana Cloud does (tests/cdn.spec.ts).
       - name: Wait for the CDN grafana server
-        uses: grafana/plugin-actions/wait-for-grafana@wait-for-grafana/v1.0.4
+        uses: grafana/plugin-actions/wait-for-grafana@wait-for-grafana/v1.0.5
         with:
           url: http://localhost:3007/login
 
