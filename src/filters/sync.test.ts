@@ -239,6 +239,40 @@ describe('linkBrush', () => {
     stop();
   });
 
+  it('has its own histograms draw again over the whole column when a window lands on them, and only its own', async () => {
+    const selection = Selection.crossfilter();
+    const held = {};
+    selection.update(clauseInterval('mag', [2, 4], { source: held }));
+    const plotOf = (b: ReturnType<typeof brushOn>) => {
+      const attributes: Record<string, unknown> = { xDomain: [2, 4] };
+      Object.assign(b.mark, { requestQuery: jest.fn() });
+      Object.assign(b.brush.mark as object, {
+        plot: {
+          markSet: new Set([b.mark]),
+          attributes,
+          setAttribute: (name: string, value: unknown) => {
+            attributes[name] = value;
+          },
+        },
+      });
+      return attributes;
+    };
+    const mine = brushOn(selection);
+    const other = brushOn(selection);
+    const [mineAxis, otherAxis] = [plotOf(mine), plotOf(other)];
+    const stops = [linkBrush(selection, mine.brush, 'mag'), linkBrush(selection, other.brush, 'mag')];
+
+    reannounce(selection, ['mag'], new Set([mine.brush]));
+    const { Fixed } = await import('@uwdata/mosaic-plot');
+    expect(mineAxis.xDomain).toBe(Fixed);
+    // Another panel's histogram (a Mosaic panel's, whose domain its author set) keeps its axis.
+    expect(otherAxis.xDomain).toEqual([2, 4]);
+    // Mosaic sends no update to a client the clause leaves out: its marks query again themselves.
+    expect((mine.mark as { requestQuery: jest.Mock }).requestQuery).toHaveBeenCalled();
+    expect((other.mark as { requestQuery: jest.Mock }).requestQuery).not.toHaveBeenCalled();
+    stops.forEach((stop) => stop());
+  });
+
   it('replaces a range held through a reload when a brush on its column moves', async () => {
     const { mosaicRuntime } = await import('../mosaic/runtime');
     const { pageFor, resetPages, isHolder } = await import('../mosaic/page');
