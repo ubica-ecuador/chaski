@@ -36,19 +36,24 @@ function brushed(value?: number[]) {
   return { interactor };
 }
 
-/** A brush's selection rect, where d3 draws it: a drag and a silent move alike set its attributes. */
+/**
+ * A brush's selection rect, as d3 draws it: shown, with its `x` and `width`; cleared (and before the first brush),
+ * hidden by its style, with neither.
+ */
 function selectionRect(svg: Element) {
   const rect = document.createElementNS(SVG_NS, 'rect');
   rect.setAttribute('class', 'selection');
-  rect.setAttribute('display', 'none');
+  rect.style.display = 'none';
   svg.appendChild(rect);
   return (selection: [number, number] | null) => {
     if (selection) {
-      rect.removeAttribute('display');
+      rect.style.display = '';
       rect.setAttribute('x', String(selection[0]));
       rect.setAttribute('width', String(selection[1] - selection[0]));
     } else {
-      rect.setAttribute('display', 'none');
+      rect.style.display = 'none';
+      rect.removeAttribute('x');
+      rect.removeAttribute('width');
     }
   };
 }
@@ -88,6 +93,22 @@ describe('paintRange', () => {
     move([10, 20]);
     await nextTick();
     expect(coloured(element).hasAttribute('clip-path')).toBe(false);
+  });
+
+  it('shows the coloured bars whole under a brush d3 has drawn hidden, as before the first drag', async () => {
+    const element = document.createElement('div');
+    const svg = plot([{ x: 0 }]);
+    element.appendChild(svg);
+    selectionRect(svg);
+    const { interactor } = brushed();
+    const painter = paintRange(element, interactor);
+    painter.paint();
+    expect(coloured(element).hasAttribute('clip-path')).toBe(false);
+    // A range set from a variable before d3 has drawn its brush: clipped to it.
+    interactor.value = [2, 5];
+    painter.paint();
+    expect(coloured(element).getAttribute('clip-path')).toMatch(/^url\(#chaski-paint-\d+\)$/);
+    painter.stop();
   });
 
   it('paints again when Mosaic draws the plot again', async () => {

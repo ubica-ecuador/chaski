@@ -15,6 +15,13 @@
 - **A reload keeps the window.** A dataset reloading (auto-refresh, Refresh, a range change) keeps the
   range a brush held and other plugins' clauses (a Kepler Plus Time Brush's window, a kepler map's
   filters) instead of opening them to the whole range.
+- **A filters panel no one looks at asks for less.** A control out of view (in a closed pill or
+  section, or a panel scrolled away) sends no query while a brush elsewhere moves: it is brought up
+  to date as it shows. On a dashboard with its filters in pills, a drag sent a dozen queries a step to
+  the one DuckDB worker, ahead of the dashboard's own panels, and the first drag built a
+  pre-aggregated table for each control; the count beside the pills still follows the brush. The
+  panel's "N of M" total is counted once at a time, for the URL as it stands when the last count
+  answers, instead of once per URL change, queued, answering in any order.
 
 ## 2.2.0 (2026-10-24)
 

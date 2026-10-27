@@ -55,7 +55,7 @@ export function paintRange(element: HTMLElement, interactor: IntervalInteractor)
   // Where the brush is drawn, when it is; its value before d3 has drawn it.
   const held = () => {
     const rect = plotOf(element)?.querySelector('.selection');
-    return rect ? selectionPixels(rect) : heldPixels(interactor);
+    return (rect ? selectionPixels(rect) : undefined) ?? heldPixels(interactor);
   };
   const paint = (pixels = held()) => {
     const svg = plotOf(element);
@@ -99,18 +99,25 @@ export function paintRange(element: HTMLElement, interactor: IntervalInteractor)
     childList: true,
     subtree: true,
     attributes: true,
-    attributeFilter: ['x', 'width', 'display'],
+    attributeFilter: ['x', 'width', 'display', 'style'],
   });
   return { paint: () => paint(), stop: () => observer.disconnect() };
 }
 
-/** The pixels a brush's selection rect covers: undefined when it is hidden, as d3 hides a cleared brush. */
+/**
+ * The pixels a brush's selection rect covers: undefined when it covers none. d3 hides a cleared brush's rect with
+ * `style="display: none"` and takes its `x` and `width` away; read as numbers, those were a range of no width, and
+ * a range control with no brush showed none of its colour.
+ */
 function selectionPixels(rect: Element): [number, number] | undefined {
-  const x = Number(rect.getAttribute('x'));
-  const width = Number(rect.getAttribute('width'));
-  return rect.getAttribute('display') === 'none' || !Number.isFinite(x) || !Number.isFinite(width)
-    ? undefined
-    : [x, x + width];
+  const hidden = rect.getAttribute('display') === 'none' || (rect as SVGElement).style?.display === 'none';
+  const x = rect.getAttribute('x');
+  const width = rect.getAttribute('width');
+  if (hidden || x === null || width === null) {
+    return undefined;
+  }
+  const [left, span] = [Number(x), Number(width)];
+  return Number.isFinite(left) && Number.isFinite(span) ? [left, left + span] : undefined;
 }
 
 /** A list of values: the coloured bars of the values picked, or all of them when none is. */

@@ -1,4 +1,5 @@
 import type { Selection, SelectionClause } from '@uwdata/mosaic-core';
+import { Fixed } from '@uwdata/mosaic-plot';
 import { column, literal, sql } from '@uwdata/mosaic-sql';
 
 import { clauseColumns, clausesNow } from '../mosaic/bridge';
@@ -16,6 +17,8 @@ import { isHolder } from '../mosaic/page';
 /** What the panel needs of Mosaic's Interval1D interactor. */
 export interface IntervalInteractor {
   value?: unknown[];
+  /** The axis it brushes. */
+  channel?: string;
   /** The mark the brush sits on: the grey layer of a histogram. */
   mark?: unknown;
   scale?: {
@@ -384,16 +387,40 @@ export function linkBrush(selection: Selection, interactor: IntervalInteractor, 
 
 /**
  * Lands again the interval clauses a Selection already holds on these columns that no control of this panel made
- * (a Time Brush's window, kept through a dataset reload): the brushes linked on those columns widen them to their
- * marks, so each histogram leaves itself out as it does for a clause landing now, and show their range.
+ * (a Time Brush's window, or a range held through a dataset reload): the brushes linked on those columns widen them
+ * to their marks, so each histogram leaves itself out as it does for a clause landing now, and show their range.
+ *
+ * This panel's histograms on those columns were drawn under that clause, so they held only its window, and fixed
+ * their axis on it (`xDomain: Fixed`). Mosaic sends no update to a client a clause leaves out, so they query again
+ * themselves, now over the whole column, and take their axis from that drawing.
  */
 export function reannounce(selection: Selection, columns: string[], own: Set<unknown>): void {
+  const registry = brushes.get(selection);
   for (const clause of [...selection.clauses]) {
     const column = intervalColumn(clause);
     if (column !== undefined && columns.includes(column) && !own.has(clause.source) && clause.value != null) {
       // A copy: the same clause again leaves the resolved list equal, and Mosaic emits nothing for it.
       selection.update({ ...clause });
+      for (const interactor of registry?.get(column) ?? []) {
+        if (own.has(interactor)) {
+          redrawWhole(interactor);
+        }
+      }
     }
+  }
+}
+
+interface PlotLike {
+  markSet?: Set<{ requestQuery?(): unknown }>;
+  setAttribute?(name: string, value: unknown, options?: object): void;
+}
+
+/** A histogram draws again what the clauses that leave it out let through, and takes its axis from that. */
+function redrawWhole(interactor: IntervalInteractor): void {
+  const plot = (interactor.mark as { plot?: PlotLike } | undefined)?.plot;
+  plot?.setAttribute?.(`${interactor.channel ?? 'x'}Domain`, Fixed, { silent: true });
+  for (const mark of plot?.markSet ?? []) {
+    mark.requestQuery?.();
   }
 }
 
