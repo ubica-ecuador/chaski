@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.3.0 (2026-10-27)
+## 2.3.1 (2026-10-27)
 
 - **Smooth play on the timeline** (Motion: Smooth, by default): the window glides instead of jumping a
   bar at a time, and the filters, the Mosaic panels and a kepler map on the same selection follow every
