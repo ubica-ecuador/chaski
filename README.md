@@ -29,6 +29,32 @@ keeps working: native, catalog and the kepler map.
   an open spatio-temporal stack for Grafana that includes Chaski, with DuckDB on the server and the
   kepler map panel: one command brings it up with these dashboards.
 
+## Chaski at work
+
+Four of the live demos, each linked to its dashboard.
+
+[![A drone flight replayed on a map beside a Mosaic panel of its height, speed, power and voltage; the box brushed on the charts is a window of the flight](src/img/screenshots/drone-flights.jpg)](https://pacha.ubica.dev/d/drone-delivery-flights)
+
+**Delivery drone flights.** Every second of 209 flights loads once into the browser. The Mosaic panel
+draws height, speed, power and voltage from it, and its brushes filter the other panels in the
+browser, with no query to the server.
+
+[![A fire archive since 2000: an A5 grid of detections on the map, countries ranked, a Mosaic fire calendar and a time brush over the monthly bars](src/img/screenshots/time-brush.jpg)](https://pacha.ubica.dev/d/firms-fire-archive)
+
+**Active fires since 2000.** 634 million satellite detections reach the browser once, as about 5 MB of
+aggregates per cell and month. The map, the ranking, the counts and the Mosaic calendar all read it, and
+follow the window as it is brushed or played.
+
+[![NO2 in Amsterdam: a surface between the stations with each station's last 24 hours, the stations ranked, and a time brush over the hours](src/img/screenshots/air-quality-amsterdam.jpg)](https://pacha.ubica.dev/d/air-quality-amsterdam)
+
+**Air quality in Amsterdam.** The hourly readings of 17 stations answer every panel in the browser:
+moving the hours re-draws the map, the cards and the ranking at once, with no round trip.
+
+[![A GPS truck followed in 3D through a city, and its whole road drawn as a curtain coloured by speed, with its stops](src/img/screenshots/gps-truck.jpg)](https://pacha.ubica.dev/d/gps-truck-track-plus)
+
+**A GPS truck track.** One trip's fixes feed two maps, six cards and three Mosaic charts below them,
+all from the same dataset in the browser.
+
 ## How it works
 
 - **Datasets.** A dataset is a hidden query variable of this datasource. It loads into a versioned
