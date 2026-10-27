@@ -14,6 +14,7 @@ import type { VariableLink } from '../../mosaic/bridge';
 import { waitForEngine } from '../../mosaic/connector';
 import type { VariableRead } from '../../mosaic/inbound';
 import { crossfilterSource, filtersVariables, pickVariable, urlFirst, type ValueOf } from '../model';
+import { latestOnly } from '../latest';
 import { countSql, timeCondition } from '../queries';
 import { paintRange, paintValues } from '../paint';
 import { controlLinks, labelWidth, rangeSpec, type ValueFilter, valuesSpec } from '../specs';
@@ -37,6 +38,7 @@ import {
 } from '../timeline';
 import { DEFAULT_OPTIONS, type FiltersOptions } from '../types';
 import { pickedValues, rangeOf } from '../values';
+import { pauseWhileHidden, type Pausable, type Watched } from '../visibility';
 import { clearing, writeVariables } from '../writes';
 import { formatBin, formatCount, roundToAxis, SearchControl } from './controls';
 import { getStyles, type Styles } from './styles';
@@ -292,6 +294,17 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
     const abort = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
     let engine: ChaskiEngineApi | undefined;
+    // One count at a time, of the URL as it stands when the last one answers: a brush writing as it moves
+    // changes the URL faster than a scan of the dataset answers.
+    const count = latestOnly(
+      async ({ sql, active }: { sql: string; active: string[] }) => {
+        const ipc = await engine!.queryIPC(sql, { consumer: 'panel', signal: abort.signal });
+        const [row = {}] = rowsOf(ipc);
+        setTotal(num(row.total));
+        setWithout(Object.fromEntries(active.map((name) => [name, num(row[`without_${name}`])])));
+      },
+      ({ sql }) => sql
+    );
     const read = () => {
       clearTimeout(timer);
       timer = setTimeout(() => {
@@ -303,19 +316,10 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
         if (next.kind !== 'resolved') {
           return;
         }
-        const sql = countSql(next.dataset.table, next.states, timeCondition(timeColumn, from, to));
-        engine
-          .queryIPC(sql, { consumer: 'panel', signal: abort.signal })
-          .then((ipc) => {
-            const [row = {}] = rowsOf(ipc);
-            setTotal(num(row.total));
-            setWithout(
-              Object.fromEntries(
-                next.states.filter((s) => s.sql !== undefined).map((s) => [s.name, num(row[`without_${s.name}`])])
-              )
-            );
-          })
-          .catch(() => {});
+        count({
+          sql: countSql(next.dataset.table, next.states, timeCondition(timeColumn, from, to)),
+          active: next.states.filter((s) => s.sql !== undefined).map((s) => s.name),
+        });
       }, 30);
     };
     const unlisten = locationService.getHistory().listen(read);
@@ -430,6 +434,8 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
 
       const view = `datasets.${quoteIdent(dataset.name)}`;
       const query = async (sql: string) => rowsOf(await engine.queryIPC(sql, { signal: abort.signal }));
+      // Each control's element and the clients drawing it, paused while it is out of view.
+      const watched: Watched[] = [];
       const draw = async (spec: object) => {
         const before = new Set(coordinator.clients);
         const { element } = await astToDOM(parseSpec(spec as never), { api, params: page.params as never });
@@ -437,6 +443,7 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
         const interactors = new Set<unknown>(
           added.flatMap((c) => (c as { plot?: { interactors?: unknown[] } }).plot?.interactors ?? [])
         );
+        watched.push({ element: element as HTMLElement, clients: added as unknown as Pausable[] });
         return { element: element as HTMLElement, interactors: [...interactors] };
       };
       const isObject = (i: unknown): i is object => typeof i === 'object' && i !== null;
@@ -668,6 +675,8 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
         return;
       }
       coordinator.preaggregator.enabled = true;
+      // Drawn once, with their axes: from now on a control no one sees asks for nothing (see visibility.ts).
+      defer(pauseWhileHidden(watched));
 
       // The dashboard's time range, as a clause no control owns: set once the controls have their axes, and
       // replaced in place when the range changes, without drawing the controls again.
