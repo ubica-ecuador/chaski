@@ -1,27 +1,23 @@
 # Changelog
 
-## Unreleased
+## 2.3.0 (2026-10-27)
 
-- **Smooth play on the timeline.** Play glides instead of jumping a bar at a time: the brush moves a
-  little each frame, a bar's way every Step duration, and the controls, Mosaic panels and a kepler map
-  on the selection follow it as they follow a drag. The variables are written on their own beat, every
-  Step duration or once the queries they set off have settled, so panels reading them keep the pace
-  they had. A new Motion option (Smooth, By step) keeps the old play.
-- **Play from a window another panel holds.** The timeline plays from a window the sidebar's brush
-  holds (set from the URL or by a kepler map): taking the column from a linked brush no longer clears
-  the timeline's own range, which stopped play at once.
-- **Brushes stay where they are let go.** On a busy page a range written mid-drag no longer comes back
-  through the URL and pulls a linked brush back; the coloured bars follow a gliding play.
-- **A reload keeps the window.** A dataset reloading (auto-refresh, Refresh, a range change) keeps the
-  range a brush held and other plugins' clauses (a Kepler Plus Time Brush's window, a kepler map's
-  filters) instead of opening them to the whole range.
-- **A filters panel no one looks at asks for less.** A control out of view (in a closed pill or
-  section, or a panel scrolled away) sends no query while a brush elsewhere moves: it is brought up
-  to date as it shows. On a dashboard with its filters in pills, a drag sent a dozen queries a step to
-  the one DuckDB worker, ahead of the dashboard's own panels, and the first drag built a
-  pre-aggregated table for each control; the count beside the pills still follows the brush. The
-  panel's "N of M" total is counted once at a time, for the URL as it stands when the last count
-  answers, instead of once per URL change, queued, answering in any order.
+- **Smooth play on the timeline** (Motion: Smooth, by default): the window glides instead of jumping a
+  bar at a time, and the filters, the Mosaic panels and a kepler map on the same selection follow every
+  frame. **By step** keeps the old play.
+- **Play from any window**: the timeline also plays from a window set by another panel, a kepler map
+  or a shared link.
+- **The dashboard keeps its window on reload**: an auto-refresh, Refresh or a new time range no longer
+  opens a brushed window, or a Kepler Plus Time Brush's, to the whole range.
+- **Faster filters panel**: controls out of view (a closed pill or section, a panel scrolled away) wait
+  until they show, so dragging a brush answers several times faster on a dashboard with many filters.
+- **Fixes**:
+  - A brush stays where you let it go, and the coloured bars follow it while it moves or plays.
+  - Histograms with no brush show their colour, and their whole range after a reload.
+  - Several Mosaic panels sharing a pre-aggregated table no longer fail with a DuckDB write conflict.
+  - A panel waiting for the engine shows a spinner.
+- **Examples**: a month of USGS earthquakes with the filters panel driving a kepler map, Gaia cards
+  that follow the brushes, and New York taxi trips as flows.
 
 ## 2.2.0 (2026-10-24)
 
