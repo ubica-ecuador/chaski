@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { cx } from '@emotion/css';
 import type { GrafanaTheme2, PanelProps } from '@grafana/data';
 import { getAppEvents, getTemplateSrv, locationService } from '@grafana/runtime';
 import { IconButton, Spinner, Toggletip, useStyles2, useTheme2 } from '@grafana/ui';
@@ -1002,6 +1003,7 @@ function Sidebar(view: ViewProps) {
         const open = !closed.has(filter.name);
         const colour = view.colours[index % view.colours.length];
         const set = state !== undefined && narrows(view, state);
+        const hovered = view.hover?.name === filter.name;
         return (
           <div key={filter.name} className={styles.section}>
             <div className={styles.sectionHead}>
@@ -1014,17 +1016,22 @@ function Sidebar(view: ViewProps) {
                 <span>{open ? '▾' : '▸'}</span>
                 <span className={styles.dot} style={{ background: colour }} />
                 <span>{filter.label ?? filter.name}</span>
-                {view.hover?.name === filter.name ? (
-                  <span className={`${styles.sectionValue} ${styles.hover}`}>{view.hover.text}</span>
-                ) : (
-                  set && <span className={styles.sectionValue}>{state.text}</span>
-                )}
+                {/* Only when closed: beside the label it would wrap it, and move the control under the pointer. */}
+                {!open && set && <span className={styles.sectionValue}>{state.text}</span>}
               </button>
               {set && state.variables.length > 0 && <ClearOne state={state} />}
             </div>
             {/* Hidden, not unmounted: a closed section keeps its brush. */}
             <div className={styles.sectionBody} style={open ? undefined : { display: 'none' }}>
               <ControlView filter={filter} view={view} />
+              {/* Under the control, on one line kept for a range: a hover never moves what is hovered. */}
+              {filter.type === 'range' ? (
+                <div className={cx(styles.readout, hovered && styles.hover)}>
+                  {hovered ? view.hover?.text : set ? state.text : ''}
+                </div>
+              ) : (
+                set && <div className={styles.readout}>{state.text}</div>
+              )}
             </div>
           </div>
         );

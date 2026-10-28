@@ -198,6 +198,12 @@ export const getStyles = (theme: GrafanaTheme2) => ({
     paddingTop: theme.spacing(0.5),
     color: theme.colors.text.secondary,
     fontVariantNumeric: 'tabular-nums',
+    // One line whatever the text, empty or not: a hover never pushes the sections below.
+    boxSizing: 'content-box',
+    lineHeight: '18px',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
   }),
   sectionBody: css({ paddingTop: theme.spacing(0.75) }),
   note: css({ color: theme.colors.text.secondary }),
