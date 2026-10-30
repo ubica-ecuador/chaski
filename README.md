@@ -193,6 +193,9 @@ skills with it, for Chaski's SQL, its dataset variables and the Mosaic panel; th
     proxy once the page reloads.
 - **SQL only reads.** The engine sends GET and HEAD requests only: `COPY … TO` a URL, and S3 writes
   pointed elsewhere by `CREATE SECRET`, are refused.
+- **One dashboard's data at a time.** All dashboards on a page share the engine, so the tables of the
+  dashboard left behind, and Mosaic's pre-aggregates, are dropped as soon as another comes on screen:
+  one dashboard's SQL cannot read another's data. Coming back reloads its datasets.
 - **Mosaic panels stay in their panel.** Links a spec draws (a mark's `href`) go through Grafana's URL
   sanitizer, so a `javascript:` link becomes `about:blank`, and a spec's `style` cannot lay a plot over
   Grafana: the panel contains what it paints.

@@ -1,4 +1,5 @@
 import type { LoadedWindow, LoadWindow } from './rangeReuse';
+import { PREAGG_SCHEMA } from './scratch';
 import { quoteIdent, sanitizeName, shortHash, stripTrailingSemicolons } from './sql';
 import type { DatasetLoader, DatasetState, RegistryEvent, SqlRunner } from './types';
 
@@ -6,14 +7,16 @@ import type { DatasetLoader, DatasetState, RegistryEvent, SqlRunner } from './ty
 const KEEP_VERSIONS = 2;
 
 /**
- * Dashboards kept in memory at once, most recently activated first. Grafana
- * 12's scene cache can restore a dashboard on browser Back without re-running
- * its dataset variables, so a panel can come back pointing at a table from a
- * dashboard that was active a couple of navigations ago. Keeping a small LRU
- * of dashboards, rather than only the current one, means that ordinary
- * back-and-forth navigation still finds its tables.
+ * Only the dashboard on screen keeps its tables. All dashboards share one
+ * DuckDB, and any of them may run SQL written by its own editor, so a table
+ * kept from the dashboard before (data the viewer may read and that editor
+ * may not, from a datasource that editor cannot query) would be readable, and
+ * writable, from this one. Mosaic's pre-aggregates, built from that data, go
+ * with them. The cost: Grafana 12's scene cache can restore a dashboard on
+ * browser Back without re-running its dataset variables, and its panels then
+ * ask the viewer to reload the page.
  */
-const KEEP_DASHBOARDS = 3;
+const KEEP_DASHBOARDS = 1;
 
 interface Entry {
   dashboard: string;
@@ -37,6 +40,8 @@ export class DatasetRegistry {
   private readonly entries = new Map<string, Entry>();
   /** Dashboard keys, most recently activated first (lru[0] is the active one); at most KEEP_DASHBOARDS long. */
   private readonly lru: string[] = [];
+  /** The drop of the dashboards left last; activate() returns it, so nothing runs beside the old data. */
+  private dropping: Promise<void> = Promise.resolve();
   /** Monotonic across all dashboards and datasets, so table names never collide across a reactivation. */
   private nextVersion = 0;
   /** How many times each dashboard has become the active one: a new visit starts every time. */
@@ -51,38 +56,48 @@ export class DatasetRegistry {
   ) {}
 
   /**
-   * Makes `dashboard` the most recently used one, starting a new visit unless
-   * it already was the one on screen. Once more than KEEP_DASHBOARDS have been
-   * activated, the least recently used dashboard's tables are dropped (see
-   * KEEP_DASHBOARDS for why more than one is kept).
+   * Makes `dashboard` the one on screen, starting a new visit unless it
+   * already was. Another dashboard's tables, and Mosaic's pre-aggregates, are
+   * dropped before this returns, so before any dataset of the new one loads
+   * (see KEEP_DASHBOARDS).
    */
   async activate(dashboard: string): Promise<void> {
     const index = this.lru.indexOf(dashboard);
     if (index === 0 && !this.frontLeft) {
-      return;
+      return this.dropping;
     }
     this.frontLeft = false;
     this.visits.set(dashboard, this.visitOf(dashboard) + 1);
     if (index === 0) {
-      return;
+      return this.dropping;
     }
     if (index !== -1) {
       this.lru.splice(index, 1);
     }
     this.lru.unshift(dashboard);
-    while (this.lru.length > KEEP_DASHBOARDS) {
-      const evicted = this.lru.pop()!;
-      for (const [key, entry] of [...this.entries]) {
-        if (entry.dashboard !== evicted) {
-          continue;
-        }
+    const evicted = new Set(this.lru.splice(KEEP_DASHBOARDS));
+    const tables: string[] = [];
+    for (const [key, entry] of [...this.entries]) {
+      if (evicted.has(entry.dashboard)) {
         this.entries.delete(key);
-        for (const table of entry.kept) {
-          await this.drop(table);
-        }
+        tables.push(...entry.kept);
       }
     }
     this.emit({ kind: 'activated', dashboard });
+    // Every caller, this dashboard's later requests included, waits until the old data is gone.
+    const before = this.dropping;
+    this.dropping = (async () => {
+      await before;
+      if (evicted.size > 0) {
+        await this.runner
+          .exec(`DROP SCHEMA IF EXISTS ${PREAGG_SCHEMA} CASCADE`)
+          .catch((error: unknown) => console.warn('Chaski: dropping pre-aggregates', error));
+      }
+      for (const table of tables) {
+        await this.drop(table);
+      }
+    })();
+    return this.dropping;
   }
 
   /**
@@ -233,7 +248,13 @@ export class DatasetRegistry {
     return fresh;
   }
 
-  private async fail(key: string, capturedEntry: Entry, version: number, table: string, error: unknown): Promise<DatasetState> {
+  private async fail(
+    key: string,
+    capturedEntry: Entry,
+    version: number,
+    table: string,
+    error: unknown
+  ): Promise<DatasetState> {
     await this.drop(table);
     if (this.entries.get(key) !== capturedEntry) {
       // Orphan: the dashboard was switched away (and possibly back) while this was loading.

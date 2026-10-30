@@ -19,7 +19,8 @@ function deferred<T>() {
 const arrowOf = (values: number[]) => new Table({ n: vectorFromArray(values, new Float64()) });
 const sqlLoader = (rows: number) => ({ kind: 'sql' as const, sql: `SELECT range AS n FROM range(${rows});` });
 const exists = async (runner: SqlRunner, table: string) =>
-  (await runner.query(`SELECT count(*)::DOUBLE AS c FROM duckdb_tables() WHERE table_name = '${table}'`)).get(0)?.c === 1;
+  (await runner.query(`SELECT count(*)::DOUBLE AS c FROM duckdb_tables() WHERE table_name = '${table}'`)).get(0)?.c ===
+  1;
 
 let runner: SqlRunner;
 let clock: number;
@@ -103,60 +104,51 @@ describe('DatasetRegistry', () => {
     expect(registry.get('dash', 'v')).toBeUndefined();
   });
 
-  it('keeps another dashboard’s tables when only two are in play', async () => {
+  it('drops the previous dashboard’s tables as soon as another is activated', async () => {
     await registry.activate('one');
     const a = await registry.load('one', 'v', sqlLoader(1), 'a');
     await registry.activate('two');
-    expect(await exists(runner, a.table)).toBe(true);
-    expect(registry.list('one')).toEqual([a]);
+    expect(await exists(runner, a.table)).toBe(false);
+    expect(registry.list('one')).toEqual([]);
     const b = await registry.load('two', 'v', sqlLoader(1), 'b');
     expect(registry.list('two')).toEqual([b]);
   });
 
-  it('keeps a recently used dashboard’s tables when switching back and forth', async () => {
+  it("makes the new dashboard's every request wait until the old tables are gone", async () => {
+    await registry.activate('a');
+    const a = await registry.load('a', 'v', sqlLoader(1), 'a1');
+    const first = registry.activate('b');
+    // A second request for b finds it already on screen, and still waits for the drop.
+    await registry.activate('b');
+    expect(await exists(runner, a.table)).toBe(false);
+    await first;
+  });
+
+  it('starts a dashboard visited again from nothing, so it reloads its datasets', async () => {
     await registry.activate('a');
     const a = await registry.load('a', 'v', sqlLoader(1), 'a1');
     await registry.activate('b');
     await registry.load('b', 'v', sqlLoader(1), 'b1');
     await registry.activate('a');
-    expect(await exists(runner, a.table)).toBe(true);
-    expect(registry.get('a', 'v')).toEqual(a);
-  });
-
-  it('drops the least recently used dashboard beyond three', async () => {
-    await registry.activate('a');
-    const a = await registry.load('a', 'v', sqlLoader(1), 'a1');
-    await registry.activate('b');
-    const b = await registry.load('b', 'v', sqlLoader(1), 'b1');
-    await registry.activate('c');
-    const c = await registry.load('c', 'v', sqlLoader(1), 'c1');
-    await registry.activate('d');
-    const d = await registry.load('d', 'v', sqlLoader(1), 'd1');
     expect(await exists(runner, a.table)).toBe(false);
-    expect(registry.list('a')).toEqual([]);
-    expect(await exists(runner, b.table)).toBe(true);
-    expect(await exists(runner, c.table)).toBe(true);
-    expect(await exists(runner, d.table)).toBe(true);
-    expect(registry.get('b', 'v')).toEqual(b);
-    expect(registry.get('c', 'v')).toEqual(c);
-    expect(registry.get('d', 'v')).toEqual(d);
+    expect(registry.get('a', 'v')).toBeUndefined();
   });
 
-  it('moves a reactivated dashboard to the front, so it is not the one evicted', async () => {
+  it('keeps the tables of a dashboard left for a page without Chaski and come back to', async () => {
     await registry.activate('a');
     const a = await registry.load('a', 'v', sqlLoader(1), 'a1');
-    await registry.activate('b');
-    const b = await registry.load('b', 'v', sqlLoader(1), 'b1');
-    await registry.activate('c');
-    await registry.load('c', 'v', sqlLoader(1), 'c1');
-    await registry.activate('a'); // 'a' is most recently used again
-    await registry.activate('d');
-    await registry.load('d', 'v', sqlLoader(1), 'd1');
-    // 'b' is now the least recently used, so it is the one evicted, not 'a'.
+    registry.leave();
+    await registry.activate('a');
     expect(await exists(runner, a.table)).toBe(true);
-    expect(await exists(runner, b.table)).toBe(false);
     expect(registry.get('a', 'v')).toEqual(a);
-    expect(registry.list('b')).toEqual([]);
+  });
+
+  it("drops Mosaic's pre-aggregates with the previous dashboard", async () => {
+    await registry.activate('a');
+    await runner.exec('CREATE SCHEMA mosaic; CREATE TABLE mosaic.preagg_1 AS SELECT 1 AS n');
+    await registry.activate('b');
+    const left = await runner.query("SELECT count(*) AS n FROM duckdb_schemas() WHERE schema_name = 'mosaic'");
+    expect(Number(left.toArray()[0].toJSON().n)).toBe(0);
   });
 
   it('materializes an empty Arrow table', async () => {
@@ -183,11 +175,8 @@ describe('DatasetRegistry', () => {
     await registry.activate('dash');
     const gate = deferred<Table>();
     const a = registry.load('dash', 'v', { kind: 'arrow', fetch: () => gate.promise }, 'old');
-    // Three other dashboards push 'dash' past KEEP_DASHBOARDS, evicting its entry
-    // (a plain switch to one other dashboard, within the LRU budget, would not).
-    await registry.activate('other1');
-    await registry.activate('other2');
-    await registry.activate('other3');
+    // Another dashboard on screen evicts its entry.
+    await registry.activate('other');
     await registry.activate('dash');
     const b = await registry.load('dash', 'v', sqlLoader(2), 'new');
     gate.resolve(arrowOf([1, 2, 3, 4, 5]));
@@ -202,9 +191,7 @@ describe('DatasetRegistry', () => {
     await registry.activate('dash');
     const gate = deferred<Table>();
     const a = registry.load('dash', 'v', { kind: 'arrow', fetch: () => gate.promise }, 'old');
-    await registry.activate('other1');
-    await registry.activate('other2');
-    await registry.activate('other3');
+    await registry.activate('other');
     await registry.activate('dash');
     const b = await registry.load('dash', 'v', sqlLoader(2), 'new');
     gate.reject(new Error('boom'));
@@ -260,7 +247,7 @@ describe('DatasetRegistry', () => {
     expect(await exists(runner, a.table)).toBe(true);
   });
 
-  it('leaving changes neither the other dashboards’ visits nor what is kept', async () => {
+  it('leaving changes neither the other dashboards’ visits nor what is dropped', async () => {
     await registry.activate('a');
     const a = await registry.load('a', 'v', sqlLoader(1), 'a1');
     await registry.activate('b');
@@ -269,7 +256,7 @@ describe('DatasetRegistry', () => {
     expect([registry.visitOf('a'), registry.visitOf('b'), registry.visitOf('c')]).toEqual([1, 1, 1]);
     await registry.activate('a');
     expect(registry.visitOf('a')).toBe(2);
-    expect(registry.get('a', 'v')).toEqual(a);
+    expect(await exists(runner, a.table)).toBe(false);
   });
 
   it('says whether a load is in flight', async () => {

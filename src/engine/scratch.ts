@@ -5,6 +5,9 @@ import type { SqlRunner, SqlSession } from './types';
 
 export const SCRATCH_SCHEMA = 'explore';
 
+/** Where Mosaic puts its pre-aggregated tables. Dropped whole when a dataset reloads or the dashboard changes. */
+export const PREAGG_SCHEMA = 'mosaic';
+
 /**
  * How an explorer connection is prepared. Unqualified writes land in explore,
  * not in main beside the panels' tables; unqualified reads find datasets by

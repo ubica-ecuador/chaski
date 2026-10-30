@@ -1,6 +1,7 @@
 import { isSelection, type MosaicClient, type Param, type Selection, type SelectionClause } from '@uwdata/mosaic-core';
 
 import type { ChaskiEngineApi, DatasetInfo } from '../grafana/publicApi';
+import { PREAGG_SCHEMA } from '../engine/scratch';
 import { clauseColumns } from './bridge';
 
 /*
@@ -10,8 +11,7 @@ import { clauseColumns } from './bridge';
  * another panel than its plot.
  */
 
-/** Where pre-aggregated tables go. Dropped whole when a dataset reloads. */
-export const PREAGG_SCHEMA = 'mosaic';
+export { PREAGG_SCHEMA } from '../engine/scratch';
 
 export interface Page {
   readonly key: string;

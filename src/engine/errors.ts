@@ -26,10 +26,10 @@ const CORS = /NetworkError|Failed to fetch|\bCORS\b|HTTP (?:status )?0\b|status(
 const MEMORY = /Out of Memory|could not allocate|failed to allocate|\bmemory_limit\b/i;
 const MISSING = /Catalog Error: Table with name (\S+?) does not exist/;
 // This plugin's own dataset tables: d<8 hex chars><dataset name><version>, as
-// registry.ts's `load` names them. DatasetRegistry evicts a dashboard's
-// tables once it falls out of the recently-used LRU (see KEEP_DASHBOARDS),
-// so a missing table shaped like this was very likely released from memory
-// rather than never created.
+// registry.ts's `load` names them. DatasetRegistry drops a dashboard's
+// tables as soon as another one is on screen (see KEEP_DASHBOARDS), so a
+// missing table shaped like this was very likely released from memory rather
+// than never created.
 const DATASET_TABLE = /^d[0-9a-f]{8}_\w+_v\d+$/;
 // The engine's worker (duckdbWorker.js) refuses reads on Grafana's own origin outside the plugin's
 // files and Chaski's data proxy routes, and DuckDB reports a refused read as no file found.
