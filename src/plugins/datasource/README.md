@@ -5,6 +5,11 @@ browser: a dashboard's data loads **once**, and every panel query is answered lo
 variable, an ad hoc filter or the time range re-queries the browser, not the server, and every panel
 (native, catalog, kepler) keeps working.
 
+[![Play the 40-second tour of Chaski](https://docs.ubica.dev/img/chaski/chaski-tour.jpg)](https://docs.ubica.dev/img/chaski/chaski-tour.mp4)
+
+**▶ [Watch the 40-second tour](https://docs.ubica.dev/img/chaski/chaski-tour.mp4)**: 5 million stars, a million
+taxi rides, a month of earthquakes, 231,000 flights and a typhoon in 3D, each brushed and filtered in the browser.
+
 ## In short
 
 - A **dataset** is a hidden query variable of this datasource (kind _Dataset_). Its rows come from

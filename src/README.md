@@ -6,6 +6,11 @@ answers every panel query locally. Changing a variable, an ad hoc filter or the 
 the browser, not the server: filters take milliseconds, and every panel (native, catalog, kepler)
 keeps working.
 
+[![Play the 40-second tour of Chaski](https://docs.ubica.dev/img/chaski/chaski-tour.jpg)](https://docs.ubica.dev/img/chaski/chaski-tour.mp4)
+
+**▶ [Watch the 40-second tour](https://docs.ubica.dev/img/chaski/chaski-tour.mp4)**: 5 million stars, a million
+taxi rides, a month of earthquakes, 231,000 flights and a typhoon in 3D, each brushed and filtered in the browser.
+
 A worked example, from a live feed to a map, is in the repository:
 [docs/tutorial-earthquakes.md](https://github.com/ubica-ecuador/chaski/blob/main/docs/tutorial-earthquakes.md).
 

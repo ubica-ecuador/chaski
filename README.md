@@ -8,15 +8,22 @@ roads: the data is already here, so the answer is immediate. Changing a variable
 the time range re-queries the browser, not the server. Filters take milliseconds, and every panel
 keeps working: native, catalog and the kepler map.
 
+[![Play the 40-second tour of Chaski](https://docs.ubica.dev/img/chaski/chaski-tour.jpg)](https://docs.ubica.dev/img/chaski/chaski-tour.mp4)
+
+**▶ [Watch the 40-second tour](https://docs.ubica.dev/img/chaski/chaski-tour.mp4)**: 5 million stars, a million
+taxi rides, a month of earthquakes, 231,000 flights and a typhoon in 3D, each brushed and filtered in the browser.
+
 - **Plugin ids:** the app `ubica-chaski-app` brings the datasource `ubica-chaski-datasource` and the
   panels `ubica-chaski-mosaic-panel` and `ubica-chaski-filters-panel`. Frontend only: no backend, no
   alerting.
 - **Mosaic panel:** linked views drawn by [Mosaic](https://idl.uw.edu/mosaic/) on the dashboard's
   datasets. A brush in one filters the others in the browser, pre-aggregated for millions of rows, and
-  can write the variables `$__crossfilter` reads. See [docs/mosaic.md](docs/mosaic.md).
+  can write the variables `$__crossfilter` reads. See [docs/mosaic.md](docs/mosaic.md), or
+  [watch its 40-second tour](https://docs.ubica.dev/img/chaski/mosaic-tour.mp4).
 - **Filters panel:** a dataset's cross-filters as one panel, with no query to write: how many rows
   they leave, and a Mosaic control for each, counted under the others and following each other live as a
-  brush moves (values to pick, a histogram to brush, a text box), in a sidebar or a strip of pills. See [docs/filters.md](docs/filters.md).
+  brush moves (values to pick, a histogram to brush, a text box), in a sidebar or a strip of pills. See [docs/filters.md](docs/filters.md),
+  or [watch its 35-second tour](https://docs.ubica.dev/img/chaski/filters-tour.mp4).
 - **Engine:** DuckDB 1.4.3 through `@duckdb/duckdb-wasm` 1.32.0, running in a Web Worker.
 - **Distribution:** built for the Grafana plugin catalog, Grafana Cloud included (there plugin files
   come from a CDN on another origin). Until it is listed, install a build by hand (see Install).
