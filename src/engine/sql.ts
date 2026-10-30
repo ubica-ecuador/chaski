@@ -49,6 +49,59 @@ export function quotedSpans(sql: string): QuotedSpan[] {
 }
 
 /**
+ * `sql` without its comments: `--` to the end of the line and `/* … *\/`
+ * (nested, as DuckDB reads them), each left as one space. String literals,
+ * quoted identifiers and $$…$$ strings are kept as written, comment marks
+ * inside them included. An unclosed block comment runs to the end.
+ *
+ * Grafana substitutes variables inside comments too, where quoting does not
+ * protect them: a value with a newline ends a `--` comment, one with `*\/` a
+ * block comment, and what follows would run as SQL.
+ */
+export function withoutComments(sql: string): string {
+  let out = '';
+  let i = 0;
+  while (i < sql.length) {
+    const two = sql.slice(i, i + 2);
+    if (sql[i] === "'" || sql[i] === '"') {
+      const quote = sql[i];
+      let j = i + 1;
+      while (j < sql.length && (sql[j] !== quote || sql[j + 1] === quote)) {
+        j += sql[j] === quote ? 2 : 1;
+      }
+      out += sql.slice(i, j + 1);
+      i = j + 1;
+    } else if (two === '$$') {
+      const close = sql.indexOf('$$', i + 2);
+      const end = close === -1 ? sql.length : close + 2;
+      out += sql.slice(i, end);
+      i = end;
+    } else if (two === '--') {
+      const newline = sql.indexOf('\n', i);
+      out += ' ';
+      i = newline === -1 ? sql.length : newline;
+    } else if (two === '/*') {
+      let depth = 1;
+      i += 2;
+      while (i < sql.length && depth > 0) {
+        const pair = sql.slice(i, i + 2);
+        if (pair === '/*' || pair === '*/') {
+          depth += pair === '/*' ? 1 : -1;
+          i += 2;
+        } else {
+          i++;
+        }
+      }
+      out += ' ';
+    } else {
+      out += sql[i];
+      i++;
+    }
+  }
+  return out;
+}
+
+/**
  * `sql` with every single-quoted string literal replaced by `?`. Variables are
  * interpolated as quoted literals (`$x` → `'value'`), so this keeps a
  * statement's shape whatever values it was given, while identifiers (dataset

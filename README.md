@@ -191,6 +191,11 @@ skills with it, for Chaski's SQL, its dataset variables and the Mosaic panel; th
     too. Serve it from another host name, or point a Chaski datasource's proxy URL at it.
   - Grafana lists its datasources when the page loads: a Chaski datasource added since reaches its
     proxy once the page reloads.
+- **SQL only reads.** The engine sends GET and HEAD requests only: `COPY … TO` a URL, and S3 writes
+  pointed elsewhere by `CREATE SECRET`, are refused.
+- **Mosaic panels stay in their panel.** Links a spec draws (a mark's `href`) go through Grafana's URL
+  sanitizer, so a `javascript:` link becomes `about:blank`, and a spec's `style` cannot lay a plot over
+  Grafana: the panel contains what it paints.
 - **Content Security Policy.**
   - The engine starts under Grafana's stock policy with nothing extra to allow.
   - Where Grafana serves plugin files from a CDN on another origin, as Grafana Cloud does, the

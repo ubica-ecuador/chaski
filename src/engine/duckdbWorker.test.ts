@@ -67,14 +67,15 @@ function startWorker(answers: Record<string, Answer>, { blob = false } = {}) {
     sandbox.chaskiConfig = config;
   }
   vm.runInNewContext(SOURCE, sandbox);
-  const get = (url: string) => {
+  const request = (method: string, url: string) => {
     const xhr = new FakeXHR();
-    xhr.open('GET', url);
+    xhr.open(method, url);
     xhr.responseType = 'arraybuffer';
     xhr.send();
     return xhr;
   };
-  return { sent, imported, get, fetch: sandbox.fetch as (url: string) => Promise<Response> };
+  const get = (url: string) => request('GET', url);
+  return { sent, imported, get, request, fetch: sandbox.fetch as (url: string) => Promise<Response> };
 }
 
 const refused = (xhr: { status: number; response: ArrayBuffer | null }) =>
@@ -138,6 +139,30 @@ describe('the DuckDB worker guard', () => {
   it("drops an answer a redirect brought from Grafana's API", () => {
     const url = `${PROXY}moved.parquet`;
     expect(refused(startWorker({ [url]: { body: PARQUET, landed: `${GRAFANA}/api/user` } }).get(url))).toBe(true);
+  });
+
+  it('refuses any request but GET and HEAD, wherever it goes (COPY TO, S3 writes)', () => {
+    const url = 'https://elsewhere.example/bucket/out.parquet';
+    const worker = startWorker({ [url]: { body: PARQUET } });
+    for (const method of ['PUT', 'POST', 'DELETE']) {
+      expect(refused(worker.request(method, url))).toBe(true);
+    }
+    expect(worker.sent).toEqual([]);
+    expect(worker.request('HEAD', url).status).toBe(200);
+  });
+
+  it("refuses an encoded slash, backslash or dot on Grafana's origin, which its server would decode", () => {
+    const urls = [
+      `${PROXY}..%2f..%2f..%2f..%2fuser`,
+      `${PLUGIN}..%2F..%2Fapi/user`,
+      `${PROXY}..%5c..%5cuser`,
+      `${PROXY}%2e%2e/x`,
+    ];
+    const worker = startWorker(Object.fromEntries(urls.map((u) => [u, { body: PARQUET }])));
+    for (const url of urls) {
+      expect(refused(worker.get(url))).toBe(true);
+    }
+    expect(worker.sent).toEqual([]);
   });
 
   it('answers a refused fetch with a 403, and passes any other', async () => {

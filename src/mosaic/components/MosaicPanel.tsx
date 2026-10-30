@@ -10,6 +10,7 @@ import { linkVariables, parseLinks } from '../bridge';
 import { linkReads, parseReads } from '../inbound';
 import { ChaskiConnector, unreadable, waitForEngine } from '../connector';
 import { dashboardKey, pageFor, PREAGG_SCHEMA, releaseClauses } from '../page';
+import { guardLinks } from '../safeLinks';
 import { datasetNames, fitToPanel, parseSpecText } from '../spec';
 import type { MosaicOptions } from '../types';
 import { getStyles } from './styles';
@@ -66,6 +67,9 @@ export function MosaicPanel({ options, width, height }: PanelProps<MosaicOptions
   const w = useDebounced(width, 150);
   const h = useDebounced(height, 150);
   const { spec: specText = '', variables = '', reads: readsText = '', preaggregate = true } = options;
+
+  // Whatever the spec draws, its links stay safe to click (see guardLinks).
+  useEffect(() => (host.current ? guardLinks(host.current) : undefined), []);
 
   useEffect(() => {
     const abort = new AbortController();

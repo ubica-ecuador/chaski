@@ -43,8 +43,9 @@ function refusedOnGrafana(raw: string): boolean {
     return false;
   }
   try {
-    const url = new URL(read, window.location.href);
-    return url.origin === window.location.origin && !GRAFANA_PATHS_SQL_MAY_READ.test(url.pathname);
+    const page = new URL(document.baseURI);
+    const url = new URL(read, page);
+    return url.origin === page.origin && !GRAFANA_PATHS_SQL_MAY_READ.test(url.pathname);
   } catch {
     return false;
   }

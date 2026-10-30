@@ -11,6 +11,9 @@
  * may only reach the plugin's files and the data proxy routes of Chaski
  * datasources ($__proxy) there.
  *
+ * SQL only reads: any request but GET and HEAD is refused, wherever it goes
+ * (COPY TO a URL, or S3 writes that CREATE SECRET points somewhere).
+ *
  * DuckDB-WASM reads extensions and remote files by synchronous XMLHttpRequest
  * in this worker, so the guard sits there. A request it refuses is never sent,
  * and an answer is dropped when a redirect took it somewhere refused, or when
@@ -46,15 +49,27 @@
       return undefined;
     }
   };
+  // An encoded slash, backslash or dot survives the URL parser here and is decoded by Grafana's
+  // server, so `.../_plain/..%2f..%2fapi` would pass a prefix check and land somewhere else.
+  const ENCODED_PATH_PART = /%(2f|5c|2e)/i;
+
   /** Why a request to `url` may not go, or undefined when it may. */
-  const refusal = (url) => {
+  const refusal = (url, method = 'GET') => {
     if (!url) {
       return undefined;
+    }
+    // SQL in a dashboard only reads: no COPY TO a URL, nor S3 writes re-pointed by CREATE SECRET.
+    if (!/^(GET|HEAD)$/i.test(method)) {
+      return `a ${method} request, where SQL may only read`;
     }
     if (EXTENSION_FILE.test(url.pathname) && !url.href.startsWith(repository)) {
       return 'extension code from outside the plugin';
     }
-    if (url.origin === grafana && !url.href.startsWith(base) && !proxies.some((p) => url.href.startsWith(p))) {
+    if (
+      url.origin === grafana &&
+      (ENCODED_PATH_PART.test(url.pathname) ||
+        (!url.href.startsWith(base) && !proxies.some((p) => url.href.startsWith(p))))
+    ) {
       return "Grafana's origin outside the plugin's files and its data proxy";
     }
     return undefined;
@@ -74,12 +89,12 @@
   const proto = XMLHttpRequest.prototype;
   const { open, send } = proto;
   proto.open = function (method, url, ...rest) {
-    targets.set(this, resolve(url));
+    targets.set(this, { url: resolve(url), method: String(method) });
     return open.call(this, method, url, ...rest);
   };
   proto.send = function (...args) {
-    const url = targets.get(this);
-    const before = refusal(url);
+    const { url, method } = targets.get(this) ?? {};
+    const before = refusal(url, method);
     if (before) {
       refuse(this, before, url.href);
       return;
@@ -96,8 +111,9 @@
 
   const fetchFn = self.fetch;
   self.fetch = async (input, ...rest) => {
-    const url = resolve(typeof input === 'string' || input instanceof URL ? input : input.url);
-    const before = refusal(url);
+    const request = typeof input === 'string' || input instanceof URL ? undefined : input;
+    const url = resolve(request ? request.url : input);
+    const before = refusal(url, rest[0]?.method ?? request?.method ?? 'GET');
     if (before) {
       warn(before, url.href);
       return new Response(null, { status: 403 });

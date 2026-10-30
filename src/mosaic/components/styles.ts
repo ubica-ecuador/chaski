@@ -12,6 +12,9 @@ export const getStyles = (theme: GrafanaTheme2) => ({
     width: '100%',
     height: '100%',
     overflow: 'auto',
+    // A spec's style cannot lift a plot out of its panel: with paint containment a position: fixed
+    // drawing is placed and clipped inside the panel, not laid over Grafana.
+    contain: 'paint',
     color: theme.colors.text.primary,
     fontFamily: theme.typography.fontFamily,
     fontSize: theme.typography.bodySmall.fontSize,

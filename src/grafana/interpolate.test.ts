@@ -3,7 +3,11 @@ import { dateTime } from '@grafana/data';
 import { interpolateSql, rawValue, sqlStringFormat } from './interpolate';
 import { fakeTemplateSrv } from './testing/fakes';
 
-const range = { from: dateTime(Date.UTC(2026, 8, 18)), to: dateTime(Date.UTC(2026, 8, 19)), raw: { from: 'now-1d', to: 'now' } };
+const range = {
+  from: dateTime(Date.UTC(2026, 8, 18)),
+  to: dateTime(Date.UTC(2026, 8, 19)),
+  raw: { from: 'now-1d', to: 'now' },
+};
 
 describe('sqlStringFormat', () => {
   it("quotes every value, like Grafana's sqlstring format", () => {
@@ -48,6 +52,27 @@ describe('interpolateSql', () => {
     );
   });
 
+  it('drops comments before substituting, so a value with a newline or */ cannot end one and run', () => {
+    const templateSrv = fakeTemplateSrv({ vehicle: 'x\nUNION SELECT secret FROM other', note: '*/ UNION SELECT 1 /*' });
+    const sql = "SELECT * FROM t -- vehicle: $vehicle\nWHERE id = $vehicle /* $note */ AND s = '-- kept /* too */'";
+    expect(interpolateSql(sql, { templateSrv, range, isDatasetTable })).toBe(
+      "SELECT * FROM t  \nWHERE id = 'x\nUNION SELECT secret FROM other'   AND s = '-- kept /* too */'"
+    );
+  });
+
+  it("formats ${x:singlequote} as sqlstring, since DuckDB does not read Grafana's \\' escape", () => {
+    const formats: string[] = [];
+    const templateSrv = fakeTemplateSrv({ sel: "a' OR TRUE --" });
+    const spy = {
+      ...templateSrv,
+      replace: (t?: string, v?: never, f?: never) => (formats.push(t ?? ''), templateSrv.replace(t, v, f)),
+    };
+    expect(interpolateSql('WHERE g = ${sel:singlequote}', { templateSrv: spy as never, range, isDatasetTable })).toBe(
+      "WHERE g = 'a'' OR TRUE --'"
+    );
+    expect(formats[0]).toBe('WHERE g = ${sel:sqlstring}');
+  });
+
   it('reads $__crossfilter values raw and quotes them itself, so a value cannot become SQL', () => {
     const templateSrv = fakeTemplateSrv({ quakeFilters: 'quakes#00c0ffee', place: "x' OR 1=1 --" });
     const crossfilter = {
@@ -62,7 +87,12 @@ describe('interpolateSql', () => {
       value: (name: string) => rawValue(templateSrv, name),
     };
     expect(
-      interpolateSql('SELECT * WHERE $__crossfilter($quakeFilters)', { templateSrv, range, isDatasetTable, crossfilter })
+      interpolateSql('SELECT * WHERE $__crossfilter($quakeFilters)', {
+        templateSrv,
+        range,
+        isDatasetTable,
+        crossfilter,
+      })
     ).toBe(`SELECT * WHERE (TRUE AND "place" = 'x'' OR 1=1 --')`);
   });
 });

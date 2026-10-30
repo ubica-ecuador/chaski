@@ -40,6 +40,18 @@ export interface DigestInput {
   timeRange?: DigestTimeRange;
 }
 
+// Column names and error messages come from the data: a CSV header is any text its publisher wrote.
+// What reaches the Assistant's context is one short line each, and a bounded number of columns.
+const MAX_NAME = 64;
+const MAX_MESSAGE = 300;
+const MAX_COLUMNS = 200;
+
+/** `text` on one line, without control characters, cut to `max` characters. */
+export function plain(text: string, max: number): string {
+  const line = text.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]+/g, ' ').trim();
+  return line.length > max ? `${line.slice(0, max - 1)}…` : line;
+}
+
 /** What the Grafana Assistant is told about the datasets on screen: enough to write panel SQL over them. */
 export function buildAssistantDigest(input: DigestInput): AssistantDigest {
   return {
@@ -52,8 +64,14 @@ export function buildAssistantDigest(input: DigestInput): AssistantDigest {
         view: d.view,
         rows: d.rows,
         loadedAt: new Date(d.loadedAt).toISOString(),
-        ...(d.stale ? { stale: d.stale } : {}),
-        ...(columns ? { columns } : {}),
+        ...(d.stale ? { stale: plain(d.stale, MAX_MESSAGE) } : {}),
+        ...(columns
+          ? {
+              columns: columns
+                .slice(0, MAX_COLUMNS)
+                .map((c) => ({ name: plain(c.name, MAX_NAME), type: plain(c.type, MAX_NAME) })),
+            }
+          : {}),
       };
     }),
     ...(input.timeRange ? { timeRange: input.timeRange } : {}),

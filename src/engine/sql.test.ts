@@ -1,5 +1,13 @@
 /** @jest-environment node */
-import { maskStringLiterals, quoteIdent, quoteLiteral, sanitizeName, shortHash, stripTrailingSemicolons } from './sql';
+import {
+  maskStringLiterals,
+  quoteIdent,
+  quoteLiteral,
+  sanitizeName,
+  shortHash,
+  stripTrailingSemicolons,
+  withoutComments,
+} from './sql';
 
 describe('sql helpers', () => {
   it('quotes identifiers, doubling embedded quotes', () => {
@@ -38,5 +46,17 @@ describe('sql helpers', () => {
     expect(maskStringLiterals('SELECT "it\'s" FROM "d1_t_v3" LIMIT 10')).toBe('SELECT "it\'s" FROM "d1_t_v3" LIMIT 10');
     expect(maskStringLiterals("SELECT * FROM t WHERE c IN ('a','b')")).toBe('SELECT * FROM t WHERE c IN (?,?)');
     expect(maskStringLiterals("SELECT 'open")).toBe('SELECT ?');
+  });
+});
+
+describe('withoutComments', () => {
+  it('drops line and block comments, nested ones included, and keeps quoted text as written', () => {
+    expect(withoutComments('SELECT 1 -- one\n, 2 /* two /* nested */ still */ , \'--x\' AS "/*y*/", $$ -- z $$')).toBe(
+      'SELECT 1  \n, 2   , \'--x\' AS "/*y*/", $$ -- z $$'
+    );
+  });
+
+  it('keeps doubled quotes inside a literal, and drops an unclosed block comment to the end', () => {
+    expect(withoutComments("SELECT 'it''s -- not a comment' /* open")).toBe("SELECT 'it''s -- not a comment'  ");
   });
 });

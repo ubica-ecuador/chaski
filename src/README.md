@@ -76,6 +76,15 @@ multi-value → `'a','b'`, `${x:raw}` verbatim), and its macros work the same: `
 `$__timeFrom()`, `$__timeTo()`. `$__timeGroup(col, 1h)` becomes a `time_bucket`. Geometry columns
 reach panels as WKB in hex, which the Kepler panel draws.
 
+Anyone can set a variable's value in a link (`?var-x=…`), so where a value lands matters:
+
+- Comments are dropped before variables are substituted: a value in a comment could otherwise end
+  it and run as SQL.
+- `${x:singlequote}` is read as `${x:sqlstring}`: Grafana escapes a quote as `\'`, which DuckDB
+  does not understand.
+- `${x:raw}`, `${x:csv}` and `${x:text}` insert the value as it is. Use them only for variables whose
+  values the dashboard fixes (a custom variable without custom values), never for a text box.
+
 On a map with many rows, ask for GeoJSON instead — `SELECT ST_AsGeoJSON(geom) AS geom` — and the
 panel skips decoding the hex itself. DuckDB does that work in WebAssembly, which measured 3 to 5
 times cheaper than the panel's JavaScript: about 0.2 s against 1.0 s for 200k points, and 0.3 s

@@ -3,7 +3,7 @@ import type { TemplateSrv } from '@grafana/runtime';
 
 import type { CrossfilterSource } from '../engine/crossfilter';
 import { expandMacros } from '../engine/macros';
-import { quoteIdent, quoteLiteral } from '../engine/sql';
+import { quoteIdent, quoteLiteral, withoutComments } from '../engine/sql';
 
 /** Grafana's `sqlstring` format, which the server DuckDB datasource applies to every variable. */
 export function sqlStringFormat(value: unknown): string {
@@ -45,14 +45,21 @@ export function rawValue(
   return found;
 }
 
+// Grafana's `singlequote` format escapes a quote as \', which DuckDB does not read as an escape, so a
+// quote in the value would end the literal. `sqlstring` doubles it instead, and gives the same text
+// for any value without one.
+const SINGLEQUOTE = /\$\{(\w+):singlequote\}|\[\[(\w+):singlequote\]\]/g;
+
 /**
  * Variables first, then macros: the same order as the server datasource, where
  * the frontend interpolates and the backend expands. A value naming a loaded
  * dataset table becomes a quoted identifier, so panels can write
- * `FROM $vehicles`.
+ * `FROM $vehicles`. Comments go first (see withoutComments), so a value
+ * reaches the SQL only where its quoting holds.
  */
 export function interpolateSql(sql: string, options: InterpolateOptions): string {
-  const withVariables = options.templateSrv.replace(sql, options.scopedVars, (value: unknown) =>
+  const text = withoutComments(sql).replace(SINGLEQUOTE, (_, a, b) => `\${${a ?? b}:sqlstring}`);
+  const withVariables = options.templateSrv.replace(text, options.scopedVars, (value: unknown) =>
     typeof value === 'string' && options.isDatasetTable(value) ? quoteIdent(value) : sqlStringFormat(value)
   );
   return expandMacros(withVariables, {
