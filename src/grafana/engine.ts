@@ -1,3 +1,5 @@
+import { config } from '@grafana/runtime';
+
 import { createBrowserRunner } from '../engine/browserRunner';
 import { EngineStartError } from '../engine/errors';
 import { DatasetRegistry } from '../engine/registry';
@@ -6,6 +8,7 @@ import type { SqlRunner } from '../engine/types';
 import { activity } from './activity';
 import { startAssistantForEngine } from './assistant';
 import { leaveDashboardOnNavigation } from './dashboardKey';
+import { chaskiProxyRoutes } from './proxy';
 import { type ChaskiEngineApi, createEngineApi, publishEngineApi } from './publicApi';
 
 export interface Engine {
@@ -37,7 +40,12 @@ export function assetBase(): string {
 export function getEngine(memoryLimitMB: number, rangeReads = false): Promise<Engine> {
   if (!enginePromise) {
     let api: ChaskiEngineApi | undefined;
-    enginePromise = createBrowserRunner({ assetBase: assetBase(), memoryLimitMB, rangeReads })
+    enginePromise = createBrowserRunner({
+      assetBase: assetBase(),
+      memoryLimitMB,
+      rangeReads,
+      proxies: chaskiProxyRoutes(Object.values(config.datasources)),
+    })
       .then((runner) => {
         const engine: Engine = { runner, registry: new DatasetRegistry(runner), version: runner.version, rangeReads };
         leaveDashboardOnNavigation(engine.registry);

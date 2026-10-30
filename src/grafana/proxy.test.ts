@@ -1,4 +1,5 @@
 import {
+  chaskiProxyRoutes,
   explainProxyError,
   explainProxyStatus,
   KEY_ROUTE,
@@ -24,6 +25,20 @@ describe('proxyBaseUrl', () => {
     expect(proxyBaseUrl('/grafana/api/datasources/proxy/uid/abc', PLAIN_ROUTE, 'https://g.example/grafana/')).toBe(
       'https://g.example/grafana/api/datasources/proxy/uid/abc/_plain'
     );
+  });
+});
+
+describe('chaskiProxyRoutes', () => {
+  it('lists both routes of every Chaski datasource with a proxy, and nothing of other datasources', () => {
+    const datasources = [
+      { type: 'ubica-chaski-datasource', url: '/api/datasources/proxy/uid/files' },
+      { type: 'ubica-chaski-datasource', url: undefined },
+      { type: 'prometheus', url: '/api/datasources/proxy/uid/prom' },
+    ];
+    expect(chaskiProxyRoutes(datasources, 'https://g.example/grafana/')).toEqual([
+      'https://g.example/grafana/api/datasources/proxy/uid/files/_plain/',
+      'https://g.example/grafana/api/datasources/proxy/uid/files/_key/',
+    ]);
   });
 });
 

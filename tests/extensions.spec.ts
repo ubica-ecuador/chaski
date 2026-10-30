@@ -18,7 +18,11 @@ function failure(page: Page, sql: string): Promise<string | undefined> {
 const ELSEWHERE =
   'http://localhost:8096/ubica-chaski-app/0/public/plugins/ubica-chaski-app/plugins/datasource/extensions';
 
-test('SQL cannot change the engine settings, nor take extension code from another origin', async ({ page }) => {
+test("SQL cannot change the engine settings, take extension code from another origin, nor read Grafana's API", async ({
+  page,
+}) => {
+  // The engine's first start on a fresh Grafana can take longer than the default 30 s.
+  test.setTimeout(120_000);
   await page.goto('/connections/datasources/edit/duckdbwasm');
   await page.getByRole('button', { name: 'Save & test' }).click();
   await expect(page.getByText(/DuckDB v1\.4\.3 is running in the browser\./)).toBeVisible({ timeout: 60_000 });
@@ -30,4 +34,10 @@ test('SQL cannot change the engine settings, nor take extension code from anothe
 
   expect(await failure(page, `INSTALL spatial FROM '${ELSEWHERE}'`)).toBeUndefined();
   expect(await failure(page, 'SELECT ST_AsText(ST_Point(1, 2)) AS p')).toMatch(/spatial.*not available/s);
+
+  // The browser would send the viewer's session with it.
+  const api = `${new URL(page.url()).origin}/api/user`;
+  expect(await failure(page, `SELECT * FROM read_json('${api}')`)).toContain(
+    `No files found that match the pattern "${api}"`
+  );
 });

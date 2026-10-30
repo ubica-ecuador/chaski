@@ -8,6 +8,12 @@ import { getEngine, setEngineForTests } from './engine';
 import { type ChaskiGlobal, installChaskiGlobal } from './publicApi';
 
 jest.mock('@grafana/runtime', () => ({
+  config: {
+    datasources: {
+      files: { type: 'ubica-chaski-datasource', url: '/api/datasources/proxy/uid/files' },
+      prom: { type: 'prometheus', url: '/api/datasources/proxy/uid/prom' },
+    },
+  },
   locationService: {
     getLocation: () => ({ pathname: '/d/abc/title' }),
     getHistory: () => ({ listen: () => () => undefined }),
@@ -72,6 +78,11 @@ describe('range reads', () => {
     const start = pendingStart();
     const engine = getEngine(512, true);
     expect(startRunner).toHaveBeenLastCalledWith(expect.objectContaining({ memoryLimitMB: 512, rangeReads: true }));
+    // On Grafana's origin, the worker may read Chaski's proxy routes and nothing else.
+    expect(startRunner.mock.lastCall[0].proxies).toEqual([
+      `${window.location.origin}/api/datasources/proxy/uid/files/_plain/`,
+      `${window.location.origin}/api/datasources/proxy/uid/files/_key/`,
+    ]);
     start.resolve(fakeRunner());
     await expect(engine).resolves.toMatchObject({ rangeReads: true });
     // The engine is per page: a later instance asking otherwise gets the running one.

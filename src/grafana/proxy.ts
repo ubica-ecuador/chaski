@@ -1,3 +1,5 @@
+import type { DataSourceInstanceSettings } from '@grafana/data';
+
 /**
  * Grafana's data proxy, as `$__proxy` uses it. Every read goes through one of
  * the routes in plugin.json: `_key` when the instance adds an API key to the
@@ -8,6 +10,8 @@
 export const PLAIN_ROUTE = '_plain';
 export const KEY_ROUTE = '_key';
 export type ProxyRoute = typeof PLAIN_ROUTE | typeof KEY_ROUTE;
+
+const CHASKI_DATASOURCE = 'ubica-chaski-datasource';
 
 /**
  * The absolute URL `$__proxy` prefixes, with no trailing slash. DuckDB treats
@@ -22,6 +26,22 @@ export function proxyBaseUrl(instanceUrl: string, route: ProxyRoute, baseURI: st
   const subPath = base.pathname.replace(/\/+$/, '');
   const path = subPath && !instanceUrl.startsWith(`${subPath}/`) ? `${subPath}${instanceUrl}` : instanceUrl;
   return new URL(`${path.replace(/\/+$/, '')}/${route}`, base.origin).href;
+}
+
+/**
+ * The data proxy routes of every Chaski datasource on this Grafana, each ending
+ * in '/': the only paths on Grafana's origin, besides the plugin's own files,
+ * the engine's worker may read (duckdbWorker.js). Grafana lists the
+ * datasources when the page loads, so one added later reaches its proxy after
+ * a reload.
+ */
+export function chaskiProxyRoutes(
+  datasources: Array<Pick<DataSourceInstanceSettings, 'type' | 'url'>>,
+  baseURI: string = document.baseURI
+): string[] {
+  return datasources
+    .filter((ds) => ds.type === CHASKI_DATASOURCE && ds.url)
+    .flatMap((ds) => ([PLAIN_ROUTE, KEY_ROUTE] as const).map((route) => `${proxyBaseUrl(ds.url!, route, baseURI)}/`));
 }
 
 // DuckDB-WASM reports every failed HTTP read this way, quoting the URL it could not

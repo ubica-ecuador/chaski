@@ -13,6 +13,8 @@ export interface BrowserRunnerOptions {
   memoryLimitMB: number;
   /** Read remote files by HTTP range requests instead of downloading them whole. */
   rangeReads?: boolean;
+  /** The only paths on Grafana's origin, besides the plugin's files, SQL may read: Chaski's data proxy routes. */
+  proxies?: string[];
 }
 
 /**
@@ -56,21 +58,24 @@ async function runOnConnection(conn: duckdb.AsyncDuckDBConnection, sql: string, 
 }
 
 /**
- * DuckDB's worker behind the plugin's guard (duckdbWorker.js), which lets it
- * fetch extension code only from the plugin's own extensions/ folder.
+ * DuckDB's worker behind the plugin's guard (duckdbWorker.js): extension code
+ * only from the plugin's own extensions/ folder, and on Grafana's origin only
+ * the plugin's files and `proxies`. The guard's settings travel in the
+ * script's URL hash.
  *
  * A Worker only runs a script from the page's own origin. Grafana Cloud serves
  * plugin files from a CDN on another origin (and answers /public/plugins/ with
  * a redirect there), so from a CDN the worker starts from a blob: that imports
- * the script, and tells it where the plugin's files are. Same-origin installs
+ * the script, with the settings in self.chaskiConfig. Same-origin installs
  * keep the plain worker, and with it worker-src 'self'.
  */
-function startWorker(assetBase: string): Worker {
+function startWorker(assetBase: string, proxies: string[]): Worker {
   const url = new URL('duckdb-worker.js', assetBase).href;
+  const config = { assets: assetBase, proxies };
   if (new URL(url).origin === window.location.origin) {
-    return new Worker(url);
+    return new Worker(`${url}#${encodeURIComponent(JSON.stringify(config))}`);
   }
-  const script = `self.chaskiAssets = ${JSON.stringify(assetBase)};\nimportScripts(${JSON.stringify(url)});`;
+  const script = `self.chaskiConfig = ${JSON.stringify(config)};\nimportScripts(${JSON.stringify(url)});`;
   const blob = URL.createObjectURL(new Blob([script], { type: 'text/javascript' }));
   try {
     return new Worker(blob);
@@ -90,7 +95,7 @@ function startWorker(assetBase: string): Worker {
  */
 export async function createBrowserRunner(options: BrowserRunnerOptions): Promise<SqlRunner & { version: string }> {
   const started = performance.now();
-  const worker = startWorker(options.assetBase);
+  const worker = startWorker(options.assetBase, options.proxies ?? []);
   const db = new duckdb.AsyncDuckDB(new duckdb.VoidLogger(), worker);
   await db.instantiate(new URL('duckdb-eh.wasm', options.assetBase).href, null);
   await db.open(databaseConfig(options));

@@ -8,6 +8,8 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('the engine starts when Grafana serves the plugin from a CDN', async ({ page, baseURL }) => {
+  // A first start pulls the engine and the spatial extension through the CDN, which can take over 30 s.
+  test.setTimeout(120_000);
   const settings = await (await page.request.get('/api/plugins/ubica-chaski-datasource/settings')).json();
   // Without a CDN this test proves nothing: every file would be same-origin.
   expect(new URL(settings.module).origin).not.toBe(new URL(baseURL!).origin);
@@ -22,4 +24,16 @@ test('the engine starts when Grafana serves the plugin from a CDN', async ({ pag
     return table.toArray()[0].toJSON().p;
   });
   expect(point).toBe('POINT (1 2)');
+
+  // A worker started from a blob: has the page's origin: Grafana's API stays out of reach there too.
+  const api = `${new URL(baseURL!).origin}/api/user`;
+  const refused = await page.evaluate(async (api) => {
+    try {
+      await (window as any).__duckdbwasm.runner.query(`SELECT * FROM read_json('${api}')`);
+      return 'read';
+    } catch (error) {
+      return String((error as Error).message);
+    }
+  }, api);
+  expect(refused).toContain(`No files found that match the pattern "${api}"`);
 });

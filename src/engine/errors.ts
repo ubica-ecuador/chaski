@@ -6,7 +6,7 @@ export class EngineStartError extends Error {
   }
 }
 
-export type ErrorKind = 'engine' | 'cors' | 'memory' | 'missing-table' | 'sql';
+export type ErrorKind = 'engine' | 'cors' | 'grafana-origin' | 'memory' | 'missing-table' | 'sql';
 
 export interface ExplainedError {
   kind: ErrorKind;
@@ -31,6 +31,24 @@ const MISSING = /Catalog Error: Table with name (\S+?) does not exist/;
 // so a missing table shaped like this was very likely released from memory
 // rather than never created.
 const DATASET_TABLE = /^d[0-9a-f]{8}_\w+_v\d+$/;
+// The engine's worker (duckdbWorker.js) refuses reads on Grafana's own origin outside the plugin's
+// files and Chaski's data proxy routes, and DuckDB reports a refused read as no file found.
+const READ_FAILED = /No files found that match the pattern "([^"]+)"/;
+const GRAFANA_PATHS_SQL_MAY_READ = /\/public\/plugins\/|\/api\/datasources\/proxy\/uid\/[^/]+\/_(plain|key)\//;
+
+/** Whether a read DuckDB reports as failed is on Grafana's origin, where the worker refused it. */
+function refusedOnGrafana(raw: string): boolean {
+  const read = READ_FAILED.exec(raw)?.[1];
+  if (!read) {
+    return false;
+  }
+  try {
+    const url = new URL(read, window.location.href);
+    return url.origin === window.location.origin && !GRAFANA_PATHS_SQL_MAY_READ.test(url.pathname);
+  } catch {
+    return false;
+  }
+}
 
 /** Turns what DuckDB says into what the person looking at the panel can do about it. */
 export function explainError(error: unknown, memoryLimitMB?: number): ExplainedError {
@@ -62,6 +80,15 @@ export function explainError(error: unknown, memoryLimitMB?: number): ExplainedE
     return {
       kind: 'memory',
       message: `The data does not fit in the ${memoryLimitMB ?? 'configured'} MB this datasource may use. Aggregate it on the server before it reaches the browser. (${raw})`,
+    };
+  }
+  if (refusedOnGrafana(raw)) {
+    return {
+      kind: 'grafana-origin',
+      message:
+        `SQL may not read Grafana's own address, where the browser would send the viewer's session: ` +
+        `only $__proxy('…') reads through it. Serve the file from another host, or set this datasource's ` +
+        `proxy URL to its server. (${raw.split('\n')[0]})`,
     };
   }
   if (CORS.test(raw)) {

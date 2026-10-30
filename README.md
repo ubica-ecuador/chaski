@@ -184,6 +184,13 @@ skills with it, for Chaski's SQL, its dataset variables and the Mosaic panel; th
   - `INSTALL … FROM` another repository and `LOAD` on a URL fail: the engine's worker refuses extension
     code from anywhere but the plugin's folder. Such an `INSTALL` also leaves that extension pointing
     at the other repository, so it no longer loads on that page until it is reloaded.
+- **Grafana's own address.** The browser sends the viewer's session with every request to Grafana's
+  origin, so SQL may read only two things there: the plugin's files and the data proxy routes of
+  Chaski datasources (`$__proxy`). Grafana's API, its pages and other datasources' proxies are refused.
+  - A file served on the same host name as Grafana, beside it (a reverse proxy's `/data/`), is refused
+    too. Serve it from another host name, or point a Chaski datasource's proxy URL at it.
+  - Grafana lists its datasources when the page loads: a Chaski datasource added since reaches its
+    proxy once the page reloads.
 - **Content Security Policy.**
   - The engine starts under Grafana's stock policy with nothing extra to allow.
   - Where Grafana serves plugin files from a CDN on another origin, as Grafana Cloud does, the
@@ -284,7 +291,8 @@ npm run e2e        # Playwright against the dev Grafana (CHASKI_DEBUG=1 npm run 
   - the engine API: a dataset read by name, a scratch table, and explore emptied on a dashboard change;
   - Save & test;
   - the engine and the spatial extension starting from a plugin CDN, as on Grafana Cloud;
-  - the locked configuration, and an extension refused from another origin;
+  - the locked configuration, an extension refused from another origin, and Grafana's API out of
+    reach, also from a CDN;
   - the Mosaic panel: a brush filtering the other Mosaic panels and, through the variables it writes,
     a Chaski table; and its empty, waiting and error states;
   - the filters panel: picking a value, brushing a histogram and typing a search set their variables,
