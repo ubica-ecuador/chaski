@@ -50,6 +50,8 @@ const config = async (env: Env): Promise<Configuration> => {
           },
           // The scaffold copies the app's logo; each nested plugin brings its own.
           { from: 'plugins/*/img/**/*', to: '[path][name][ext]' },
+          // Likewise only the app's README: Grafana shows each nested plugin's own as its overview.
+          { from: 'plugins/*/README.md', to: '[path][name][ext]' },
         ],
       }),
     ],
