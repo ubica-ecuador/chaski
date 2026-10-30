@@ -1,5 +1,28 @@
 # Changelog
 
+## 2.3.2 (2026-10-30)
+
+- **Extensions only from the plugin.** The engine's configuration is locked once it has started: SQL in
+  a dashboard can no longer change a DuckDB setting, such as the extension repository or the memory
+  limit (`SET VARIABLE`, `USE` and `SET search_path` still work). `INSTALL … FROM` another repository
+  and `LOAD` on a URL now fail: the engine takes extension code only from the plugin's own folder,
+  and only extensions signed by DuckDB.
+- **Grafana's API out of reach of SQL.** On Grafana's own address SQL now reads only the plugin's files
+  and `$__proxy`, so a dashboard can no longer read Grafana's API, its pages or another datasource's
+  proxy with the viewer's session. A file served beside Grafana on the same host name is refused too:
+  serve it from another host name or through `$__proxy`.
+- **SQL only reads, and only where its quoting holds.** The engine sends GET and HEAD requests only.
+  Comments are dropped before variables are substituted, so a value set in a link cannot end one and
+  run as SQL, and `${x:singlequote}` is read as `${x:sqlstring}`, whose escaping DuckDB understands.
+- **Mosaic panels.** A link a spec draws can no longer be `javascript:`, and a spec's `style` can no
+  longer lay a plot over the rest of Grafana.
+- **One dashboard's data at a time.** Leaving a dashboard drops its tables and Mosaic's pre-aggregates,
+  so another dashboard's SQL can no longer read them. Coming back reloads its datasets.
+- **Grafana Assistant.** Column names and errors reach it as one short line each.
+- **No debug global in releases.** `window.__duckdbwasm` is only in development builds and in builds
+  made with `CHASKI_DEBUG=1`. Other plugins keep using `window.__chaski`.
+- **Fix**: hovering a filter in the sidebar no longer moves the filters.
+
 ## 2.3.1 (2026-10-27)
 
 - **Smooth play on the timeline** (Motion: Smooth, by default): the window glides instead of jumping a
