@@ -6,7 +6,7 @@ name. Panels that share a selection filter each other in the browser, and Mosaic
 brush reads, so it keeps up on millions of rows. A selection can also write dashboard variables once
 the brush rests, so panels on other datasources, and the kepler map, follow it.
 
-[![Play the 40-second tour of Chaski Mosaic](https://docs.ubica.dev/img/chaski/mosaic-tour.jpg)](https://docs.ubica.dev/img/chaski/mosaic-tour.mp4)
+<p align="center" style="text-align: center"><a href="https://docs.ubica.dev/img/chaski/mosaic-tour.mp4"><img src="https://docs.ubica.dev/img/chaski/mosaic-tour.jpg" alt="Play the 40-second tour of Chaski Mosaic" width="560"></a></p>
 
 **▶ [Watch the 40-second tour](https://docs.ubica.dev/img/chaski/mosaic-tour.mp4)**: penguins, flights, Gaia's
 stars and 3,600 stocks brushed in Mosaic, New York taxi rides driving a kepler map, and a typhoon's eyewall

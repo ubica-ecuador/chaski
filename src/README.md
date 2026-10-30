@@ -6,7 +6,7 @@ answers every panel query locally. Changing a variable, an ad hoc filter or the 
 the browser, not the server: filters take milliseconds, and every panel (native, catalog, kepler)
 keeps working.
 
-[![Play the 40-second tour of Chaski](https://docs.ubica.dev/img/chaski/chaski-tour.jpg)](https://docs.ubica.dev/img/chaski/chaski-tour.mp4)
+<p align="center" style="text-align: center"><a href="https://docs.ubica.dev/img/chaski/chaski-tour.mp4"><img src="https://docs.ubica.dev/img/chaski/chaski-tour.jpg" alt="Play the 40-second tour of Chaski" width="560"></a></p>
 
 **▶ [Watch the 40-second tour](https://docs.ubica.dev/img/chaski/chaski-tour.mp4)**: 5 million stars, a million
 taxi rides, a month of earthquakes, 231,000 flights and a typhoon in 3D, each brushed and filtered in the browser.
@@ -19,24 +19,24 @@ pacha.ubica.dev, open with no account. They run on [Pacha](https://github.com/ub
 an open spatio-temporal stack for Grafana that includes Chaski, with DuckDB on the server and the
 kepler map panel: one command brings it up with these dashboards.
 
-[![A drone flight replayed on a map beside a Mosaic panel of its height, speed, power and voltage; the box brushed on the charts is a window of the flight](https://docs.ubica.dev/img/plus/drone-flights.jpg)](https://pacha.ubica.dev/d/drone-delivery-flights)
+<p align="center" style="text-align: center"><a href="https://pacha.ubica.dev/d/drone-delivery-flights"><img src="https://docs.ubica.dev/img/plus/drone-flights.jpg" alt="A drone flight replayed on a map beside a Mosaic panel of its height, speed, power and voltage; the box brushed on the charts is a window of the flight" width="480"></a></p>
 
 **Delivery drone flights.** Every second of 209 flights loads once into the browser. The Mosaic panel
 draws height, speed, power and voltage from it, and its brushes filter the other panels in the
 browser, with no query to the server.
 
-[![A fire archive since 2000: an A5 grid of detections on the map, countries ranked, a Mosaic fire calendar and a time brush over the monthly bars](https://docs.ubica.dev/img/plus/time-brush.jpg)](https://pacha.ubica.dev/d/firms-fire-archive)
+<p align="center" style="text-align: center"><a href="https://pacha.ubica.dev/d/firms-fire-archive"><img src="https://docs.ubica.dev/img/plus/time-brush.jpg" alt="A fire archive since 2000: an A5 grid of detections on the map, countries ranked, a Mosaic fire calendar and a time brush over the monthly bars" width="480"></a></p>
 
 **Active fires since 2000.** 634 million satellite detections reach the browser once, as about 5 MB of
 aggregates per cell and month. The map, the ranking, the counts and the Mosaic calendar all read it, and
 follow the window as it is brushed or played.
 
-[![NO2 in Amsterdam: a surface between the stations with each station's last 24 hours, the stations ranked, and a time brush over the hours](https://docs.ubica.dev/img/plus/air-quality-amsterdam.jpg)](https://pacha.ubica.dev/d/air-quality-amsterdam)
+<p align="center" style="text-align: center"><a href="https://pacha.ubica.dev/d/air-quality-amsterdam"><img src="https://docs.ubica.dev/img/plus/air-quality-amsterdam.jpg" alt="NO2 in Amsterdam: a surface between the stations with each station&#x27;s last 24 hours, the stations ranked, and a time brush over the hours" width="480"></a></p>
 
 **Air quality in Amsterdam.** The hourly readings of 17 stations answer every panel in the browser:
 moving the hours re-draws the map, the cards and the ranking at once, with no round trip.
 
-[![A GPS truck followed in 3D through a city, and its whole road drawn as a curtain coloured by speed, with its stops](https://docs.ubica.dev/img/plus/gps-truck.jpg)](https://pacha.ubica.dev/d/gps-truck-track-plus)
+<p align="center" style="text-align: center"><a href="https://pacha.ubica.dev/d/gps-truck-track-plus"><img src="https://docs.ubica.dev/img/plus/gps-truck.jpg" alt="A GPS truck followed in 3D through a city, and its whole road drawn as a curtain coloured by speed, with its stops" width="480"></a></p>
 
 **A GPS truck track.** One trip's fixes feed two maps, six cards and three Mosaic charts below them,
 all from the same dataset in the browser.

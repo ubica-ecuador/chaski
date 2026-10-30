@@ -7,7 +7,7 @@ other live as a brush moves. Values to pick for `in` and `equals`, a histogram t
 text box for `search`; a map's area shows as set, with a ×. It writes the same variables the filters
 read, so every panel follows it. Tall, it is a sidebar; low, a strip of pills.
 
-[![Play the 35-second tour of Chaski Filters](https://docs.ubica.dev/img/chaski/filters-tour.jpg)](https://docs.ubica.dev/img/chaski/filters-tour.mp4)
+<p align="center" style="text-align: center"><a href="https://docs.ubica.dev/img/chaski/filters-tour.mp4"><img src="https://docs.ubica.dev/img/chaski/filters-tour.jpg" alt="Play the 35-second tour of Chaski Filters" width="560"></a></p>
 
 **▶ [Watch the 35-second tour](https://docs.ubica.dev/img/chaski/filters-tour.mp4)**: a month of USGS earthquakes
 played, brushed by time and magnitude and filtered by an area on the map, with every count following.
