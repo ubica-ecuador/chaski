@@ -41,7 +41,10 @@ export function getEngine(memoryLimitMB: number, rangeReads = false): Promise<En
       .then((runner) => {
         const engine: Engine = { runner, registry: new DatasetRegistry(runner), version: runner.version, rangeReads };
         leaveDashboardOnNavigation(engine.registry);
-        (window as unknown as { __duckdbwasm: unknown }).__duckdbwasm = { stats, runner };
+        // The e2e tests and the bench read the stats and run SQL through this; release builds leave it out.
+        if (__CHASKI_DEBUG__) {
+          (window as unknown as { __duckdbwasm: unknown }).__duckdbwasm = { stats, runner };
+        }
         // Created here, before any caller of getEngine resumes, so it hears the first activation.
         api = createEngineApi({
           runner,

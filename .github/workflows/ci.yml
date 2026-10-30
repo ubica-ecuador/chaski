@@ -123,6 +123,15 @@ jobs:
         env:
           ARCHIVE: ${{ steps.metadata.outputs.archive }}
 
+      # The e2e tests read the engine's stats and run SQL through
+      # window.__duckdbwasm, which only a CHASKI_DEBUG=1 build has. The build
+      # packaged and checked above is the release one.
+      - name: Build frontend for e2e
+        if: steps.check-for-e2e.outputs.has-e2e == 'true'
+        run: npm run build
+        env:
+          CHASKI_DEBUG: '1'
+
       # The e2e jobs read the build from the Actions cache instead of an
       # artifact. dist is 62 MB of DuckDB-WASM and the spatial extension, 15 MB
       # zipped, and uploading that on every run fills the account's artifact

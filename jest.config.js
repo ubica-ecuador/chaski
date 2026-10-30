@@ -9,6 +9,7 @@ const base = require('./.config/jest.config');
 module.exports = {
   // Jest configuration provided by Grafana scaffolding
   ...base,
+  globals: { ...base.globals, __CHASKI_DEBUG__: false },
   moduleNameMapper: {
     ...base.moduleNameMapper,
     // Only mosaic-core asks for a module by this relative name.

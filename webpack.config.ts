@@ -1,6 +1,6 @@
 import CopyWebpackPlugin from 'copy-webpack-plugin';
 import path from 'path';
-import type { Configuration } from 'webpack';
+import { type Configuration, DefinePlugin } from 'webpack';
 import { merge } from 'webpack-merge';
 
 import grafanaConfig, { type Env } from './.config/webpack/webpack.config';
@@ -38,6 +38,13 @@ const config = async (env: Env): Promise<Configuration> => {
           // re-emitting the worker — vendored DuckDB assets must ship byte
           // for byte as published, not re-minified.
           { from: path.join(DUCKDB_DIST, 'duckdb-eh.wasm'), to: DATASOURCE_DIR, info: { minimized: true } },
+          // The worker the engine starts: a guard on extension fetches, then DuckDB's own worker.
+          // Shipped as written, so a reviewer reads in dist what is in src.
+          {
+            from: 'engine/duckdbWorker.js',
+            to: `${DATASOURCE_DIR}/duckdb-worker.js`,
+            info: { minimized: true },
+          },
           {
             from: path.join(DUCKDB_DIST, 'duckdb-browser-eh.worker.js'),
             to: DATASOURCE_DIR,
@@ -53,6 +60,11 @@ const config = async (env: Env): Promise<Configuration> => {
           // Likewise only the app's README: Grafana shows each nested plugin's own as its overview.
           { from: 'plugins/*/README.md', to: '[path][name][ext]' },
         ],
+      }),
+      // The debug global window.__duckdbwasm (src/grafana/engine.ts) is only in development
+      // builds and in CHASKI_DEBUG=1 builds, which the e2e tests run on.
+      new DefinePlugin({
+        __CHASKI_DEBUG__: JSON.stringify(Boolean(env.development) || process.env.CHASKI_DEBUG === '1'),
       }),
     ],
   });

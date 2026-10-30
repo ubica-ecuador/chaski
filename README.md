@@ -82,8 +82,10 @@ all from the same dataset in the browser.
   the published panel matches it as a string, so renaming it would break playback pacing for anyone
   on the current version.
 
-`window.__duckdbwasm.stats` records every load, reuse, panel answer, shared request and activity
-transition on the page. The e2e suite and the bench read it, and it is handy when debugging a dashboard.
+In development builds (`npm run dev`) and in builds made with `CHASKI_DEBUG=1`, `window.__duckdbwasm`
+holds the engine's runner and `stats`, which record every load, reuse, panel answer, shared request and
+activity transition on the page. The e2e suite and the bench read it, and it is handy when debugging a
+dashboard. Release builds leave it out.
 
 ## API for other plugins
 
@@ -174,6 +176,14 @@ skills with it, for Chaski's SQL, its dataset variables and the Mosaic panel; th
   full read. The engine is one per page, so the first Chaski datasource a page uses sets this (and
   the memory limit) for the page.
 
+- **Extensions.** The engine loads only the extensions the plugin ships (`parquet`, `json`, `httpfs`,
+  `icu`, `spatial`), from its own folder, and only those signed by DuckDB.
+  - Once it has started, its configuration is locked (`lock_configuration`): SQL in a dashboard cannot
+    change a setting, such as the extension repository or the memory limit. `SET VARIABLE`, `USE` and
+    `SET search_path` still work.
+  - `INSTALL … FROM` another repository and `LOAD` on a URL fail: the engine's worker refuses extension
+    code from anywhere but the plugin's folder. Such an `INSTALL` also leaves that extension pointing
+    at the other repository, so it no longer loads on that page until it is reloaded.
 - **Content Security Policy.**
   - The engine starts under Grafana's stock policy with nothing extra to allow.
   - Where Grafana serves plugin files from a CDN on another origin, as Grafana Cloud does, the
@@ -214,7 +224,7 @@ You need Node 22 or later, and Docker for the dev Grafana.
 ```bash
 npm ci
 npm run dev        # webpack in watch mode
-npm run build      # production build into dist/
+npm run build      # production build into dist/ (CHASKI_DEBUG=1 adds window.__duckdbwasm)
 npm run server     # dev Grafana on :3005, the CDN Grafana on :3007, the fixtures server on :8095
 ```
 
@@ -258,7 +268,7 @@ npm run server     # dev Grafana on :3005, the CDN Grafana on :3007, the fixture
 npm run test:ci    # Jest; engine tests run on DuckDB's Node build
 npm run typecheck
 npm run lint
-npm run e2e        # Playwright against the dev Grafana (npm run server first)
+npm run e2e        # Playwright against the dev Grafana (CHASKI_DEBUG=1 npm run build, npm run server first)
 ```
 
 - The e2e tests default to `http://localhost:3005`. Point them elsewhere with `GRAFANA_URL`.
@@ -274,6 +284,7 @@ npm run e2e        # Playwright against the dev Grafana (npm run server first)
   - the engine API: a dataset read by name, a scratch table, and explore emptied on a dashboard change;
   - Save & test;
   - the engine and the spatial extension starting from a plugin CDN, as on Grafana Cloud;
+  - the locked configuration, and an extension refused from another origin;
   - the Mosaic panel: a brush filtering the other Mosaic panels and, through the variables it writes,
     a Chaski table; and its empty, waiting and error states;
   - the filters panel: picking a value, brushing a histogram and typing a search set their variables,
@@ -297,7 +308,7 @@ Results go to `bench/results/`, which git ignores.
 
 `grafana-sources.override.yaml` mounts this plugin into kepler-grafana's :3002 bench. That checkout is
 often shared with other work, so check that its `dist/` is the build you mean to measure before you
-trust the numbers.
+trust the numbers. The scripts read `window.__duckdbwasm`, so measure a `CHASKI_DEBUG=1` build.
 
 ## Changelog and license
 

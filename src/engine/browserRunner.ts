@@ -56,17 +56,22 @@ async function runOnConnection(conn: duckdb.AsyncDuckDBConnection, sql: string, 
 }
 
 /**
+ * DuckDB's worker behind the plugin's guard (duckdbWorker.js), which lets it
+ * fetch extension code only from the plugin's own extensions/ folder.
+ *
  * A Worker only runs a script from the page's own origin. Grafana Cloud serves
  * plugin files from a CDN on another origin (and answers /public/plugins/ with
  * a redirect there), so from a CDN the worker starts from a blob: that imports
- * the script. Same-origin installs keep the plain worker, and with it
- * worker-src 'self'.
+ * the script, and tells it where the plugin's files are. Same-origin installs
+ * keep the plain worker, and with it worker-src 'self'.
  */
-function startWorker(url: string): Worker {
+function startWorker(assetBase: string): Worker {
+  const url = new URL('duckdb-worker.js', assetBase).href;
   if (new URL(url).origin === window.location.origin) {
     return new Worker(url);
   }
-  const blob = URL.createObjectURL(new Blob([`importScripts(${JSON.stringify(url)});`], { type: 'text/javascript' }));
+  const script = `self.chaskiAssets = ${JSON.stringify(assetBase)};\nimportScripts(${JSON.stringify(url)});`;
+  const blob = URL.createObjectURL(new Blob([script], { type: 'text/javascript' }));
   try {
     return new Worker(blob);
   } finally {
@@ -85,7 +90,7 @@ function startWorker(url: string): Worker {
  */
 export async function createBrowserRunner(options: BrowserRunnerOptions): Promise<SqlRunner & { version: string }> {
   const started = performance.now();
-  const worker = startWorker(new URL('duckdb-browser-eh.worker.js', options.assetBase).href);
+  const worker = startWorker(options.assetBase);
   const db = new duckdb.AsyncDuckDB(new duckdb.VoidLogger(), worker);
   await db.instantiate(new URL('duckdb-eh.wasm', options.assetBase).href, null);
   await db.open(databaseConfig(options));
@@ -98,6 +103,12 @@ export async function createBrowserRunner(options: BrowserRunnerOptions): Promis
   await setup.query('SET autoinstall_known_extensions = true');
   await setup.query('SET autoload_known_extensions = true');
   await setup.query(`SET memory_limit = '${Math.max(64, Math.round(options.memoryLimitMB))}MB'`);
+  // Only extensions signed by DuckDB's core key load; unsigned ones already cannot.
+  await setup.query('SET allow_community_extensions = false');
+  // From here on no SQL can change a setting: not the extension repository, not the memory limit.
+  // SET VARIABLE, USE and SET search_path still work. INSTALL ... FROM a repository of its own is
+  // what the worker's guard stops.
+  await setup.query('SET lock_configuration = true');
   const version = String((await setup.query('SELECT version() AS v')).get(0)?.v ?? 'unknown');
   await setup.close();
   stats.engineStartMs = performance.now() - started;
