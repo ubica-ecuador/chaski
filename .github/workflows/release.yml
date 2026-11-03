@@ -30,7 +30,7 @@ jobs:
       # sha1 on the draft release are what the submission form asks for. Once
       # the level is granted, adding the secret signs the next tag with no
       # change here.
-      - uses: grafana/plugin-actions/build-plugin@build-plugin/v1.2.0
+      - uses: grafana/plugin-actions/build-plugin@build-plugin/v1.2.1
         with:
           policy_token: ${{ secrets.GRAFANA_ACCESS_POLICY_TOKEN }}
           # The catalog checks provenance on submission ("No provenance
