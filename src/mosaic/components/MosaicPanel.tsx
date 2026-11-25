@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { PanelProps } from '@grafana/data';
 import { Spinner, useStyles2 } from '@grafana/ui';
 import { Coordinator, isSelection, type Logger } from '@uwdata/mosaic-core';
@@ -11,6 +11,7 @@ import { linkReads, parseReads } from '../inbound';
 import { ChaskiConnector, unreadable, waitForEngine } from '../connector';
 import { dashboardKey, pageFor, PREAGG_SCHEMA, releaseClauses } from '../page';
 import { guardLinks } from '../safeLinks';
+import { useCrosshair } from '../useCrosshair';
 import { datasetNames, fitToPanel, parseSpecText } from '../spec';
 import type { MosaicOptions } from '../types';
 import { getStyles } from './styles';
@@ -58,7 +59,14 @@ function panelLogger(onError: (message: string) => void): Logger {
 
 export function MosaicPanel({ options, width, height }: PanelProps<MosaicOptions>) {
   const styles = useStyles2(getStyles);
-  const host = useRef<HTMLDivElement>(null);
+  const host = useRef<HTMLDivElement | null>(null);
+  // The plots' element, once drawn: the shared crosshair goes on its time plots.
+  const [root, setRoot] = useState<HTMLDivElement | null>(null);
+  useCrosshair(root);
+  const hostRef = useCallback((el: HTMLDivElement | null) => {
+    host.current = el;
+    setRoot(el);
+  }, []);
   const [status, setStatus] = useState<Status>({ kind: 'starting' });
   // An error after the panel has drawn: shown over it until a later query answers.
   const [problem, setProblem] = useState<string>();
@@ -217,13 +225,15 @@ export function MosaicPanel({ options, width, height }: PanelProps<MosaicOptions
 
   return (
     <div className={styles.root} data-testid="mosaic-panel">
-      {status.kind !== 'ready' && <Message status={status} className={styles.message} errorClass={styles.error} loadingClass={styles.loading} />}
+      {status.kind !== 'ready' && (
+        <Message status={status} className={styles.message} errorClass={styles.error} loadingClass={styles.loading} />
+      )}
       {status.kind === 'ready' && problem && (
         <div className={styles.problem} data-testid="mosaic-error">
           {problem}
         </div>
       )}
-      <div ref={host} />
+      <div ref={hostRef} />
     </div>
   );
 }

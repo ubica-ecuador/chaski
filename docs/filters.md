@@ -92,6 +92,10 @@ stops at the axis's end, and a drag on the histogram pauses it.
 }
 ```
 
+With the dashboard's crosshair shared (**Graph tooltip**: Shared crosshair or Shared tooltip), the
+timeline shows the time another panel hovers as a dashed line, and hovering it moves theirs: a time
+series, Kepler Plus's cards, a Mosaic plot over the same times.
+
 For a dashboard whose data is not in Chaski, or to play the dashboard's own time range, Kepler Plus's
 Time Brush panel does the same over any query.
 

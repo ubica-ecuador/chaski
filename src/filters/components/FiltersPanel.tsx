@@ -13,6 +13,7 @@ import { rawValue } from '../../grafana/interpolate';
 import type { ChaskiEngineApi } from '../../grafana/publicApi';
 import type { VariableLink } from '../../mosaic/bridge';
 import { waitForEngine } from '../../mosaic/connector';
+import { useCrosshair } from '../../mosaic/useCrosshair';
 import type { VariableRead } from '../../mosaic/inbound';
 import { crossfilterSource, filtersVariables, pickVariable, urlFirst, type ValueOf } from '../model';
 import { latestOnly } from '../latest';
@@ -265,6 +266,9 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
   // The bin under the pointer in a histogram: shown where the filter's value goes, not over the bars.
   const [hover, setHover] = useState<{ name: string; text: string }>();
   const [rebuild, setRebuild] = useState(0);
+  // The controls' element: the shared crosshair goes on the timeline (and any histogram over times).
+  const [root, setRoot] = useState<HTMLDivElement | null>(null);
+  useCrosshair(root);
 
   const layout = layoutFor(options.layout, height);
   const controlWidth = useDebounced(layout === 'pills' ? POPOVER_WIDTH - 16 : Math.max(120, width - 20), 150);
@@ -792,7 +796,7 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
     timeline: build.timeline,
   };
   return (
-    <>
+    <div ref={setRoot} className={styles.contents}>
       <svg className={styles.defs} aria-hidden>
         <defs>
           {colours.map((colour, i) => (
@@ -821,7 +825,7 @@ export function FiltersPanel({ options: given, width, height, timeRange }: Panel
       ) : (
         <Sidebar {...view} />
       )}
-    </>
+    </div>
   );
 }
 

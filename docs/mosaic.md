@@ -122,6 +122,13 @@ The map gets this from the Mosaic panel's module, as the filters panel does:
 crossfilter one if no panel has), with `clauseInterval`, `clauseIntervals`, `clausePoints`,
 `clauseArea` and `clauseColumns` beside it. Those keep their shapes across releases.
 
+## The shared crosshair
+
+With the dashboard's **Graph tooltip** on Shared crosshair or Shared tooltip (`cursorSync` in the JSON),
+a plot whose x axis is a time takes part in it as a time series does: a dashed line marks the time
+another panel hovers (a time series, Kepler Plus's Sparkline and Callout cards), and the time under the
+pointer goes to them. Plots over anything but a time ignore it. The filters panel's timeline does the same.
+
 ## How it works
 
 - **No second DuckDB.** The panel's Mosaic connector is the engine API on `window.__chaski`:

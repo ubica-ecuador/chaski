@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.5.0 (2026-11-25)
+
+- **Grafana's shared crosshair on Mosaic plots and the timeline.** With the dashboard's Graph tooltip
+  on Shared crosshair or Shared tooltip, a Mosaic plot whose x axis is a time, and the filters panel's
+  timeline, show a dashed line at the time another panel hovers (a time series, Kepler Plus's Sparkline
+  and Callout cards), and publish the time under the pointer to them, as a time series does. Plots over
+  anything but a time, and dashboards that do not share the crosshair, are left as they were.
+
 ## 2.4.0 (2026-11-25)
 
 - **The kepler map panels reach Chaski through Grafana's plugin extensions.** The app adds a function to

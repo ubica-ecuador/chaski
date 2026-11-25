@@ -87,6 +87,8 @@ export const getStyles = (theme: GrafanaTheme2) => ({
     borderBottom: `1px solid ${theme.colors.border.weak}`,
   }),
   defs: css({ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }),
+  // The panel's root: no box of its own, the layouts lay out as before; it only hears the pointer.
+  contents: css({ display: 'contents' }),
   srOnly: css({
     position: 'absolute',
     width: 1,
