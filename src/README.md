@@ -169,11 +169,16 @@ started moments earlier.
 
 ## Activity
 
-The datasource says on Grafana's app event bus when it starts answering queries and when it has none
-left. The event has type `ubica-duckdbwasm-activity` and payload `{ state: 'busy' | 'settled', at,
-pending }`, and it is sent only on those two transitions. The kepler panel uses it to publish its next
-playback step only once the panels reading the previous one have answered. A panel that wants it
-declares its own event class with the same `type` string; there is nothing to import.
+The engine says when it starts answering queries and when it has none left: `{ state: 'busy' |
+'settled', at, pending }`, only on those two transitions. Chaski's Filters panel paces itself on it, and
+so do the kepler map panels, which publish their next playback step only once the panels reading the
+previous one have answered.
+
+The kepler panels get it, with Chaski's Mosaic for a map in a Mosaic Selection, through Grafana's plugin
+extensions: the app adds a function to the extension points `ubica-keplergl-panel/chaski/v1`,
+`ubica-keplerplus-panel/chaski/v1` and `ubica-timebrush-panel/chaski/v1`, which returns
+`{ apiVersion: 1, subscribeActivity(listener), mosaicRuntime() }`. A panel asks Grafana for it with
+`usePluginFunctions`; there is nothing to import.
 
 ## Files behind the proxy
 

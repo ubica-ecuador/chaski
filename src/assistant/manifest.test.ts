@@ -9,6 +9,7 @@ import type { MosaicOptions } from '../mosaic/types';
 import { plugin } from '../module';
 import { assistantManifest } from './manifest';
 import { exampleMosaicPanel, mosaicAuthoringSkill } from './skills';
+import { KEPLER_LINK_TARGETS } from '../kepler/link';
 
 const read = (path: string) => JSON.parse(readFileSync(join(__dirname, '..', path), 'utf8'));
 
@@ -32,7 +33,10 @@ describe('assistantManifest', () => {
   });
 
   it('is what the app registers', () => {
-    expect(plugin.addedFunctionConfigs.map((c) => c.targets)).toEqual([[ASSISTANT_EXTENSION_POINT]]);
+    expect(plugin.addedFunctionConfigs.map((c) => c.targets)).toEqual([
+      [ASSISTANT_EXTENSION_POINT],
+      KEPLER_LINK_TARGETS,
+    ]);
     expect((plugin.addedFunctionConfigs[0].fn as () => unknown)()).toBe(assistantManifest);
   });
 

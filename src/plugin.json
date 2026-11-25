@@ -95,6 +95,15 @@
         "targets": ["grafana-assistant-app/extension/v1"],
         "title": "assistant-extension",
         "description": "Contributes chits, starters, skills, artifact kinds, and prompt contributions to the Grafana Assistant."
+      },
+      {
+        "targets": [
+          "ubica-keplergl-panel/chaski/v1",
+          "ubica-keplerplus-panel/chaski/v1",
+          "ubica-timebrush-panel/chaski/v1"
+        ],
+        "title": "kepler-link",
+        "description": "The engine's activity and Mosaic, for the kepler map panels."
       }
     ]
   },

@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- **The kepler map panels reach Chaski through Grafana's plugin extensions.** The app adds a function to
+  each kepler panel's extension point (`ubica-keplergl-panel/chaski/v1`, and Kepler Plus's map and Time
+  Brush) that lends the engine's activity and the Mosaic runtime Chaski's panels share. Kepler panels
+  used to hear the activity on Grafana's app event bus and read Mosaic off the Mosaic panel's module,
+  which the plugin catalog asks plugins not to do; from Kepler Geospatial Maps 1.11.1 they take this
+  instead, and without it they do not wait for Chaski's panels while playing or join a Mosaic Selection.
+
 ## 2.3.2 (2026-10-30)
 
 - **Extensions only from the plugin.** The engine's configuration is locked once it has started: SQL in
