@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.4.0 (2026-11-25)
 
 - **The kepler map panels reach Chaski through Grafana's plugin extensions.** The app adds a function to
   each kepler panel's extension point (`ubica-keplergl-panel/chaski/v1`, and Kepler Plus's map and Time
