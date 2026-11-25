@@ -1,6 +1,6 @@
 {
   "name": "chaski",
-  "version": "2.4.0",
+  "version": "2.5.0",
   "scripts": {
     "prebuild": "node scripts/fetch-duckdb-extensions.mjs",
     "build": "npm run prebuild && webpack -c ./webpack.config.ts --env production",
